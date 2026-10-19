@@ -19,6 +19,8 @@ export interface ReportDraft {
   values: ReportValues;
   photos: PhotoMap;
   objeto: string;
+  /** Observação impressa logo abaixo dos dados de cabeçalho (só quando preenchida). */
+  observacoes?: string;
   createdAt: string;
   updatedAt: string;
 }

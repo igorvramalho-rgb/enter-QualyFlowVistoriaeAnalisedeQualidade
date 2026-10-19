@@ -20,17 +20,18 @@ export function TemplatePicker({ selectedId, onSelect }: TemplatePickerProps) {
             onClick={() => onSelect(template.id)}
             aria-pressed={isSelected}
             className={cn(
-              "animate-slide-up rounded-xl border p-4 text-left transition-smooth",
-              isSelected
-                ? "border-primary bg-accent shadow-elegant"
-                : "border-border bg-card hover:border-primary/60 hover:bg-accent/40",
+              "panel-glass panel-interactive animate-slide-up relative overflow-hidden p-4 text-left",
+              isSelected && "border-primary/70 shadow-glow",
             )}
           >
-            <div className="flex items-start gap-3">
+            {isSelected && <span className="tech-strip absolute inset-x-0 top-0" />}
+            <div className="relative flex items-start gap-3">
               <span
                 className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                  isSelected ? "brand-gradient text-primary-foreground" : "bg-muted text-muted-foreground",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-smooth",
+                  isSelected
+                    ? "brand-gradient text-onbrand shadow-glow ring-glow"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 <FileText className="h-4 w-4" />
@@ -53,7 +54,7 @@ export function TemplatePicker({ selectedId, onSelect }: TemplatePickerProps) {
 
 export function TemplatePickerCard({ selectedId, onSelect }: TemplatePickerProps) {
   return (
-    <Card className="border-border/70 bg-card/80 p-4 shadow-sm">
+    <Card className="p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-foreground">1. Modelo do relatório</h2>
         <p className="text-xs text-muted-foreground">

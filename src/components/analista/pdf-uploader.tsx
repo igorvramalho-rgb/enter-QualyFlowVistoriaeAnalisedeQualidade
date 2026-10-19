@@ -37,8 +37,8 @@ export function PdfUploader({ onFiles, busy, progress }: PdfUploaderProps) {
     <Card
       {...getRootProps()}
       className={cn(
-        "cursor-pointer border-2 border-dashed bg-card/70 p-6 text-center transition-smooth",
-        isDragActive ? "border-primary bg-accent/50" : "border-border hover:border-primary/60",
+        "cursor-pointer border-2 border-dashed bg-glass/40 p-6 text-center backdrop-blur transition-smooth",
+        isDragActive ? "border-primary bg-accent/40 shadow-glow" : "border-glass-border/60 hover:border-primary/60",
         busy && "cursor-wait opacity-80",
       )}
     >
@@ -48,7 +48,9 @@ export function PdfUploader({ onFiles, busy, progress }: PdfUploaderProps) {
         <span
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-xl",
-            busy ? "bg-muted text-muted-foreground" : "brand-gradient text-primary-foreground",
+            busy
+              ? "bg-muted text-muted-foreground"
+              : "brand-gradient text-onbrand shadow-glow ring-glow",
           )}
         >
           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileUp className="h-5 w-5" />}

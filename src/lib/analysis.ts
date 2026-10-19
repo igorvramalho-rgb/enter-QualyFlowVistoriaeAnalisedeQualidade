@@ -20,17 +20,40 @@ export interface AnalysisFieldDefinition {
 }
 
 export const ANALYSIS_FIELDS: AnalysisFieldDefinition[] = [
-  { key: "os", label: "OS Nº" },
+  { key: "os", label: "Ordem de Serviço" },
+  { key: "fv", label: "FV" },
   { key: "fac", label: "Nº FAC" },
   { key: "protocoloSgz", label: "Protocolo SGZ" },
   { key: "contratada", label: "Contratada" },
   { key: "servicoExda", label: "Serviço EXDA" },
+  { key: "equipeExecutante", label: "Equipe Executante" },
+  { key: "tipoNaoConformidade", label: "Tipo de Não Conformidade" },
   { key: "origemDemanda", label: "Origem da Demanda" },
   { key: "prazo", label: "Prazo para Conclusão" },
   { key: "situacao", label: "Situação Atual" },
   { key: "polo", label: "Polo" },
   { key: "endereco", label: "Endereço" },
-  { key: "data", label: "Data" },
+  { key: "data", label: "Data de Vistoria" },
+];
+
+/**
+ * Colunas da planilha (Excel e CSV), na ordem pedida: Endereço, FV, Ordem de
+ * Serviço, Data de Vistoria, Equipe Executante e Tipo de Não Conformidade.
+ */
+export const EXPORT_FIELDS: AnalysisFieldDefinition[] = [
+  { key: "endereco", label: "Endereço" },
+  { key: "fv", label: "FV" },
+  { key: "os", label: "Ordem de Serviço" },
+  { key: "data", label: "Data de Vistoria" },
+  { key: "equipeExecutante", label: "Equipe Executante" },
+  { key: "tipoNaoConformidade", label: "Tipo de Não Conformidade" },
+  { key: "polo", label: "Polo" },
+  { key: "fac", label: "Nº FAC" },
+  { key: "protocoloSgz", label: "Protocolo SGZ" },
+  { key: "contratada", label: "Contratada" },
+  { key: "servicoExda", label: "Serviço EXDA" },
+  { key: "situacao", label: "Situação Atual" },
+  { key: "prazo", label: "Prazo para Conclusão" },
 ];
 
 export interface AnalysisRecord {
@@ -72,3 +95,16 @@ export const CONFIDENCE_LABELS: Record<Confidence, string> = {
 };
 
 export class PdfExtractionError extends Error {}
+
+/** Nome do campo usado nos agrupamentos por tipo de não conformidade. */
+export function normalizeNcType(value: string | undefined): string {
+  if (!value) {
+    return "";
+  }
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .toUpperCase();
+}

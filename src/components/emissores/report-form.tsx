@@ -19,7 +19,11 @@ interface ReportFormProps {
   onValueChange: (fieldId: string, value: string) => void;
   objeto: string;
   onObjetoChange: (value: string) => void;
+  observacoes: string;
+  onObservacoesChange: (value: string) => void;
 }
+
+const MAX_OBSERVACOES = 600;
 
 export function ReportForm({
   template,
@@ -27,9 +31,11 @@ export function ReportForm({
   onValueChange,
   objeto,
   onObjetoChange,
+  observacoes,
+  onObservacoesChange,
 }: ReportFormProps) {
   return (
-    <Card className="border-border/70 bg-card/80 p-4 shadow-sm">
+    <Card className="p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-foreground">2. Dados de cabeçalho</h2>
         <p className="text-xs text-muted-foreground">
@@ -51,7 +57,7 @@ export function ReportForm({
                   value={values[field.id] || undefined}
                   onValueChange={(value) => onValueChange(field.id, value)}
                 >
-                  <SelectTrigger id={inputId} className="bg-background">
+                  <SelectTrigger id={inputId} className="bg-background/70">
                     <SelectValue placeholder="Selecione a situação" />
                   </SelectTrigger>
                   <SelectContent>
@@ -69,7 +75,7 @@ export function ReportForm({
                   value={values[field.id] ?? ""}
                   placeholder={field.placeholder}
                   onChange={(event) => onValueChange(field.id, event.target.value)}
-                  className="bg-background"
+                  className="bg-background/70"
                 />
               )}
             </div>
@@ -87,10 +93,34 @@ export function ReportForm({
             rows={5}
             value={objeto}
             onChange={(event) => onObjetoChange(event.target.value)}
-            className="bg-background text-sm leading-snug"
+            className="bg-background/70 text-sm leading-snug"
           />
         </div>
       )}
+
+      <div className="mt-4 space-y-1.5 border-t border-glass-border/40 pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="campo-observacoes" className="text-xs font-medium text-muted-foreground">
+            Observações (impressa logo abaixo dos dados de cabeçalho)
+          </Label>
+          <span className="chip-tech font-mono text-[10px]">
+            {observacoes.length}/{MAX_OBSERVACOES}
+          </span>
+        </div>
+        <Textarea
+          id="campo-observacoes"
+          rows={4}
+          maxLength={MAX_OBSERVACOES}
+          value={observacoes}
+          placeholder="Ex.: acesso pelo portão lateral, obra liberada às 14h, pendência de sinalização provisória..."
+          onChange={(event) => onObservacoesChange(event.target.value)}
+          className="bg-background/70 text-sm leading-snug"
+        />
+        <p className="text-xs text-muted-foreground">
+          O bloco de observações só aparece na folha quando há texto — caso contrário, o relatório
+          permanece idêntico ao modelo oficial.
+        </p>
+      </div>
     </Card>
   );
 }

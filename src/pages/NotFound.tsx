@@ -15,7 +15,7 @@ const NotFound = () => {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border/70 bg-card/80 p-8 text-center shadow-elegant">
         <span className="brand-gradient mx-auto flex h-12 w-12 items-center justify-center rounded-xl">
-          <Compass className="h-5 w-5 text-primary-foreground" />
+          <Compass className="h-5 w-5 text-onbrand" />
         </span>
         <p className="mt-4 text-4xl font-semibold tracking-tight text-foreground">404</p>
         <h1 className="mt-2 text-base font-medium text-foreground">Página não encontrada</h1>

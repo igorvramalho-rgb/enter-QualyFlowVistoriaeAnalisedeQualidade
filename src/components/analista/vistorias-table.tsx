@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDownUp, Download, Filter, Pencil, Trash2 } from "lucide-react";
+import { ArrowDownUp, FileSpreadsheet, Filter, Pencil, Sheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,15 +19,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { downloadCsv } from "@/lib/csv";
-import { parseAnyDate, stripAccents } from "@/lib/fields";
+import { toast } from "@/components/ui/sonner";
+import { buildAnalysisMatrix, SOURCE_LABELS } from "@/lib/analysis-export";
 import {
-  ANALYSIS_FIELDS,
-  DOCUMENT_TYPE_LABELS,
+  normalizeNcType,
   STATUS_LABELS,
   type AnalysisRecord,
   type QualityStatus,
 } from "@/lib/analysis";
+import { downloadCsv } from "@/lib/csv";
+import { parseAnyDate, stripAccents } from "@/lib/fields";
+import { downloadXlsx } from "@/lib/xlsx-export";
 import { cn } from "@/lib/utils";
 
 interface VistoriasTableProps {
@@ -36,7 +38,7 @@ interface VistoriasTableProps {
   onDelete: (recordId: string) => void;
 }
 
-type SortKey = "fileName" | "data" | "polo" | "status";
+type SortKey = "fileName" | "data" | "polo" | "status" | "fv" | "os";
 
 const STATUS_STYLES: Record<QualityStatus, string> = {
   conforme: "bg-success/15 text-success border-success/40",
@@ -45,20 +47,36 @@ const STATUS_STYLES: Record<QualityStatus, string> = {
   pendente: "bg-muted text-muted-foreground border-border",
 };
 
+const STATUS_DOTS: Record<QualityStatus, string> = {
+  conforme: "bg-success",
+  nao_conforme: "bg-destructive",
+  em_andamento: "bg-warning",
+  pendente: "bg-muted-foreground",
+};
+
 const ALL = "todos";
 
 export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableProps) {
   const [query, setQuery] = useState("");
   const [polo, setPolo] = useState(ALL);
   const [status, setStatus] = useState(ALL);
+  const [tipo, setTipo] = useState(ALL);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("fileName");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>("data");
+  const [sortAsc, setSortAsc] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const polos = useMemo(() => {
     const unique = new Set(
       analyses.map((item) => item.fields.polo?.trim()).filter((value): value is string => Boolean(value)),
+    );
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [analyses]);
+
+  const tipos = useMemo(() => {
+    const unique = new Set(
+      analyses.map((item) => normalizeNcType(item.fields.tipoNaoConformidade)).filter(Boolean),
     );
     return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [analyses]);
@@ -75,6 +93,9 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
       if (status !== ALL && item.status !== status) {
         return false;
       }
+      if (tipo !== ALL && normalizeNcType(item.fields.tipoNaoConformidade) !== tipo) {
+        return false;
+      }
 
       const recordDate = parseAnyDate(item.fields.data ?? "");
       if (fromDate && (!recordDate || recordDate < fromDate)) {
@@ -89,7 +110,17 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
       }
 
       const haystack = stripAccents(
-        [item.fileName, item.fields.os, item.fields.endereco, item.fields.polo, item.fields.protocoloSgz]
+        [
+          item.fileName,
+          item.fields.os,
+          item.fields.fv,
+          item.fields.endereco,
+          item.fields.polo,
+          item.fields.protocoloSgz,
+          item.fields.fac,
+          item.fields.equipeExecutante,
+          item.fields.tipoNaoConformidade,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase(),
@@ -105,6 +136,12 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
       if (sortKey === "status") {
         return a.status.localeCompare(b.status) * direction;
       }
+      if (sortKey === "fv") {
+        return (a.fields.fv ?? "").localeCompare(b.fields.fv ?? "", "pt-BR") * direction;
+      }
+      if (sortKey === "os") {
+        return (a.fields.os ?? "").localeCompare(b.fields.os ?? "", "pt-BR") * direction;
+      }
       if (sortKey === "polo") {
         return (a.fields.polo ?? "").localeCompare(b.fields.polo ?? "", "pt-BR") * direction;
       }
@@ -112,28 +149,33 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
       const right = parseAnyDate(b.fields.data ?? "")?.getTime() ?? 0;
       return (left - right) * direction;
     });
-  }, [analyses, from, polo, query, sortAsc, sortKey, status, to]);
+  }, [analyses, from, polo, query, sortAsc, sortKey, status, tipo, to]);
 
-  const handleExport = () => {
-    const headers = [
-      "Arquivo",
-      "Tipo de relatório",
-      ...ANALYSIS_FIELDS.map((field) => field.label),
-      "Status",
-      "Revisado",
-      "Páginas",
-    ];
+  const exportMatrix = () => buildAnalysisMatrix(filtered);
 
-    const rows = filtered.map((item) => [
-      item.fileName,
-      DOCUMENT_TYPE_LABELS[item.documentType],
-      ...ANALYSIS_FIELDS.map((field) => item.fields[field.key] ?? ""),
-      STATUS_LABELS[item.status],
-      item.reviewed ? "Sim" : "Não",
-      String(item.pages),
-    ]);
-
+  const handleExportCsv = () => {
+    const { headers, rows } = exportMatrix();
     downloadCsv(`qualyflow-vistorias-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+  };
+
+  const handleExportXlsx = async () => {
+    const { headers, rows } = exportMatrix();
+    setExporting(true);
+    try {
+      await downloadXlsx(
+        `qualyflow-vistorias-${new Date().toISOString().slice(0, 10)}`,
+        "Vistorias",
+        headers,
+        rows,
+      );
+      toast.success("Planilha Excel gerada", {
+        description: `${rows.length} registro(s) exportado(s).`,
+      });
+    } catch {
+      toast.error("Não foi possível gerar a planilha Excel");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const toggleSort = (key: SortKey) => {
@@ -146,33 +188,51 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
   };
 
   return (
-    <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-glass-border/40 px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Tratativas e vistorias analisadas</h2>
           <p className="text-xs text-muted-foreground">
             {filtered.length} de {analyses.length} registro(s) exibidos pelos filtros atuais.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={handleExport} disabled={filtered.length === 0}>
-          <Download className="h-4 w-4" />
-          Exportar CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={filtered.length === 0}
+          >
+            <Sheet className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+          <Button
+            type="button"
+            variant="glow"
+            size="sm"
+            onClick={() => void handleExportXlsx()}
+            disabled={filtered.length === 0 || exporting}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Baixar Excel (.xlsx)
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-3 border-b border-border/70 bg-muted/30 px-4 py-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 border-b border-glass-border/40 bg-glass/30 px-4 py-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="relative">
           <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por OS, endereço ou protocolo"
-            className="bg-background pl-9"
+            placeholder="Buscar por OS, FV, endereço ou equipe"
+            className="bg-background/70 pl-9"
           />
         </div>
 
         <Select value={polo} onValueChange={setPolo}>
-          <SelectTrigger className="bg-background">
+          <SelectTrigger className="bg-background/70">
             <SelectValue placeholder="Polo" />
           </SelectTrigger>
           <SelectContent>
@@ -185,8 +245,22 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
           </SelectContent>
         </Select>
 
+        <Select value={tipo} onValueChange={setTipo}>
+          <SelectTrigger className="bg-background/70">
+            <SelectValue placeholder="Tipo de não conformidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todos os tipos de NC</SelectItem>
+            {tipos.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="bg-background">
+          <SelectTrigger className="bg-background/70">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -205,7 +279,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
             value={from}
             onChange={(event) => setFrom(event.target.value)}
             aria-label="Data inicial"
-            className="bg-background"
+            className="bg-background/70"
           />
           <span className="text-xs text-muted-foreground">até</span>
           <Input
@@ -213,7 +287,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
             value={to}
             onChange={(event) => setTo(event.target.value)}
             aria-label="Data final"
-            className="bg-background"
+            className="bg-background/70"
           />
         </div>
       </div>
@@ -223,11 +297,12 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <SortableHead label="Arquivo" active={sortKey === "fileName"} asc={sortAsc} onClick={() => toggleSort("fileName")} />
-              <TableHead className="whitespace-nowrap">Tipo</TableHead>
-              <TableHead className="whitespace-nowrap">OS</TableHead>
+              <SortableHead label="FV" active={sortKey === "fv"} asc={sortAsc} onClick={() => toggleSort("fv")} />
+              <SortableHead label="Ordem de serviço" active={sortKey === "os"} asc={sortAsc} onClick={() => toggleSort("os")} />
+              <SortableHead label="Data" active={sortKey === "data"} asc={sortAsc} onClick={() => toggleSort("data")} />
               <SortableHead label="Polo" active={sortKey === "polo"} asc={sortAsc} onClick={() => toggleSort("polo")} />
               <TableHead className="whitespace-nowrap">Endereço</TableHead>
-              <SortableHead label="Data" active={sortKey === "data"} asc={sortAsc} onClick={() => toggleSort("data")} />
+              <TableHead className="whitespace-nowrap">Não conformidade</TableHead>
               <SortableHead label="Status" active={sortKey === "status"} asc={sortAsc} onClick={() => toggleSort("status")} />
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -235,43 +310,51 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                   Nenhuma vistoria encontrada com os filtros atuais.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} className="transition-smooth hover:bg-accent/40">
                   <TableCell className="max-w-[220px]">
                     <p className="truncate text-sm font-medium text-foreground" title={item.fileName}>
                       {item.fileName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {item.pages} pág. •{" "}
-                      {item.source === "sem-texto"
-                        ? "PDF digitalizado"
-                        : item.source === "nome-do-arquivo"
-                          ? "dados do nome do arquivo"
-                          : "texto extraído"}
+                      {item.pages} pág. • {SOURCE_LABELS[item.source]}
                       {item.reviewed ? " • revisado" : ""}
                     </p>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {DOCUMENT_TYPE_LABELS[item.documentType]}
+                  <TableCell className="whitespace-nowrap">
+                    <span className="chip-tech font-mono text-[11px] text-foreground">
+                      {item.fields.fv || "—"}
+                    </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{item.fields.os || "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap font-mono text-xs text-foreground">
+                    {item.fields.os || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">{item.fields.data || "—"}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">{item.fields.polo || "—"}</TableCell>
                   <TableCell className="max-w-[220px]">
                     <span className="block truncate text-sm" title={item.fields.endereco}>
                       {item.fields.endereco || "—"}
                     </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{item.fields.data || "—"}</TableCell>
+                  <TableCell className="max-w-[220px]">
+                    <span className="block truncate text-sm text-foreground" title={item.fields.tipoNaoConformidade}>
+                      {item.fields.tipoNaoConformidade || "—"}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground" title={item.fields.equipeExecutante}>
+                      {item.fields.equipeExecutante ? `Equipe: ${item.fields.equipeExecutante}` : "Equipe não informada"}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={cn("border whitespace-nowrap text-[11px]", STATUS_STYLES[item.status])}
+                      className={cn("gap-1.5 border whitespace-nowrap text-[11px]", STATUS_STYLES[item.status])}
                     >
+                      <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOTS[item.status])} />
                       {STATUS_LABELS[item.status]}
                     </Badge>
                   </TableCell>

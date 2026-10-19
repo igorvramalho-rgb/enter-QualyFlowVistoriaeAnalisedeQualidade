@@ -1,10 +1,10 @@
 import { Copy, FileStack, FolderOpen, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDateTimeBR } from "@/lib/fields";
 import { countFilledPhotos, draftLabel, type ReportDraft } from "@/lib/report-document";
 import { getTemplate } from "@/lib/report-templates";
+import { cn } from "@/lib/utils";
 
 interface DraftsListProps {
   drafts: ReportDraft[];
@@ -16,7 +16,7 @@ interface DraftsListProps {
 
 export function DraftsList({ drafts, currentId, onOpen, onDuplicate, onDelete }: DraftsListProps) {
   return (
-    <Card className="border-border/70 bg-card/80 p-4 shadow-sm">
+    <Card className="p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Relatórios salvos</h2>
@@ -24,13 +24,11 @@ export function DraftsList({ drafts, currentId, onOpen, onDuplicate, onDelete }:
             Rascunhos guardados neste navegador, com fotos e cabeçalho.
           </p>
         </div>
-        <Badge variant="outline" className="border-border">
-          {drafts.length}
-        </Badge>
+        <span className="chip-tech font-mono">{drafts.length}</span>
       </div>
 
       {drafts.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-8 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-glass-border/60 bg-glass/30 py-8 text-center">
           <FileStack className="h-5 w-5 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
             Nenhum relatório salvo ainda. Use "Salvar rascunho" para guardar o trabalho.
@@ -43,11 +41,10 @@ export function DraftsList({ drafts, currentId, onOpen, onDuplicate, onDelete }:
             return (
               <li
                 key={draft.id}
-                className={
-                  draft.id === currentId
-                    ? "rounded-lg border border-primary bg-accent/60 p-3"
-                    : "rounded-lg border border-border p-3 transition-smooth hover:border-primary/50"
-                }
+                className={cn(
+                  "panel-glass panel-interactive rounded-xl p-3",
+                  draft.id === currentId && "border-primary/70 shadow-glow",
+                )}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">

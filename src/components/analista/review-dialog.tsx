@@ -56,8 +56,8 @@ export function ReviewDialog({ record, onOpenChange, onSave }: ReviewDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[min(94vw,900px)] max-w-none overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/70 px-6 py-4">
+      <DialogContent className="panel-glass max-h-[92vh] w-[min(94vw,900px)] max-w-none overflow-hidden rounded-2xl p-0">
+        <DialogHeader className="border-b border-glass-border/40 px-6 py-4">
           <DialogTitle className="text-base">Revisão dos dados extraídos</DialogTitle>
           <DialogDescription className="text-xs">
             {record?.fileName} • {record?.pages} página(s) • confiança indicada em cada campo. Ajuste o
@@ -99,7 +99,7 @@ export function ReviewDialog({ record, onOpenChange, onSave }: ReviewDialogProps
                             : previous,
                         )
                       }
-                      className="bg-background"
+                      className="bg-background/70"
                     />
                   </div>
                 ))}
@@ -158,7 +158,7 @@ export function ReviewDialog({ record, onOpenChange, onSave }: ReviewDialogProps
 
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Texto lido do arquivo</p>
-              <ScrollArea className="h-[52vh] rounded-lg border border-border bg-muted/40 p-3">
+              <ScrollArea className="h-[52vh] rounded-lg border border-glass-border/50 bg-glass/40 p-3">
                 <pre className="whitespace-pre-wrap break-words font-sans text-[11px] leading-relaxed text-muted-foreground">
                   {draft.snippet || "Nenhum texto legível encontrado (PDF digitalizado)."}
                 </pre>
@@ -167,7 +167,7 @@ export function ReviewDialog({ record, onOpenChange, onSave }: ReviewDialogProps
           </div>
         )}
 
-        <DialogFooter className="border-t border-border/70 px-6 py-4">
+        <DialogFooter className="border-t border-glass-border/40 px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>

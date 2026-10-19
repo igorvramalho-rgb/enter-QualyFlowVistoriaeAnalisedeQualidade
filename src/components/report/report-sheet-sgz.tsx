@@ -15,6 +15,7 @@ interface ReportSheetSgzProps {
   pageNumber: number;
   totalPages: number;
   settings: QualyflowSettings;
+  observacoes?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export function ReportSheetSgz({
   pageNumber,
   totalPages,
   settings,
+  observacoes,
 }: ReportSheetSgzProps) {
   const endereco = upper(values.endereco);
   const caption = endereco
@@ -125,6 +127,15 @@ export function ReportSheetSgz({
             </tr>
           </tbody>
         </table>
+
+        {pageNumber === 1 && observacoes?.trim() ? (
+          <div className="border-t border-sheet-line px-[2mm] py-[1.8mm]">
+            <p className="text-[10.5px] font-bold">Observações</p>
+            <p className="mt-[0.8mm] max-h-[20mm] overflow-hidden whitespace-pre-wrap text-[10px] leading-snug">
+              {observacoes}
+            </p>
+          </div>
+        ) : null}
 
         <div className="sheet-photo-box m-[3mm] flex flex-1 items-center justify-center overflow-hidden p-[3mm]">
           {photo?.dataUrl ? (

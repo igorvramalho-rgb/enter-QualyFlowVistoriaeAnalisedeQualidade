@@ -8,6 +8,7 @@ interface ReportDocumentViewProps {
   values: ReportValues;
   photos: PhotoMap;
   objeto?: string;
+  observacoes?: string;
   settings: QualyflowSettings;
 }
 
@@ -20,6 +21,7 @@ export function ReportDocumentView({
   values,
   photos,
   objeto,
+  observacoes,
   settings,
 }: ReportDocumentViewProps) {
   const template = getTemplate(templateId);
@@ -32,6 +34,7 @@ export function ReportDocumentView({
         photos={photos}
         settings={settings}
         objeto={objeto}
+        observacoes={observacoes}
       />
     );
   }
@@ -53,6 +56,7 @@ export function ReportDocumentView({
             pageNumber={index + 1}
             totalPages={slots.length}
             settings={settings}
+            observacoes={observacoes}
           />
         );
       })}

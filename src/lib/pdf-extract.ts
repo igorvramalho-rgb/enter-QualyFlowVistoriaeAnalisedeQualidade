@@ -43,9 +43,12 @@ interface ColumnLabel {
  * "OS Nº: | Nº FAC: | SERVIÇO EXDA: | POLO: | ENDEREÇO: | DATA:".
  */
 const TABLE_LABELS: ColumnLabel[] = [
-  { key: "os", pattern: /\bos\s*n[º°.]?/ },
+  { key: "fv", pattern: /\bfv\b/ },
+  { key: "os", pattern: /\bos\s*n[º°.]?|\bos\s*[:=]/ },
   { key: "fac", pattern: /n[º°.]?\s*fac/ },
   { key: "servicoExda", pattern: /servi[cc]o\s*exda/ },
+  { key: "equipeExecutante", pattern: /equipe/ },
+  { key: "tipoNaoConformidade", pattern: /tipo\s*de\s*nao\s*conformidade|tipo/ },
   { key: "polo", pattern: /polo/ },
   { key: "endereco", pattern: /endere[cç]o/ },
   { key: "data", pattern: /data/ },
@@ -60,10 +63,22 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
     /n[º°.]?\s*o\.?\s*s\.?\s*n?[º°.]?\s*[:=]?\s*([0-9][0-9./-]{4,})/,
     /\bo\.?\s*s\.?\s*[:=]\s*([0-9][0-9./-]{4,})/,
   ],
+  fv: [
+    /\b(fv[\s-]*[0-9][0-9./-]{2,})/,
+    /\bfv\s*[:=]\s*([0-9][0-9./-]{2,})/,
+  ],
   fac: [/n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/],
   protocoloSgz: [/protocolo\s*(?:sgz)?\s*[:=]?\s*([0-9][0-9./-]{4,})/],
   contratada: [/contratada\s*[:=]\s*([^\n|]{2,60})/],
   servicoExda: [/servi[cc]o\s*exda\s*[:=]?\s*([^\n|]{3,60})/],
+  equipeExecutante: [
+    /equipe\s*(?:executante|de\s*execucao)?\s*[:=]?\s*([^\n|]{3,60})/,
+  ],
+  tipoNaoConformidade: [
+    /tipo\s*de\s*nao\s*conformidade\s*[:=]?\s*([^\n|]{3,80})/,
+    /nao\s*conformidade\s*[:=]\s*([^\n|]{3,80})/,
+    /tipo\s*[:=]\s*([^\n|]{3,80})/,
+  ],
   origemDemanda: [/origem\s*da\s*demanda\s*[:=]?\s*([^\n|]{2,60})/],
   prazo: [
     /prazo\s*para\s*conclusao\s*[:=]?\s*([^\n|]{2,40})/,
@@ -300,20 +315,26 @@ function spanX(spans: BuiltLine["spans"], offset: number): number {
 
 function matchColumns(text: string): { key: string; start: number; end: number }[] {
   const found: { key: string; start: number; end: number }[] = [];
-  let cursor = 0;
+  const used: { start: number; end: number }[] = [];
 
   for (const label of TABLE_LABELS) {
-    const scoped = text.slice(cursor);
-    const match = label.pattern.exec(scoped);
-    if (!match || match.index === undefined) {
-      continue;
+    const pattern = new RegExp(label.pattern.source, "g");
+    let match = pattern.exec(text);
+
+    while (match) {
+      const start = match.index;
+      const end = start + match[0].length;
+      const overlaps = used.some((range) => start < range.end && end > range.start);
+      if (!overlaps) {
+        found.push({ key: label.key, start, end });
+        used.push({ start, end });
+        break;
+      }
+      match = pattern.exec(text);
     }
-    const start = cursor + match.index;
-    found.push({ key: label.key, start, end: start + match[0].length });
-    cursor = start + match[0].length;
   }
 
-  return found;
+  return found.sort((a, b) => a.start - b.start);
 }
 
 function findColumnIndex(x: number, boundaries: number[]): number {
@@ -370,6 +391,10 @@ const STOP_WORDS = [
   "endereco",
   "polo",
   "servico exda",
+  "tipo de nao conformidade",
+  "equipe executante",
+  "equipe",
+  "fv",
 ];
 
 const OWN_LABELS: Record<string, string[]> = {
@@ -381,6 +406,9 @@ const OWN_LABELS: Record<string, string[]> = {
   situacao: ["situacao", "situacao atual"],
   contratada: ["contratada"],
   servicoExda: ["servico exda"],
+  equipeExecutante: ["equipe", "equipe executante"],
+  tipoNaoConformidade: ["tipo de nao conformidade"],
+  fv: ["fv"],
 };
 
 /** Corta o valor antes do próximo rótulo da ficha (ex.: "FINALIZADA Situação Atual"). */

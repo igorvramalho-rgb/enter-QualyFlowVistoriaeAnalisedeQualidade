@@ -41,7 +41,7 @@ export function InstitutionalHeaderForm({ settings, onChange }: InstitutionalHea
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} asChild>
-      <Card className="border-border/70 bg-card/80 shadow-sm">
+      <Card>
         <CollapsibleTrigger asChild>
           <button
             type="button"
@@ -78,7 +78,7 @@ export function InstitutionalHeaderForm({ settings, onChange }: InstitutionalHea
                     id={`header-${field.key}`}
                     value={settings.header[field.key]}
                     onChange={(event) => updateHeader(field.key, event.target.value)}
-                    className="bg-background"
+                    className="bg-background/70"
                   />
                 </div>
               ))}
@@ -143,10 +143,10 @@ function LogoUploader({ label, value, onLogo }: LogoUploaderProps) {
   };
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+    <div className="space-y-2 rounded-lg border border-glass-border/50 bg-glass/30 p-3">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <div className="flex items-center gap-3">
-        <span className="flex h-14 w-24 items-center justify-center rounded-md border border-border bg-card p-1">
+        <span className="flex h-14 w-24 items-center justify-center rounded-md border border-glass-border/50 bg-glass/60 p-1">
           <img src={value} alt={label} className="max-h-full max-w-full object-contain" />
         </span>
         <input

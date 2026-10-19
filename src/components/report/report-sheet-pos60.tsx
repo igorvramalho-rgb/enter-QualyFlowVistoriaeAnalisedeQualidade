@@ -10,6 +10,7 @@ interface ReportSheetPos60Props {
   photos: PhotoMap;
   settings: QualyflowSettings;
   objeto?: string;
+  observacoes?: string;
 }
 
 const COLUMN_WIDTHS = ["17%", "12%", "22%", "13%", "24%", "12%"];
@@ -24,6 +25,7 @@ export function ReportSheetPos60({
   photos,
   settings,
   objeto,
+  observacoes,
 }: ReportSheetPos60Props) {
   const tableFields = template.fields.filter((field) => !field.outsideTable);
   const contratada = template.fields.find((field) => field.id === "contratada");
@@ -87,6 +89,15 @@ export function ReportSheetPos60({
             </tr>
           </tbody>
         </table>
+
+        {observacoes?.trim() ? (
+          <div className="mt-[3mm] border border-sheet-line px-[2mm] py-[1.5mm]">
+            <p className="text-[10px] font-bold">Observações</p>
+            <p className="mt-[0.8mm] max-h-[18mm] overflow-hidden whitespace-pre-wrap text-[10px] leading-snug">
+              {observacoes}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-[5mm] grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-x-[5mm] gap-y-[4mm]">
           {slots.map((slot) => {

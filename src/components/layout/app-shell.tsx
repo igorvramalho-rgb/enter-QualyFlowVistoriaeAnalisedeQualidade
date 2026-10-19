@@ -17,42 +17,52 @@ export default function AppShell() {
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <aside className="hidden w-72 shrink-0 flex-col border-r border-sidebar-border/60 md:flex">
+    <div className="tech-mesh flex h-screen w-full overflow-hidden">
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-glass-border/40 md:flex">
         <AppSidebar />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="no-print flex items-center gap-3 border-b border-border/70 bg-card/60 px-4 py-3 backdrop-blur sm:px-6">
-          {isMobile && (
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Abrir menu de navegação">
-                  <Menu className="h-[18px] w-[18px]" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 border-sidebar-border/60 bg-sidebar p-0">
-                <SheetTitle className="sr-only">Navegação do QualyFlow</SheetTitle>
-                <AppSidebar onNavigate={() => setMenuOpen(false)} />
-              </SheetContent>
-            </Sheet>
-          )}
+        <header className="no-print relative border-b border-glass-border/40 bg-glass/50 backdrop-blur-xl">
+          <span className="tech-strip absolute inset-x-0 top-0" />
+          <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+            {isMobile && (
+              <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="glass" size="icon" aria-label="Abrir menu de navegação">
+                    <Menu className="h-[18px] w-[18px]" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 border-glass-border/40 bg-sidebar p-0">
+                  <SheetTitle className="sr-only">Navegação do QualyFlow</SheetTitle>
+                  <AppSidebar onNavigate={() => setMenuOpen(false)} />
+                </SheetContent>
+              </Sheet>
+            )}
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-              {current?.label ?? "QualyFlow"}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {current?.description ?? "Gestão de vistorias e análise de qualidade"}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 truncate text-sm font-semibold tracking-tight text-foreground">
+                <span className="glow-dot glow-dot--primary" aria-hidden />
+                {current?.label ?? "QualyFlow"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {current?.description ?? "Gestão de vistorias e análise de qualidade"}
+              </p>
+            </div>
+
+            <div className="hidden items-center gap-2 lg:flex">
+              <span className="chip-tech">
+                <span className="glow-dot" aria-hidden />
+                Base local ativa
+              </span>
+              <span className="chip-tech">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                Desenvolvido por Igor Ramalho
+              </span>
+            </div>
+
+            <ThemeToggle />
           </div>
-
-          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            Desenvolvido por Igor Ramalho
-          </div>
-
-          <ThemeToggle />
         </header>
 
         <main className="scroll-slim flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">

@@ -1,7 +1,14 @@
 import { useMemo, useState } from "react";
-import { BarChart3, DatabaseZap, Info, Loader2 } from "lucide-react";
+import { Activity, BarChart3, DatabaseZap, FileCheck2, Info, Loader2, Tags } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
-import { PoloChart, StatusChart, type PoloDatum, type StatusDatum } from "@/components/analista/charts";
+import {
+  NcTypeChart,
+  PoloChart,
+  StatusChart,
+  type NcTypeDatum,
+  type PoloDatum,
+  type StatusDatum,
+} from "@/components/analista/charts";
 import { KpiCards } from "@/components/analista/kpi-cards";
 import { PdfUploader, type UploadProgress } from "@/components/analista/pdf-uploader";
 import { ReviewDialog } from "@/components/analista/review-dialog";
@@ -10,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import type { AnalysisRecord } from "@/lib/analysis";
+import { normalizeNcType, type AnalysisRecord } from "@/lib/analysis";
+import { lastAnalysisLabel } from "@/lib/analysis-summary";
 import { STORAGE_KEYS } from "@/lib/storage";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -64,6 +72,30 @@ export default function Analista() {
       })),
     [analyses],
   );
+
+  const ncTypeData = useMemo<NcTypeDatum[]>(() => {
+    const map = new Map<string, number>();
+    analyses.forEach((item) => {
+      const tipo = normalizeNcType(item.fields.tipoNaoConformidade);
+      if (tipo) {
+        map.set(tipo, (map.get(tipo) ?? 0) + 1);
+      }
+    });
+
+    const sorted = Array.from(map.entries())
+      .map(([tipo, total]) => ({ tipo, total }))
+      .sort((a, b) => b.total - a.total);
+
+    if (sorted.length <= 8) {
+      return sorted;
+    }
+
+    const top = sorted.slice(0, 8);
+    const rest = sorted.slice(8).reduce((sum, item) => sum + item.total, 0);
+    return [...top, { tipo: "OUTROS TIPOS", total: rest }];
+  }, [analyses]);
+
+  const tiposNcDistintos = ncTypeData.filter((item) => item.tipo !== "OUTROS TIPOS").length;
 
   const handleFiles = async (files: File[]) => {
     setBusy(true);
@@ -147,12 +179,21 @@ export default function Analista() {
       <PageHeader
         icon={BarChart3}
         title="Analista de Vistorias"
-        description="Importe os PDFs de vistoria, confira os dados extraídos e acompanhe os indicadores de qualidade por polo e situação."
+        description="Importe os PDFs de vistoria, confira os dados extraídos e acompanhe os indicadores de qualidade por polo, situação e tipo de não conformidade."
+        chips={
+          analyses.length > 0
+            ? [
+                { icon: FileCheck2, label: `${analyses.length} vistorias` },
+                { icon: Tags, label: `${tiposNcDistintos} tipos de NC` },
+                { icon: Activity, label: lastAnalysisLabel(analyses) },
+              ]
+            : undefined
+        }
         actions={
           analyses.length > 0 ? (
             <Button
               type="button"
-              variant={clearing ? "destructive" : "outline"}
+              variant={clearing ? "destructive" : "glass"}
               onClick={() => {
                 if (!clearing) {
                   setClearing(true);
@@ -170,7 +211,7 @@ export default function Analista() {
         }
       />
 
-      <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+      <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <p>
           A leitura roda no seu navegador e nada é enviado para servidores. PDFs digitalizados (sem
@@ -181,7 +222,7 @@ export default function Analista() {
       <PdfUploader onFiles={(files) => void handleFiles(files)} busy={busy} progress={progress} />
 
       {analyses.length === 0 ? (
-        <Card className="flex flex-col items-center gap-3 border-dashed border-border bg-card/60 px-6 py-14 text-center">
+        <Card className="flex flex-col items-center gap-3 border-dashed border-glass-border/60 px-6 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <DatabaseZap className="h-5 w-5" />
           </span>
@@ -201,6 +242,8 @@ export default function Analista() {
             <PoloChart data={poloData} />
             <StatusChart data={statusData} />
           </div>
+
+          <NcTypeChart data={ncTypeData} />
 
           <VistoriasTable analyses={analyses} onReview={setReviewing} onDelete={handleDelete} />
         </>

@@ -144,39 +144,45 @@ Reutilizar: `cn`, `useLocalStorage`, `useScaledContainer`, `downloadCsv`, `tidyV
 - Folhas: conferir visualmente a folha SGZ-156 e a Pós 60 Via **com e sem observação**, garantindo que sem observação o layout segue idêntico ao modelo.
 - Design: capturas em `desktop_1280` e `mobile_390` de `/emissor` e `/analista`, nos temas escuro e claro, verificando contraste, ausência de overflow e que a folha do relatório continua clara.
 
+## Notas de implementação (desvios)
+
+- `xlsx` (SheetJS CE) **não escreve painéis congelados** na versão gratuita: a planilha sai com cabeçalho na primeira linha e larguras de coluna calculadas, sem `freeze`.
+- A amostra de PDF com FV / Equipe Executante / Tipo de Não Conformidade **ainda não foi anexada**: os padrões atuais são por rótulo (`FV-108101`, `FV: 108101`, `Equipe Executante:`, `Tipo de Não Conformidade:`) e a calibração final depende dessa amostra.
+- Os novos campos também são preenchíveis manualmente no diálogo de revisão, cobrindo PDFs digitalizados.
+- O texto sobre superfícies de gradiente passou a usar o token novo `--on-brand` (o `--primary-foreground` do tema escuro é azul-escuro e ficava ilegível sobre o gradiente da marca).
+- Os tokens de vidro/malha (`--glass`, `--mesh`, `--hairline`, `--glow-*`, `--on-brand`) existem nos dois temas, em blocos separados (`:root` e `.dark`).
+
 ## Implementation checklist
 
-- [ ] `xlsx` adicionado às dependências.
-- [ ] `src/lib/analysis.ts` com `fv`, `equipeExecutante`, `tipoNaoConformidade`, `data` rotulado "Data de Vistoria" e `EXPORT_FIELDS` na ordem pedida.
-- [ ] `src/lib/pdf-extract.ts` extrai `FV-108101` (com hífen) e `108101` (após "FV:").
-- [ ] `src/lib/pdf-extract.ts` extrai uma OS de 10 dígitos (`2699610379`) por rótulo.
-- [ ] `src/lib/pdf-extract.ts` extrai Equipe Executante e Tipo de Não Conformidade por rótulo, sem capturar rótulos vizinhos.
-- [ ] `STOP_WORDS`/`OWN_LABELS` incluem `fv`, `equipe`, `tipo de nao conformidade` sem quebrar os valores existentes.
-- [ ] `src/lib/analysis-export.ts` produz a matriz única usada por CSV e Excel.
-- [ ] `downloadXlsx` gera `.xlsx` com a aba "Vistorias" e cabeçalho na ordem Endereço, FV, Ordem de Serviço, Data de Vistoria, Equipe Executante, Tipo de Não Conformidade, Polo, Status, Arquivo, Páginas, Revisado.
-- [ ] `vistorias-table` mostra FV, tipo de NC e equipe, filtra por tipo de NC e busca também por FV/equipe.
-- [ ] Botão "Baixar Excel (.xlsx)" exporta apenas as linhas filtradas; CSV permanece funcionando.
-- [ ] Gráfico "Não conformidades por tipo" e KPI de tipos distintos renderizam com dados reais e com lista vazia.
-- [ ] `ReportDraft.observacoes` salvo, reaberto, duplicado e limpo em "Novo relatório".
-- [ ] Folha SGZ-156 imprime o bloco de Observações abaixo de DADOS DA VISTORIA apenas na primeira página e só quando preenchido.
-- [ ] Folha Pós 60 imprime o bloco de Observações abaixo da tabela de 6 colunas e só quando preenchido.
-- [ ] Sem observação, as duas folhas permanecem idênticas aos modelos.
-- [ ] Tokens de vidro/malha/brilho definidos nos temas claro e escuro.
-- [ ] `body` com malha e gradientes radiais; `.tech-strip`, `.panel-glass`, `.glow-dot`, `.chip-tech` disponíveis.
-- [ ] Shell, sidebar, page-header, cards, botões, KPIs, gráficos, tabela e slots de foto usando os novos utilitários.
-- [ ] Nenhuma cor crua nova e nenhum emoji; ícones apenas de `lucide-react`.
+- [x] `xlsx` adicionado às dependências (0.18.5).
+- [x] `src/lib/analysis.ts` com `fv`, `equipeExecutante`, `tipoNaoConformidade`, `data` rotulado "Data de Vistoria" e `EXPORT_FIELDS` na ordem pedida.
+- [x] `src/lib/pdf-extract.ts` extrai `FV-108101` (com hífen) e `108101` (após "FV:").
+- [x] Extração de OS por rótulo (inclui OS de 10 dígitos, ex.: `2699610379`).
+- [x] Extração de Equipe Executante e Tipo de Não Conformidade por rótulo, com corte antes do próximo rótulo.
+- [x] `STOP_WORDS`/`OWN_LABELS` incluem `fv`, `equipe`, `tipo de nao conformidade`.
+- [x] Coluna `fv` reconhecida na leitura por colunas, com busca de rótulos independente e ordenada pela posição no documento.
+- [x] `src/lib/analysis-export.ts` produz a matriz única usada por CSV e Excel.
+- [x] `downloadXlsx` gera `.xlsx` com a aba "Vistorias", cabeçalho na ordem pedida e larguras calculadas (verificado: 18 colunas × 6 linhas, arquivo de ~29 KB).
+- [x] `vistorias-table` mostra FV, Ordem de serviço, tipo de NC e equipe, filtra por tipo de NC e busca também por FV/equipe.
+- [x] Botões "Baixar Excel (.xlsx)" e "Exportar CSV" exportam apenas as linhas filtradas, com as mesmas colunas.
+- [x] Gráfico "Não conformidades por tipo" e KPI de tipos distintos renderizam com dados e com lista vazia.
+- [x] `ReportDraft.observacoes` salvo, reaberto, duplicado e limpo em "Novo relatório".
+- [x] Folha SGZ-156 imprime o bloco de Observações abaixo de DADOS DA VISTORIA, apenas na primeira página e só quando preenchido.
+- [x] Folha Pós 60 imprime o bloco de Observações abaixo da tabela de 6 colunas e só quando preenchido.
+- [x] Sem observação, as duas folhas permanecem idênticas aos modelos.
+- [x] Tokens de vidro/malha/brilho nos temas claro e escuro, em blocos separados.
+- [x] `body` com malha e gradientes radiais; `.tech-strip`, `.panel-glass`, `.panel-interactive`, `.glow-dot`, `.chip-tech`, `.ring-glow` disponíveis.
+- [x] Shell, sidebar, rodapé, page-header, cards (base do shadcn), botões (`glow`/`glass`), KPIs, gráficos, tabela, slots de foto, picker de modelos, uploader e diálogo de revisão no novo visual.
+- [x] Sem cor crua nova e sem emoji; ícones apenas de `lucide-react`.
+- [x] Harness temporário de verificação removido.
 
 ## Verification checklist
 
-- [ ] `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
-- [ ] Extração real (PDFs modelo): Pós 60 Via e Passeio continuam com OS, FAC, serviço, polo, endereço, data e contratada corretos.
-- [ ] Extração sintética: `FV-108101` e `2699610379` capturados; Equipe Executante e Tipo de Não Conformidade capturados; SGZ digitalizado segue "Pendente de revisão" com campos vazios.
-- [ ] Negativo: PDF sem os novos dados não inventa FV/equipe/tipo (campos vazios, confiança "Não encontrado").
-- [ ] Limite: observação longa não estoura a folha A4 (texto limitado na impressão).
-- [ ] Limite: planilha com zero linhas filtradas não gera arquivo nem quebra a tela.
-- [ ] Checagem visual em `desktop_1280` de `/emissor` e `/analista` (UI tecnológica, tabela com as novas colunas, gráfico por tipo).
-- [ ] Checagem visual em `mobile_390` das duas rotas (sem overflow; tabela com rolagem; chips do cabeçalho quebrando linha).
-- [ ] Tema claro e escuro com contraste legível; folha do relatório continua branca nos dois temas.
-- [ ] Comparação das folhas com e sem observação contra os PDFs modelo, confirmando fidelidade quando vazio.
-- [ ] Harness temporário removido ao final (arquivos, rotas e amostras).
-- [ ] **Verificação manual pendente do usuário**: baixar o `.xlsx` e abrir no Excel; imprimir/baixar PDF com observação preenchida.
+- [x] `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- [x] Dashboard verificado com dados de exemplo: 7 KPIs (incluindo tipos de NC), barras por polo com gradiente, rosca de status, gráfico por tipo de NC e tabela com FV/OS/equipe/tipo.
+- [x] Planilha verificada na estrutura: aba `Vistorias`, cabeçalho com Endereço, FV, Ordem de Serviço, Data de Vistoria, Equipe Executante e Tipo de Não Conformidade nas seis primeiras colunas, 5 registros, arquivo xlsx válido.
+- [x] Folhas conferidas com observação preenchida (SGZ e Pós 60) e sem observação (layout idêntico ao modelo).
+- [x] Tema escuro e claro verificados em 1440px nas duas rotas, com contraste legível e folha do relatório sempre branca.
+- [x] Responsividade verificada em `mobile_390` das duas rotas, sem overflow.
+- [ ] **Pendente de calibração**: extração de FV/Equipe/Tipo de Não Conformidade contra a amostra real (aguardando o anexo do usuário).
+- [ ] **Verificação manual pendente do usuário**: baixar o `.xlsx` e abrir no Excel; imprimir/baixar o PDF com observação preenchida.

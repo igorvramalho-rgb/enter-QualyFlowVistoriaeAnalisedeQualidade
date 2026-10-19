@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import {
   Download,
   FileText,
+  Images,
   Info,
+  Layers,
   Loader2,
+  MessageSquareText,
   Plus,
   Printer,
   Save,
@@ -24,6 +27,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useScaledContainer } from "@/hooks/use-scaled-container";
 import {
   DEFAULT_SETTINGS,
+  countFilledPhotos,
   draftLabel,
   includedSlots,
   type PhotoEntry,
@@ -54,11 +58,13 @@ export default function Emissor() {
   const [values, setValues] = useState<ReportValues>(() => getDefaultValues(FIRST_TEMPLATE));
   const [photos, setPhotos] = useState<PhotoMap>({});
   const [objeto, setObjeto] = useState<string>(FIRST_TEMPLATE.objeto ?? "");
+  const [observacoes, setObservacoes] = useState<string>("");
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const template = getTemplate(templateId);
   const pages = useMemo(() => includedSlots(templateId, photos).length, [templateId, photos]);
+  const filledPhotos = useMemo(() => countFilledPhotos(templateId, photos), [templateId, photos]);
   const { outerRef, innerRef, scale, height } = useScaledContainer(794);
 
   const documentView = (
@@ -67,6 +73,7 @@ export default function Emissor() {
       values={values}
       photos={photos}
       objeto={objeto}
+      observacoes={observacoes}
       settings={settings}
     />
   );
@@ -111,7 +118,7 @@ export default function Emissor() {
       setDrafts((previous) =>
         previous.map((draft) =>
           draft.id === currentDraftId
-            ? { ...draft, templateId, values, photos, objeto, name: label, updatedAt: now }
+            ? { ...draft, templateId, values, photos, objeto, observacoes, name: label, updatedAt: now }
             : draft,
         ),
       );
@@ -126,6 +133,7 @@ export default function Emissor() {
       values,
       photos,
       objeto,
+      observacoes,
       createdAt: now,
       updatedAt: now,
     };
@@ -138,6 +146,7 @@ export default function Emissor() {
     setValues(getDefaultValues(template));
     setPhotos({});
     setObjeto(template.objeto ?? "");
+    setObservacoes("");
     setCurrentDraftId(null);
     toast.success("Novo relatório em branco");
   };
@@ -148,6 +157,7 @@ export default function Emissor() {
     setValues({ ...getDefaultValues(draftTemplate), ...draft.values });
     setPhotos(draft.photos ?? {});
     setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
+    setObservacoes(draft.observacoes ?? "");
     setCurrentDraftId(draft.id);
     toast.success("Relatório carregado", { description: draft.name });
   };
@@ -191,9 +201,18 @@ export default function Emissor() {
           icon={FileText}
           title="Emissor de Relatórios de Vistoria"
           description="Escolha o modelo, preencha o cabeçalho e insira as fotos colando com Ctrl+V. A pré-visualização mostra a folha A4 exatamente como ela será impressa."
+          chips={[
+            { icon: Layers, label: template.shortTitle },
+            { icon: FileText, label: `${pages} página(s)` },
+            { icon: Images, label: `${filledPhotos} foto(s) inseridas` },
+            {
+              icon: MessageSquareText,
+              label: observacoes.trim() ? "Observação preenchida" : "Sem observação",
+            },
+          ]}
           actions={
             <>
-              <Button type="button" variant="outline" onClick={handleNewReport}>
+              <Button type="button" variant="glass" onClick={handleNewReport}>
                 <Plus className="h-4 w-4" />
                 Novo relatório
               </Button>
@@ -205,12 +224,12 @@ export default function Emissor() {
           }
         />
 
-        <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+        <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-          <p>
+          <span>
             Os relatórios ficam salvos apenas neste navegador. Use "Baixar PDF" ou "Imprimir" para gerar
             o arquivo antes de limpar os dados do navegador.
-          </p>
+          </span>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1fr)]">
@@ -222,13 +241,11 @@ export default function Emissor() {
               onValueChange={handleValueChange}
               objeto={objeto}
               onObjetoChange={setObjeto}
+              observacoes={observacoes}
+              onObservacoesChange={setObservacoes}
             />
             <InstitutionalHeaderForm settings={settings} onChange={setSettings} />
-            <PhotoSlotGrid
-              slots={template.photoSlots}
-              photos={photos}
-              onChange={handlePhotoChange}
-            />
+            <PhotoSlotGrid slots={template.photoSlots} photos={photos} onChange={handlePhotoChange} />
             <DraftsList
               drafts={drafts}
               currentId={currentDraftId}
@@ -238,8 +255,9 @@ export default function Emissor() {
             />
           </div>
 
-          <Card className="flex flex-col overflow-hidden border-border/70 bg-card/80 shadow-sm lg:sticky lg:top-0">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+          <Card className="flex flex-col overflow-hidden lg:sticky lg:top-0">
+            <span className="tech-strip absolute inset-x-0 top-0" />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-glass-border/40 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Pré-visualização A4</p>
                 <p className="text-xs text-muted-foreground">
@@ -247,14 +265,20 @@ export default function Emissor() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-accent text-accent-foreground">
+                <Badge variant="secondary" className="bg-accent/70 text-accent-foreground">
                   {template.shortTitle}
                 </Badge>
-                <Button type="button" variant="outline" size="sm" onClick={printReport}>
+                <Button type="button" variant="glass" size="sm" onClick={printReport}>
                   <Printer className="h-4 w-4" />
                   Imprimir
                 </Button>
-                <Button type="button" size="sm" onClick={() => void handleDownload()} disabled={exporting}>
+                <Button
+                  type="button"
+                  variant="glow"
+                  size="sm"
+                  onClick={() => void handleDownload()}
+                  disabled={exporting}
+                >
                   {exporting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -265,7 +289,7 @@ export default function Emissor() {
               </div>
             </div>
 
-            <div ref={outerRef} className="scroll-slim max-h-[74vh] overflow-auto bg-muted/40 p-4">
+            <div ref={outerRef} className="scroll-slim max-h-[74vh] overflow-auto bg-glass/30 p-4">
               <div style={{ height: height > 0 ? `${height}px` : undefined }}>
                 <div
                   ref={innerRef}

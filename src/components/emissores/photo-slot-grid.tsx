@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardPaste, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { isImageFile, fileToCompressedDataUrl } from "@/lib/image";
@@ -105,7 +104,9 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
       {...getRootProps()}
       className={cn(
         "rounded-xl border border-dashed p-3 transition-smooth",
-        isDragActive ? "border-primary bg-accent/60" : "border-border bg-muted/30",
+        isDragActive
+          ? "border-primary bg-accent/40 shadow-glow"
+          : "border-glass-border/60 bg-glass/30",
       )}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -115,10 +116,10 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
             Clique em um campo e use Ctrl+V para colar, arraste a imagem ou use o botão.
           </p>
         </div>
-        <Badge variant="secondary" className="gap-1.5 bg-accent text-accent-foreground">
-          <ClipboardPaste className="h-3.5 w-3.5" />
+        <span className="chip-tech">
+          <ClipboardPaste className="h-3.5 w-3.5 text-primary" />
           Ctrl+V direto da vistoria
-        </Badge>
+        </span>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -132,14 +133,15 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
               key={slot.id}
               onClick={() => setActiveSlotId(slot.id)}
               className={cn(
-                "flex flex-col gap-2 rounded-lg border bg-card p-3 transition-smooth",
-                isActive ? "border-primary shadow-elegant" : "border-border",
+                "panel-glass flex flex-col gap-2 rounded-xl p-3 transition-smooth",
+                isActive && "border-primary/70 shadow-glow",
                 photo && !photo.include && "opacity-60",
               )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+                    <span className="glow-dot glow-dot--primary" aria-hidden />
                     Foto {index + 1}
                   </p>
                   <p className="truncate text-xs font-medium text-foreground" title={slot.caption}>
@@ -231,7 +233,7 @@ function DropzoneButton({ onFile, active, onActivate, hasPhoto }: DropzoneButton
       />
       <Button
         type="button"
-        variant={active ? "default" : "outline"}
+        variant={active ? "glow" : "glass"}
         size="sm"
         onClick={(event) => {
           event.stopPropagation();
