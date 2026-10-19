@@ -33,6 +33,7 @@ import {
   type PhotoEntry,
   type PhotoMap,
   type QualyflowSettings,
+  migrateDraftValues,
   normalizeSettings,
   type ReportDraft,
   type ReportValues,
@@ -156,7 +157,7 @@ export default function Emissor() {
   const handleOpenDraft = (draft: ReportDraft) => {
     const draftTemplate = getTemplate(draft.templateId);
     setTemplateId(draftTemplate.id);
-    setValues({ ...getDefaultValues(draftTemplate), ...draft.values });
+    setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
     setPhotos(draft.photos ?? {});
     setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
     setObservacoes(draft.observacoes ?? "");

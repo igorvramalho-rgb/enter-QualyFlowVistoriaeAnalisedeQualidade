@@ -38,7 +38,7 @@ interface VistoriasTableProps {
   onDelete: (recordId: string) => void;
 }
 
-type SortKey = "fileName" | "data" | "polo" | "status" | "fv" | "os";
+type SortKey = "fileName" | "data" | "polo" | "status" | "fac" | "os";
 
 const STATUS_STYLES: Record<QualityStatus, string> = {
   conforme: "bg-success/15 text-success border-success/40",
@@ -113,7 +113,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
         [
           item.fileName,
           item.fields.os,
-          item.fields.fv,
+          item.fields.fac,
           item.fields.endereco,
           item.fields.polo,
           item.fields.protocoloSgz,
@@ -135,8 +135,8 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
       if (sortKey === "status") {
         return a.status.localeCompare(b.status) * direction;
       }
-      if (sortKey === "fv") {
-        return (a.fields.fv ?? "").localeCompare(b.fields.fv ?? "", "pt-BR") * direction;
+      if (sortKey === "fac") {
+        return (a.fields.fac ?? "").localeCompare(b.fields.fac ?? "", "pt-BR") * direction;
       }
       if (sortKey === "os") {
         return (a.fields.os ?? "").localeCompare(b.fields.os ?? "", "pt-BR") * direction;
@@ -296,7 +296,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <SortableHead label="Arquivo" active={sortKey === "fileName"} asc={sortAsc} onClick={() => toggleSort("fileName")} />
-              <SortableHead label="FV" active={sortKey === "fv"} asc={sortAsc} onClick={() => toggleSort("fv")} />
+              <SortableHead label="Nº FAC" active={sortKey === "fac"} asc={sortAsc} onClick={() => toggleSort("fac")} />
               <SortableHead label="Ordem de serviço" active={sortKey === "os"} asc={sortAsc} onClick={() => toggleSort("os")} />
               <SortableHead label="Data" active={sortKey === "data"} asc={sortAsc} onClick={() => toggleSort("data")} />
               <SortableHead label="Polo" active={sortKey === "polo"} asc={sortAsc} onClick={() => toggleSort("polo")} />
@@ -327,7 +327,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     <span className="chip-tech font-mono text-[11px] text-foreground">
-                      {item.fields.fv || "—"}
+                      {item.fields.fac || "—"}
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap font-mono text-xs text-foreground">

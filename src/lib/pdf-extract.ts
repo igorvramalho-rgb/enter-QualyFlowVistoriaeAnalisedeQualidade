@@ -45,7 +45,7 @@ interface ColumnLabel {
  */
 const TABLE_LABELS: ColumnLabel[] = [
   { key: "os", pattern: /\bos\s*n[º°.]?|\bos\s*[:=]/ },
-  { key: "fv", pattern: /\bfv\b|n[º°.]?\s*fac/ },
+  { key: "fac", pattern: /\bfv\b|n[º°.]?\s*fac/ },
   { key: "servicoExda", pattern: /servi[cc]o\s*exda/ },
   { key: "equipeExecutante", pattern: /equipe/ },
   { key: "tipoNaoConformidade", pattern: /tipo\s*de\s*nao\s*conformidade|tipo/ },
@@ -63,10 +63,10 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
     /n[º°.]?\s*o\.?\s*s\.?\s*n?[º°.]?\s*[:=]?\s*([0-9][0-9./-]{4,})/,
     /\bo\.?\s*s\.?\s*[:=]\s*([0-9][0-9./-]{4,})/,
   ],
-  fv: [
+  fac: [
+    /n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/,
     /\b(fv[\s-]*[0-9][0-9./-]{2,})/,
     /\bfv\s*[:=]\s*([0-9][0-9./-]{2,})/,
-    /n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/,
   ],
   protocoloSgz: [/protocolo\s*(?:sgz)?\s*[:=]?\s*([0-9][0-9./-]{4,})/],
   contratada: [/contratada\s*[:=]\s*([^\n|]{2,60})/],
@@ -409,7 +409,7 @@ const OWN_LABELS: Record<string, string[]> = {
   servicoExda: ["servico exda"],
   equipeExecutante: ["equipe", "equipe executante"],
   tipoNaoConformidade: ["tipo de nao conformidade"],
-  fv: ["fv", "n fac"],
+  fac: ["fv", "n fac"],
 };
 
 /** Corta o valor antes do próximo rótulo da ficha (ex.: "FINALIZADA Situação Atual"). */

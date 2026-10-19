@@ -21,7 +21,7 @@ export interface AnalysisFieldDefinition {
 
 export const ANALYSIS_FIELDS: AnalysisFieldDefinition[] = [
   { key: "os", label: "Ordem de Serviço" },
-  { key: "fv", label: "FV" },
+  { key: "fac", label: "Nº FAC" },
   { key: "protocoloSgz", label: "Protocolo SGZ" },
   { key: "contratada", label: "Contratada" },
   { key: "servicoExda", label: "Serviço EXDA" },
@@ -41,7 +41,7 @@ export const ANALYSIS_FIELDS: AnalysisFieldDefinition[] = [
  */
 export const EXPORT_FIELDS: AnalysisFieldDefinition[] = [
   { key: "endereco", label: "Endereço" },
-  { key: "fv", label: "FV" },
+  { key: "fac", label: "Nº FAC" },
   { key: "os", label: "Ordem de Serviço" },
   { key: "data", label: "Data de Vistoria" },
   { key: "equipeExecutante", label: "Equipe Executante" },
@@ -93,6 +93,18 @@ export const CONFIDENCE_LABELS: Record<Confidence, string> = {
 };
 
 export class PdfExtractionError extends Error {}
+
+/**
+ * Compatibilidade: registros salvos na fase em que o campo se chamava "FV"
+ * continuam com o valor após a volta para "Nº FAC".
+ */
+export function migrateRecordFields(fields: Record<string, string>): Record<string, string> {
+  if (!fields.fv || fields.fac) {
+    return fields;
+  }
+  const { fv, ...rest } = fields;
+  return { ...rest, fac: fv };
+}
 
 /** Nome do campo usado nos agrupamentos por tipo de não conformidade. */
 export function normalizeNcType(value: string | undefined): string {

@@ -253,3 +253,10 @@ Três correções pedidas após o uso real:
 - `.print-sheet` passou a `min-height: 296.5mm` (margem de segurança de 0,5 mm contra estouro de página).
 - PDF: sobra de até 7 mm é absorvida em uma única página; acima disso a folha é **fatiada em páginas inteiras** (sem cortar texto e sem página em branco).
 - Verificado com observação de ~1.450 caracteres: **5 folhas → 5 páginas**, texto completo e legível nas duas folhas, sem página extra.
+
+## Ajuste — bloco volta a ser "Nº FAC"
+
+- Folha Pós 60, tabela do Analista, revisão, CSV e Excel voltaram a usar **Nº FAC** (chave `fac`), com o exemplo de valor do modelo (69730).
+- A extração lê **os dois rótulos** nos PDFs ("Nº FAC" e "FV"), gravando sempre em Nº FAC.
+- Migração automática dos dados já salvos: registros de análise e rascunhos que ficaram com `fv` são convertidos para `fac` ao abrir a tela, sem perder valores.
+- Verificado: folha com coluna **Nº FAC** e valor 69730; migração `fv → fac` em rascunho e registro; registro que já tem `fac` não é alterado.

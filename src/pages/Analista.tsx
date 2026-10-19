@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, BarChart3, DatabaseZap, FileCheck2, Info, Loader2, Tags } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import {
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { normalizeNcType, type AnalysisRecord } from "@/lib/analysis";
+import { migrateRecordFields, normalizeNcType, type AnalysisRecord } from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
 import { STORAGE_KEYS } from "@/lib/storage";
 
@@ -43,6 +43,23 @@ export default function Analista() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [reviewing, setReviewing] = useState<AnalysisRecord | null>(null);
   const [clearing, setClearing] = useState(false);
+
+  const needsMigration = useMemo(
+    () => analyses.some((record) => !record.fields.fac && Boolean(record.fields.fv)),
+    [analyses],
+  );
+
+  useEffect(() => {
+    if (!needsMigration) {
+      return;
+    }
+    setAnalyses((previous) =>
+      previous.map((record) => {
+        const fields = migrateRecordFields(record.fields);
+        return fields === record.fields ? record : { ...record, fields };
+      }),
+    );
+  }, [needsMigration, setAnalyses]);
 
   const poloData = useMemo<PoloDatum[]>(() => {
     const map = new Map<string, PoloDatum>();

@@ -46,6 +46,15 @@ export function normalizeSettings(value: Partial<QualyflowSettings> | undefined)
   };
 }
 
+/** Compatibilidade com rascunhos salvos quando o campo se chamava "FV". */
+export function migrateDraftValues(values: ReportValues | undefined): ReportValues {
+  if (!values || !values.fv || values.fac) {
+    return values ?? {};
+  }
+  const { fv, ...rest } = values;
+  return { ...rest, fac: fv };
+}
+
 export function emptyPhotoMap(): PhotoMap {
   return {};
 }
