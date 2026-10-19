@@ -4,7 +4,8 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { isImageFile, fileToCompressedDataUrl } from "@/lib/image";
+import { estimateDataUrlSize, fileToCompressedDataUrl, isImageFile } from "@/lib/image";
+import { formatBytes } from "@/lib/fields";
 import type { PhotoEntry, PhotoMap } from "@/lib/report-document";
 import type { ReportPhotoSlot } from "@/lib/report-templates";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,12 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
 
   const handlePaste = useCallback(
     (event: ClipboardEvent) => {
+      // Colar dentro de um campo de texto deve continuar colando texto
+      const focused = event.target as HTMLElement | null;
+      if (focused?.closest("input, textarea, [contenteditable='true']")) {
+        return;
+      }
+
       const items = event.clipboardData?.items;
       if (!items) {
         return;
@@ -99,6 +106,13 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
 
   usePasteListener(handlePaste);
 
+  const filledCount = slots.filter((slot) => Boolean(photos[slot.id]?.dataUrl)).length;
+  const totalBytes = slots.reduce(
+    (sum, slot) => sum + (photos[slot.id]?.dataUrl ? estimateDataUrlSize(photos[slot.id].dataUrl) : 0),
+    0,
+  );
+  const totalSizeLabel = formatBytes(totalBytes);
+
   return (
     <div
       {...getRootProps()}
@@ -111,15 +125,18 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">3. Fotos do relatório</h2>
+          <h2 className="text-sm font-semibold text-foreground">4. Fotos do relatório</h2>
           <p className="text-xs text-muted-foreground">
             Clique em um campo e use Ctrl+V para colar, arraste a imagem ou use o botão.
           </p>
         </div>
-        <span className="chip-tech">
-          <ClipboardPaste className="h-3.5 w-3.5 text-primary" />
-          Ctrl+V direto da vistoria
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="chip-tech">
+            <ClipboardPaste className="h-3.5 w-3.5 text-primary" />
+            Ctrl+V direto da vistoria
+          </span>
+          <span className="chip-tech font-mono">{`${filledCount}/${slots.length} • ${totalSizeLabel}`}</span>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

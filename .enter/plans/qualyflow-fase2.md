@@ -186,3 +186,61 @@ Reutilizar: `cn`, `useLocalStorage`, `useScaledContainer`, `downloadCsv`, `tidyV
 - [x] Responsividade verificada em `mobile_390` das duas rotas, sem overflow.
 - [ ] **Pendente de calibração**: extração de FV/Equipe/Tipo de Não Conformidade contra a amostra real (aguardando o anexo do usuário).
 - [ ] **Verificação manual pendente do usuário**: baixar o `.xlsx` e abrir no Excel; imprimir/baixar o PDF com observação preenchida.
+
+---
+
+# Fase 3 — Correções de campo, logos, fotos e PDF
+
+## Contexto
+
+Três correções pedidas após o uso real:
+
+1. **"Nº FAC é FV o correto"** — o campo da folha Pós 60 deve se chamar **FV**.
+2. **Campo de logos com possibilidade de editar** — trocar/remover logos de forma explícita.
+3. **Fotos bugadas ao inserir no relatório**, tanto ao imprimir quanto ao baixar o arquivo.
+
+## O que foi feito
+
+### Nº FAC → FV
+- Folha Pós 60: coluna `FV:` (era `Nº FAC:`); campo `fv` no lugar de `fac` em `ANALYSIS_FIELDS` e `EXPORT_FIELDS`.
+- A extração continua aceitando o rótulo antigo **"Nº FAC"** dos PDFs já emitidos, gravando no campo **FV**.
+- Tabela do Analista, CSV, Excel e diálogo de revisão passam a usar apenas **FV**.
+
+### Logos editáveis
+- Card **"3. Logotipos e cabeçalho institucional"** sempre visível: cada logo tem pré-visualização, **Trocar**, **Remover** (some da folha) e **Restaurar padrão**, além de **arrastar e soltar** a imagem.
+- `normalizeSettings()` garante que logos e cabeçalho sempre existam (configuração antiga/incompleta não quebra a folha).
+
+### Fotos e PDF (causas encontradas)
+- **PDF saía em branco / com páginas duplicadas**: o html2pdf clona o elemento que recebe e as minhas regras de posicionamento (`position: absolute; left: -20000px`) iam junto para o clone, deixando-o fora da área de captura; além disso o corte automático de páginas duplicava as quebras.
+  - Correção: a visibilidade passou para um **host** (`#print-portal-host`), que nunca é clonado; a porta em si não tem regra de display/posição.
+  - O PDF agora é montado **página a página**: cada `.print-sheet` é rasterizado com **html2canvas** e inserido com **jsPDF** (210 × 297 mm). Resultado verificado: 5 folhas → **5 páginas**, sem cortes.
+  - `html2pdf.js` foi removido; ficaram `html2canvas` e `jspdf` (as mesmas bibliotecas que ele empacotava).
+- **Foto do SGZ não aparecia na captura**: a moldura usava `height: 100%`, que não resolvia no DOM clonado. Correção: moldura posicionada com **`absolute inset`** (tamanho definido por insetos, sem depender de porcentagem) nas duas folhas.
+- **`object-fit` não é suportado pelo html2canvas** (as fotos sairiam esticadas): cada foto tem `<img>` com `object-fit` para a **impressão** e um fundo equivalente (`background-size: contain/cover`) para a **captura do PDF**; a `<img>` é ocultada apenas durante a geração do arquivo.
+- **Orientação EXIF**: a leitura da imagem passou a usar `createImageBitmap(..., { imageOrientation: "from-image" })`, evitando fotos giradas em relatórios feitos com celular.
+- **Ctrl+V em campo de texto**: a colagem agora é ignorada quando o foco está em `input`, `textarea` ou `contenteditable` (antes a foto era capturada mesmo ao colar texto).
+- Fotos um pouco mais leves (lado maior 1500 px, qualidade 0.8) e **contador de peso** na seção de fotos (`0/4 • 0 B`).
+
+## Implementation checklist (fase 3)
+
+- [x] Campo `fv` substitui `fac` em `analysis.ts`, `report-templates.ts`, tabela e exportações.
+- [x] Rótulo antigo "Nº FAC" continua sendo lido dos PDFs e gravado em FV.
+- [x] Card de logos sempre visível, com pré-visualização, trocar, remover, restaurar e arrastar-e-soltar.
+- [x] `normalizeSettings()` protege contra configuração incompleta.
+- [x] Visibilidade da porta de impressão movida para `#print-portal-host`; a porta não recebe `display`/`position` por id.
+- [x] PDF montado com html2canvas + jsPDF, uma página por folha.
+- [x] Molduras de foto com `absolute inset` nas duas folhas.
+- [x] `<img>` para impressão + fundo equivalente para a captura, com `.exporting` ocultando apenas a imagem.
+- [x] `imageOrientation: "from-image"` na compressão das fotos.
+- [x] Colagem ignorada em campos de texto; contador de peso das fotos.
+- [x] `html2pdf.js` removido das dependências.
+
+## Verification checklist (fase 3)
+
+- [x] `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- [x] **PDF verificado de ponta a ponta** (harness temporário que gera o PDF real e o reabre com pdfjs): 5 folhas → 5 páginas, fotos presentes e sem distorção na folha Pós 60 e nas 4 páginas do SGZ.
+- [x] Folha Pós 60 exibe a coluna **FV** com o valor `FV-108101`.
+- [x] Emissor com as seções 1 Modelo, 2 Dados, **3 Logotipos e cabeçalho**, 4 Fotos e as chips de estado.
+- [x] Responsividade conferida em `mobile_390` do Analista após as mudanças.
+- [x] Harness temporário e amostras removidos.
+- [ ] **Verificação manual pendente do usuário**: baixar o PDF pelo botão (o caminho de download em si, com `pdf.save`, não é clicável na sandbox) e imprimir com "Gráficos de plano de fundo" desligado, confirmando que as fotos continuam saindo.

@@ -4,8 +4,8 @@
  */
 export async function fileToCompressedDataUrl(
   file: File,
-  maxSide = 1600,
-  quality = 0.82,
+  maxSide = 1500,
+  quality = 0.8,
 ): Promise<string> {
   const bitmap = await loadBitmap(file);
   const { width, height } = fitWithin(bitmap.width, bitmap.height, maxSide);
@@ -52,7 +52,9 @@ function fitWithin(width: number, height: number, maxSide: number) {
 async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof createImageBitmap === "function") {
     try {
-      return await createImageBitmap(file);
+      // "from-image" aplica a orientação EXIF igual à tag <img> do navegador,
+      // evitando fotos giradas no relatório.
+      return await createImageBitmap(file, { imageOrientation: "from-image" });
     } catch {
       /* alguns formatos não são suportados por createImageBitmap */
     }

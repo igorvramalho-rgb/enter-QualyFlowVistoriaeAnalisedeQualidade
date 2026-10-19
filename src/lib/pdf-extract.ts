@@ -40,12 +40,12 @@ interface ColumnLabel {
 
 /**
  * Rótulos da tabela de cabeçalho dos modelos, na ordem em que aparecem:
- * "OS Nº: | Nº FAC: | SERVIÇO EXDA: | POLO: | ENDEREÇO: | DATA:".
+ * "OS Nº: | FV: | SERVIÇO EXDA: | POLO: | ENDEREÇO: | DATA:" (o modelo antigo
+ * grafava esse campo como "Nº FAC").
  */
 const TABLE_LABELS: ColumnLabel[] = [
-  { key: "fv", pattern: /\bfv\b/ },
   { key: "os", pattern: /\bos\s*n[º°.]?|\bos\s*[:=]/ },
-  { key: "fac", pattern: /n[º°.]?\s*fac/ },
+  { key: "fv", pattern: /\bfv\b|n[º°.]?\s*fac/ },
   { key: "servicoExda", pattern: /servi[cc]o\s*exda/ },
   { key: "equipeExecutante", pattern: /equipe/ },
   { key: "tipoNaoConformidade", pattern: /tipo\s*de\s*nao\s*conformidade|tipo/ },
@@ -66,8 +66,8 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
   fv: [
     /\b(fv[\s-]*[0-9][0-9./-]{2,})/,
     /\bfv\s*[:=]\s*([0-9][0-9./-]{2,})/,
+    /n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/,
   ],
-  fac: [/n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/],
   protocoloSgz: [/protocolo\s*(?:sgz)?\s*[:=]?\s*([0-9][0-9./-]{4,})/],
   contratada: [/contratada\s*[:=]\s*([^\n|]{2,60})/],
   servicoExda: [/servi[cc]o\s*exda\s*[:=]?\s*([^\n|]{3,60})/],
@@ -395,6 +395,7 @@ const STOP_WORDS = [
   "equipe executante",
   "equipe",
   "fv",
+  "n fac",
 ];
 
 const OWN_LABELS: Record<string, string[]> = {
@@ -408,7 +409,7 @@ const OWN_LABELS: Record<string, string[]> = {
   servicoExda: ["servico exda"],
   equipeExecutante: ["equipe", "equipe executante"],
   tipoNaoConformidade: ["tipo de nao conformidade"],
-  fv: ["fv"],
+  fv: ["fv", "n fac"],
 };
 
 /** Corta o valor antes do próximo rótulo da ficha (ex.: "FINALIZADA Situação Atual"). */

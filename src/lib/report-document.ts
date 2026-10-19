@@ -35,6 +35,17 @@ export const DEFAULT_SETTINGS: QualyflowSettings = {
   logos: DEFAULT_LOGOS,
 };
 
+/**
+ * Une as configurações salvas com os padrões, garantindo que logos e cabeçalho
+ * sempre existam (um valor ausente não pode quebrar a folha).
+ */
+export function normalizeSettings(value: Partial<QualyflowSettings> | undefined): QualyflowSettings {
+  return {
+    header: { ...DEFAULT_INSTITUTIONAL_HEADER, ...(value?.header ?? {}) },
+    logos: { ...DEFAULT_LOGOS, ...(value?.logos ?? {}) },
+  };
+}
+
 export function emptyPhotoMap(): PhotoMap {
   return {};
 }

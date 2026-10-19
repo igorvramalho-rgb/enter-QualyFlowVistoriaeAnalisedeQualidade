@@ -117,7 +117,6 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
           item.fields.endereco,
           item.fields.polo,
           item.fields.protocoloSgz,
-          item.fields.fac,
           item.fields.equipeExecutante,
           item.fields.tipoNaoConformidade,
         ]

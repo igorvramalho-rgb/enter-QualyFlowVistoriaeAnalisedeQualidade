@@ -54,7 +54,7 @@ export const POS60_OBJETO =
 const POS60_FIELDS: ReportField[] = [
   { id: "contratada", label: "Contratada", placeholder: "Ex.: NOVA NORTE", outsideTable: true },
   { id: "os", label: "OS Nº:", placeholder: "Ex.: 2639236311" },
-  { id: "fac", label: "Nº FAC:", placeholder: "Ex.: 69730" },
+  { id: "fv", label: "FV:", placeholder: "Ex.: FV-108101" },
   { id: "servicoExda", label: "SERVIÇO EXDA:", placeholder: "Ex.: VIA – REPOSIÇÃO ASFÁLTICA" },
   { id: "polo", label: "POLO:", placeholder: "Ex.: Santana" },
   { id: "endereco", label: "ENDEREÇO:", placeholder: "Ex.: RUA SERVILHA, 108" },

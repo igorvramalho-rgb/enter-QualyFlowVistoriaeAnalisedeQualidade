@@ -104,15 +104,24 @@ export function ReportSheetPos60({
             const photo = photos[slot.id];
             return (
               <figure key={slot.id} className="flex min-h-0 flex-col">
-                <div className="sheet-frame flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                <div className="sheet-frame relative min-h-0 flex-1 overflow-hidden">
                   {photo?.dataUrl ? (
-                    <img
-                      src={photo.dataUrl}
-                      alt={slot.caption}
-                      className="h-full w-full object-cover"
-                    />
+                    <div
+                      role="img"
+                      aria-label={slot.caption}
+                      className="sheet-photo-frame sheet-photo-frame--cover absolute inset-0"
+                      style={{ backgroundImage: `url(${photo.dataUrl})` }}
+                    >
+                      <img
+                        src={photo.dataUrl}
+                        alt={slot.caption}
+                        className="sheet-photo-img sheet-photo-img--cover"
+                      />
+                    </div>
                   ) : (
-                    <EmptyPhoto />
+                    <div className="absolute inset-0">
+                      <EmptyPhoto />
+                    </div>
                   )}
                 </div>
                 <figcaption className="mt-[1.4mm] text-[10px] uppercase leading-tight">

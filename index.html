@@ -21,8 +21,12 @@
 
 <body>
   <div id="root"></div>
-  <!-- Porta de impressão: recebe a cópia das folhas A4 usada apenas na impressão -->
-  <div id="print-portal"></div>
+  <!-- Porta de impressão: recebe a cópia das folhas A4 usada na impressão e no PDF.
+       O host controla a visibilidade; a porta em si nunca é ocultada por CSS, pois o
+       html2pdf clona esse elemento e o clone precisa manter o layout normal. -->
+  <div id="print-portal-host">
+    <div id="print-portal"></div>
+  </div>
   <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
   <script type="module" src="/src/main.tsx"></script>
 </body>

@@ -119,9 +119,9 @@ importers:
       framer-motion:
         specifier: ^12.23.12
         version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      html2pdf.js:
-        specifier: ^0.14.0
-        version: 0.14.0
+      html2canvas:
+        specifier: ^1.4.1
+        version: 1.4.1
       i18next:
         specifier: ^25.5.2
         version: 25.10.10(typescript@5.9.3)
@@ -134,6 +134,9 @@ importers:
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      jspdf:
+        specifier: ^4.2.1
+        version: 4.2.1
       lucide-react:
         specifier: ^0.542.0
         version: 0.542.0(react@19.2.5)
@@ -2273,9 +2276,6 @@ packages:
   html2canvas@1.4.1:
     resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
     engines: {node: '>=8.0.0'}
-
-  html2pdf.js@0.14.0:
-    resolution: {integrity: sha512-yvNJgE/8yru2UeGflkPdjW8YEY+nDH5X7/2WG4uiuSCwYiCp8PZ8EKNiTAa6HxJ1NjC51fZSIEq6xld5CADKBQ==}
 
   i18next-browser-languagedetector@8.2.1:
     resolution: {integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==}
@@ -4848,6 +4848,7 @@ snapshots:
   dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
+    optional: true
 
   electron-to-chromium@1.5.339: {}
 
@@ -5087,12 +5088,6 @@ snapshots:
     dependencies:
       css-line-break: 2.1.0
       text-segmentation: 1.0.3
-
-  html2pdf.js@0.14.0:
-    dependencies:
-      dompurify: 3.4.17
-      html2canvas: 1.4.1
-      jspdf: 4.2.1
 
   i18next-browser-languagedetector@8.2.1:
     dependencies:

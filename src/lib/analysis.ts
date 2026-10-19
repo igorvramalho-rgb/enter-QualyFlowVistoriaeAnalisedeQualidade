@@ -22,7 +22,6 @@ export interface AnalysisFieldDefinition {
 export const ANALYSIS_FIELDS: AnalysisFieldDefinition[] = [
   { key: "os", label: "Ordem de Serviço" },
   { key: "fv", label: "FV" },
-  { key: "fac", label: "Nº FAC" },
   { key: "protocoloSgz", label: "Protocolo SGZ" },
   { key: "contratada", label: "Contratada" },
   { key: "servicoExda", label: "Serviço EXDA" },
@@ -48,7 +47,6 @@ export const EXPORT_FIELDS: AnalysisFieldDefinition[] = [
   { key: "equipeExecutante", label: "Equipe Executante" },
   { key: "tipoNaoConformidade", label: "Tipo de Não Conformidade" },
   { key: "polo", label: "Polo" },
-  { key: "fac", label: "Nº FAC" },
   { key: "protocoloSgz", label: "Protocolo SGZ" },
   { key: "contratada", label: "Contratada" },
   { key: "servicoExda", label: "Serviço EXDA" },

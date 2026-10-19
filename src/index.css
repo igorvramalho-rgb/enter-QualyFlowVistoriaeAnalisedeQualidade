@@ -204,6 +204,42 @@
     font-weight: 700;
   }
 
+  /* Fotografias das folhas: <img> para a impressão e fundo equivalente para a
+     captura do PDF, já que o html2canvas não implementa object-fit. */
+  .sheet-photo-frame {
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+  }
+
+  .sheet-photo-frame--contain {
+    background-size: contain;
+  }
+
+  .sheet-photo-frame--cover {
+    background-size: cover;
+  }
+
+  .sheet-photo-img {
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
+
+  .sheet-photo-img--contain {
+    object-fit: contain;
+  }
+
+  .sheet-photo-img--cover {
+    object-fit: cover;
+  }
+
+  /* Durante a captura do PDF a imagem dá lugar ao fundo equivalente (regra sem
+     impacto de layout: pode ser copiada para o clone do html2canvas) */
+  .exporting .sheet-photo-img {
+    display: none !important;
+  }
+
   .sheet-photo-box {
     border: 1px solid hsl(var(--sheet-line));
   }
@@ -343,21 +379,24 @@ body,
   min-height: 100%;
 }
 
-/* Porta de impressão: recebe uma cópia das folhas e fica oculta na tela */
-#print-portal {
+/* Porta de impressão: o HOST fica oculto na tela; a porta em si nunca é
+   ocultada por seletor de id, porque o html2canvas clona esse elemento e o
+   clone precisa manter o layout em fluxo normal. */
+#print-portal-host {
   display: none;
 }
 
-/* Durante a geração do PDF a porta é posicionada fora da tela, mantendo o
-   layout em tamanho real para a captura do html2canvas. */
-#print-portal.exporting {
+/* Durante a geração do PDF o host é posicionado fora do fluxo (fora da vista,
+   sem criar rolagem). O clone da porta não é afetado por estas regras. */
+#print-portal-host.exporting {
   display: block !important;
   position: absolute;
   top: 0;
-  left: -20000px;
+  left: 0;
   width: 210mm;
   background: #ffffff;
   z-index: -1;
+  pointer-events: none;
 }
 
 /* Separação visual entre as folhas apenas na pré-visualização */
@@ -391,7 +430,7 @@ body,
     display: none !important;
   }
 
-  html.has-print-sheets #print-portal {
+  html.has-print-sheets #print-portal-host {
     display: block !important;
   }
 

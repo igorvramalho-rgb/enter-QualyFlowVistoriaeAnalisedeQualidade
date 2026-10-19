@@ -137,15 +137,24 @@ export function ReportSheetSgz({
           </div>
         ) : null}
 
-        <div className="sheet-photo-box m-[3mm] flex flex-1 items-center justify-center overflow-hidden p-[3mm]">
+        <div className="sheet-photo-box relative m-[3mm] flex-1 overflow-hidden">
           {photo?.dataUrl ? (
-            <img
-              src={photo.dataUrl}
-              alt={slot.caption}
-              className="h-full w-full object-contain"
-            />
+            <div
+              role="img"
+              aria-label={slot.caption}
+              className="sheet-photo-frame sheet-photo-frame--contain absolute inset-[3mm]"
+              style={{ backgroundImage: `url(${photo.dataUrl})` }}
+            >
+              <img
+                src={photo.dataUrl}
+                alt={slot.caption}
+                className="sheet-photo-img sheet-photo-img--contain"
+              />
+            </div>
           ) : (
-            <EmptyPhoto />
+            <div className="absolute inset-[3mm]">
+              <EmptyPhoto />
+            </div>
           )}
         </div>
       </div>

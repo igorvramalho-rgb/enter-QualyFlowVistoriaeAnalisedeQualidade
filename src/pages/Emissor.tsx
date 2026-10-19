@@ -33,6 +33,7 @@ import {
   type PhotoEntry,
   type PhotoMap,
   type QualyflowSettings,
+  normalizeSettings,
   type ReportDraft,
   type ReportValues,
 } from "@/lib/report-document";
@@ -63,6 +64,7 @@ export default function Emissor() {
   const [exporting, setExporting] = useState(false);
 
   const template = getTemplate(templateId);
+  const safeSettings = useMemo(() => normalizeSettings(settings), [settings]);
   const pages = useMemo(() => includedSlots(templateId, photos).length, [templateId, photos]);
   const filledPhotos = useMemo(() => countFilledPhotos(templateId, photos), [templateId, photos]);
   const { outerRef, innerRef, scale, height } = useScaledContainer(794);
@@ -74,7 +76,7 @@ export default function Emissor() {
       photos={photos}
       objeto={objeto}
       observacoes={observacoes}
-      settings={settings}
+      settings={safeSettings}
     />
   );
 
