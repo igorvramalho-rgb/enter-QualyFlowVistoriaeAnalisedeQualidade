@@ -37,6 +37,14 @@ export default {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
 					foreground: 'hsl(var(--muted-foreground))'
@@ -52,6 +60,25 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
+				},
+				brand: {
+					DEFAULT: 'hsl(var(--brand))',
+					deep: 'hsl(var(--brand-deep))',
+					green: 'hsl(var(--brand-green))'
+				},
+				sheet: {
+					bg: 'hsl(var(--sheet-bg))',
+					fg: 'hsl(var(--sheet-fg))',
+					line: 'hsl(var(--sheet-line))',
+					head: 'hsl(var(--sheet-head))',
+					muted: 'hsl(var(--sheet-muted))'
+				},
+				chart: {
+					1: 'hsl(var(--chart-1))',
+					2: 'hsl(var(--chart-2))',
+					3: 'hsl(var(--chart-3))',
+					4: 'hsl(var(--chart-4))',
+					5: 'hsl(var(--chart-5))'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -69,6 +96,17 @@ export default {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			backgroundImage: {
+				'brand-gradient': 'var(--gradient-primary)',
+				'brand-surface': 'var(--gradient-subtle)'
+			},
+			boxShadow: {
+				elegant: 'var(--shadow-elegant)',
+				glow: 'var(--shadow-glow)'
+			},
+			fontFamily: {
+				sheet: ['Arial', 'Helvetica', 'Liberation Sans', 'sans-serif']
+			},
 			keyframes: {
 				'accordion-down': {
 					from: {
@@ -85,11 +123,31 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					from: {
+						opacity: '0'
+					},
+					to: {
+						opacity: '1'
+					}
+				},
+				'slide-up': {
+					from: {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					to: {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.25s ease-out',
+				'slide-up': 'slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
 			}
 		}
 	},

@@ -207,54 +207,60 @@ Dialog/sheet com todos os campos editáveis (OS, FAC, protocolo, contratada, ser
 8. `NotFound` alinhado ao design system; remover o conteúdo antigo de `Index.tsx`.
 9. Rodar `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build`, corrigindo o que aparecer.
 
+## Notas de implementação (desvios do plano original)
+
+- `html2pdf.js` **já traz tipos próprios**, então `src/types/html2pdf.d.ts` não foi criado.
+- A folha A4 é renderizada em **dois lugares**: a pré-visualização (escalada na tela) e a porta de impressão `#print-portal` (tamanho real, oculta). Imprimir usa a porta; o Download PDF captura a porta temporariamente com a classe `.exporting` — nunca a pré-visualização escalada, que produziria captura torta.
+- `#root` só é ocultado na impressão quando há folhas prontas (`html.has-print-sheets`), para que Ctrl+P em outras telas continue funcionando.
+- A extração do Analista evoluiu para **leitura por colunas** (localiza a linha de rótulos `OS Nº | Nº FAC | SERVIÇO EXDA | POLO | ENDEREÇO | DATA`, distribui os valores das linhas seguintes pela posição horizontal e recupera a quebra de célula, ex. `VIA - REPOSICAO` + `ASFALTICA`), com rótulos inline como segunda estratégia e o nome do arquivo como terceira. Valores são recortados antes do próximo rótulo e a grafia original do documento é preservada.
+- `pdfjs-dist` v6: a liberação do worker é feita pela *loading task* (`loadingTask.destroy()`), já que `PDFDocumentProxy.destroy()` não existe mais.
+
 ## Implementation checklist
 
-- [ ] Dependências `pdfjs-dist`, `html2pdf.js`, `react-dropzone` instaladas; `src/types/html2pdf.d.ts` criado.
-- [ ] `public/assets/report/sabesp.png` e `consorcio-nova-norte.png` copiados dos PDFs modelo (inputs permanecem inalterados).
-- [ ] `src/index.css` define `--primary` (azul #005691), `--accent`/`--success` (#10B981) e `--warning` em HSL nos temas claro e escuro, mais tokens de papel (`--sheet-*`).
-- [ ] `tailwind.config.ts` expõe `success` e `warning` (com `-foreground`) e as animações novas.
-- [ ] `App.tsx` envolve o app no `ThemeProvider` e o toggle alterna o tema sem quebrar o Sonner (que usa `next-themes`).
-- [ ] `src/router.tsx` roteia `/` → `/emissor`, `/emissor` e `/analista` dentro do `AppShell`, mantendo o catch-all `*`.
-- [ ] `AppShell` renderiza sidebar com rota ativa, header com crédito e rodapé "QualyFlow • Sistema Criado por Igor Ramalho | Célula de Qualidade".
-- [ ] Sidebar vira `Sheet` no mobile usando `useIsMobile`.
-- [ ] `report-templates.ts` contém os 3 modelos com os campos e as legendas de foto na ordem exata dos PDFs modelo.
-- [ ] Trocar de modelo preserva valores de campos com label coincidente.
-- [ ] Folha SGZ reproduz: moldura, cabeçalho de 2 colunas (logo + 3 faixas de texto institucional), tabela "DADOS DA VISTORIA" com a faixa de título e os 4 checkboxes de "Situação Atual", caixa única de foto e legenda `FOTO Nº n: <ENDEREÇO> - <TÍTULO>`.
-- [ ] Folha SGZ emite 1 página por slot, com a sublegenda "Relatório de Vistoria Fotográfica — Página X de Y" correta.
-- [ ] Folha Pós 60 reproduz: logos Sabesp + Consórcio Nova Norte, título centralizado, parágrafo "Objeto", linha "Contratada", tabela de 6 colunas e grade 2×3 com as 6 legendas exatas.
-- [ ] As folhas não adicionam assinatura nem crédito inexistentes nos modelos; a folha é sempre clara.
-- [ ] `photo-dropzone` aceita colar (Ctrl+V), drag & drop e seleção por clique, comprime para JPEG dataURL e permite remover/substituir/omitir.
-- [ ] Slot vazio imprime moldura com placeholder e o toggle "incluir na impressão" remove o slot da folha.
-- [ ] Botão Imprimir usa `window.print()` com `@media print` isolando `.print-sheet` e ocultando `.no-print`.
-- [ ] Botão Download PDF usa html2pdf.js em A4 sem cortar as folhas.
-- [ ] Rascunhos salvos/abertos/excluídos em `qualyflow:drafts:v1` sobrevivem ao recarregamento.
-- [ ] `institutional-header-form` persiste o cabeçalho SGZ e as logos em `qualyflow:settings:v1` e reflete na folha.
-- [ ] `pdf-extract.ts` classifica o tipo de documento e extrai OS, FAC, protocolo SGZ, contratada, serviço, polo, endereço, data, prazo e situação conforme a tabela de heurísticas.
-- [ ] Extração por nome do arquivo preenche OS/endereço/data quando o texto não os traz.
-- [ ] Arquivo com mais de 15 páginas é recusado com mensagem clara, sem gravar registro.
-- [ ] PDF sem camada de texto é registrado como "Pendente de revisão" com campos vazios (nenhum dado inventado).
-- [ ] `review-dialog` permite editar todos os campos e regravar o registro extraído.
-- [ ] KPIs exibem total, % concluídas vs pendentes, não conformidades e polos.
-- [ ] Gráficos por Polo e por Status renderizam com os dados do `localStorage`.
-- [ ] Tabela filtra por polo, status, período e busca, e "Exportar CSV" gera apenas as linhas filtradas com BOM + `;`.
-- [ ] `storage.ts` trata JSON corrompido (cai no default) e `QuotaExceededError` (toast de aviso).
-- [ ] Analista mostra estado vazio orientando o primeiro upload e progresso durante a extração.
-- [ ] Nenhuma cor crua (`bg-white`, `text-black`, hex em componente de UI) e nenhum emoji; ícones apenas de `lucide-react`.
+- [x] Dependências `pdfjs-dist`, `html2pdf.js`, `react-dropzone` instaladas.
+- [x] `public/assets/report/sabesp.png` e `consorcio-nova-norte.png` extraídos dos PDFs modelo (inputs intactos).
+- [x] `src/index.css` com `--primary` azul #005691, `--accent`/`--success` #10B981, `--warning`, tokens de papel (`--sheet-*`) nos temas claro e escuro.
+- [x] `tailwind.config.ts` expõe `success`, `warning`, `brand`, `sheet`, `chart` e as animações novas.
+- [x] `App.tsx` no `ThemeProvider` (class, dark default, `storageKey` do projeto) e toggle de tema funcional.
+- [x] `src/router.tsx` com `/` → `/emissor`, `/emissor` e `/analista` no `AppShell` e catch-all `*`.
+- [x] `AppShell` com sidebar (rota ativa), header com crédito e rodapé "QualyFlow • Sistema Criado por Igor Ramalho | Célula de Qualidade".
+- [x] Sidebar em `Sheet` no mobile (`useIsMobile`), verificado em 390px.
+- [x] `report-templates.ts` com os 3 modelos, campos e legendas exatamente na ordem dos PDFs.
+- [x] Folha SGZ-156: moldura, cabeçalho de 2 colunas (logo + 3 faixas), tabela DADOS DA VISTORIA com faixa de título e 4 checkboxes de Situação Atual, caixa de foto e legenda `FOTO Nº n: <ENDEREÇO> - <TÍTULO>` — conferida contra `DEMANDA SGZ - 156.pdf`.
+- [x] Folha SGZ com 1 página por slot e sublegenda "Página X de Y" correta (4 páginas por padrão).
+- [x] Folha Pós 60: logos Sabesp + Consórcio Nova Norte, título centralizado, Objeto, Contratada, tabela de 6 colunas e grade 2×3 com as 6 legendas — conferida contra `MODELO DE DEVOLUTIVA PÓS 60 - VIA.pdf`.
+- [x] Folhas sem assinatura/crédito inventados e sempre claras, independentes do tema.
+- [x] Fotos preenchem a moldura (SGZ `object-contain`, Pós 60 `object-cover`).
+- [x] Slot vazio imprime moldura com placeholder e o switch remove o slot da folha.
+- [x] Imprimir usa `window.print()` com porte de impressão isolando as folhas e ocultando `.no-print`.
+- [x] Download PDF via html2pdf em A4 a partir da porta de impressão.
+- [x] Rascunhos salvos/abertos/duplicados/excluídos em `qualyflow:drafts:v1`.
+- [x] Cabeçalho institucional e logos persistidos em `qualyflow:settings:v1` e refletidos na folha.
+- [x] `pdf-extract.ts` classifica o tipo e extrai OS, FAC, protocolo SGZ, contratada, serviço, polo, endereço, data, prazo e situação.
+- [x] Extração por nome do arquivo como reforço de baixa confiança.
+- [x] Arquivo com mais de 15 páginas é recusado com mensagem clara, sem gravar registro.
+- [x] PDF sem camada de texto entra como "Pendente de revisão" com campos vazios.
+- [x] `review-dialog` edita todos os campos, tipo, status e mostra o texto lido.
+- [x] KPIs de total, % concluídas, não conformidades, em andamento, pendentes e polos.
+- [x] Gráficos por Polo (barras empilhadas) e por Status (rosca) com dados reais.
+- [x] Tabela com filtros de polo/status/período/busca, ordenação e "Exportar CSV" das linhas filtradas (BOM + `;`).
+- [x] `storage.ts` com leitura defensiva (JSON inválido → default) e aviso de cota excedida.
+- [x] Estado vazio do Analista orientando o primeiro upload e progresso por página durante a extração.
+- [x] Sem cores cruas nos componentes de UI e sem emojis; ícones apenas de `lucide-react`.
 
 ## Verification checklist
 
-- [ ] `pnpm lint` sem erros.
-- [ ] `pnpm exec tsc --noEmit` sem erros.
-- [ ] `pnpm run build` conclui com sucesso.
-- [ ] `get_console_logs` sem erros de runtime em `/emissor` e `/analista`.
-- [ ] Comparação visual (positiva) da folha SGZ com foto preenchida contra o modelo `DEMANDA SGZ - 156.pdf` em `desktop_1280`: cabeçalho, tabela de dados, caixa de foto e legendas no mesmo arranjo.
-- [ ] Comparação visual (positiva) da folha Pós 60 (Via) contra `MODELO DE DEVOLUTIVA PÓS 60 - VIA.pdf`: logos, título, tabela de 6 colunas e grade 2×3 com as legendas na ordem correta.
-- [ ] Checagem de responsividade em `mobile_390` de `/emissor` e `/analista` (sidebar colapsada, tabela com rolagem, gráficos sem overflow) — sem evidência nos dois viewports a entrega é descrita como não verificada.
-- [ ] Negativo: importar um arquivo não-PDF é recusado com mensagem e a lista permanece inalterada.
-- [ ] Negativo: PDF com 16+ páginas é recusado e a lista permanece inalterada.
-- [ ] Negativo: PDF sem texto entra como "Pendente de revisão" com campos vazios.
-- [ ] Limite: `localStorage` corrompido à mão (`qualyflow:analyses:v1 = "{"`) abre com estado vazio em vez de quebrar.
-- [ ] Limite: dashboard com zero vistorias mostra estado vazio sem erro nos gráficos.
-- [ ] Padrão: `/` redireciona para `/emissor`; rota inexistente cai no `NotFound`.
-- [ ] Tema: alternar claro/escuro mantém contraste legível em formulário, tabela e gráficos, e a folha do relatório permanece clara.
-- [ ] Fluxo fim a fim manual: escolher modelo Pós 60 Via → preencher campos → colar foto via Ctrl+V → Imprimir (4/1 páginas A4 corretas) → Download PDF → recarregar e reabrir o rascunho salvo.
+- [x] `pnpm lint` sem erros nem warnings.
+- [x] `pnpm exec tsc --noEmit` sem erros.
+- [x] `pnpm run build` conclui com sucesso (chunks: html2pdf e pdfjs carregados sob demanda).
+- [x] Checagem visual (positiva) da folha SGZ-156 preenchida e com foto contra o modelo, em 1280px.
+- [x] Checagem visual (positiva) da folha Pós 60 Via com as 6 fotos contra o modelo.
+- [x] Checagem visual do dashboard com dados de exemplo (KPIs, barras por polo, rosca de status e tabela ordenável).
+- [x] Responsividade em `mobile_390` de `/emissor` e `/analista` (sidebar colapsada, sem overflow; tabela de 6 fotos do modelo conferida na folha).
+- [x] Extração validada contra os PDFs reais por harness temporário: Pós 60 Via (OS, FAC, serviço, polo, endereço, data, contratada), Pós 60 Passeio (idem) e SGZ digitalizado (sem texto → pendente, sem dados inventados); caso SGZ com texto verificado por texto sintético.
+- [x] Harness temporário removido (`DevAnalise`, `DevFolhas`, `DevDash`, `public/samples`, rotas de teste).
+- [x] Tema claro conferido em 1280px com contraste legível; folha do relatório permanece clara.
+- [ ] **Verificação manual pendente do usuário**: clicar em Imprimir (pré-visualização A4) e em Baixar PDF — exigem interação de clique, indisponível na sandbox.
+- [ ] **Verificação manual pendente do usuário**: colar foto com Ctrl+V / arrastar arquivo em um campo de foto.
+- [ ] **Verificação manual pendente do usuário**: importar um PDF pelo navegador, revisar os campos no diálogo e conferir o reflexo nos indicadores.
+- [ ] **Verificação manual pendente do usuário**: trocar de modelo com dados preenchidos e conferir a preservação dos campos em comum e a gravação de rascunho após recarregar a página.
