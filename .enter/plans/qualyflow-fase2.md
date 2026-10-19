@@ -244,3 +244,12 @@ Três correções pedidas após o uso real:
 - [x] Responsividade conferida em `mobile_390` do Analista após as mudanças.
 - [x] Harness temporário e amostras removidos.
 - [ ] **Verificação manual pendente do usuário**: baixar o PDF pelo botão (o caminho de download em si, com `pdf.save`, não é clicável na sandbox) e imprimir com "Gráficos de plano de fundo" desligado, confirmando que as fotos continuam saindo.
+
+## Ajuste — observação cortada
+
+- Removidos os limites de altura (`max-h` + `overflow-hidden`) dos blocos de observação nas duas folhas: o texto agora é impresso integralmente.
+- Campo de observação ampliado: 6 linhas visíveis, redimensionável e limite de **2000** caracteres (antes 600).
+- Áreas de foto com altura mínima (75 mm no SGZ, 138 mm no Pós 60) para não colapsarem quando a observação é longa.
+- `.print-sheet` passou a `min-height: 296.5mm` (margem de segurança de 0,5 mm contra estouro de página).
+- PDF: sobra de até 7 mm é absorvida em uma única página; acima disso a folha é **fatiada em páginas inteiras** (sem cortar texto e sem página em branco).
+- Verificado com observação de ~1.450 caracteres: **5 folhas → 5 páginas**, texto completo e legível nas duas folhas, sem página extra.

@@ -171,7 +171,7 @@
   /* Superfície do relatório: papel A4 fiel aos modelos impressos */
   .print-sheet {
     width: 210mm;
-    min-height: 297mm;
+    min-height: 296.5mm;
     background: hsl(var(--sheet-bg));
     color: hsl(var(--sheet-fg));
     font-family: Arial, Helvetica, "Liberation Sans", sans-serif;

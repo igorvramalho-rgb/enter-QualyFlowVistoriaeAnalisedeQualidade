@@ -93,13 +93,13 @@ export function ReportSheetPos60({
         {observacoes?.trim() ? (
           <div className="mt-[3mm] border border-sheet-line px-[2mm] py-[1.5mm]">
             <p className="text-[10px] font-bold">Observações</p>
-            <p className="mt-[0.8mm] max-h-[18mm] overflow-hidden whitespace-pre-wrap text-[10px] leading-snug">
+            <p className="mt-[0.8mm] whitespace-pre-wrap text-[10px] leading-snug">
               {observacoes}
             </p>
           </div>
         ) : null}
 
-        <div className="mt-[5mm] grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-x-[5mm] gap-y-[4mm]">
+        <div className="mt-[5mm] grid min-h-[138mm] flex-1 grid-cols-2 grid-rows-3 gap-x-[5mm] gap-y-[4mm]">
           {slots.map((slot) => {
             const photo = photos[slot.id];
             return (

@@ -131,13 +131,13 @@ export function ReportSheetSgz({
         {pageNumber === 1 && observacoes?.trim() ? (
           <div className="border-t border-sheet-line px-[2mm] py-[1.8mm]">
             <p className="text-[10.5px] font-bold">Observações</p>
-            <p className="mt-[0.8mm] max-h-[20mm] overflow-hidden whitespace-pre-wrap text-[10px] leading-snug">
+            <p className="mt-[0.8mm] whitespace-pre-wrap text-[10px] leading-snug">
               {observacoes}
             </p>
           </div>
         ) : null}
 
-        <div className="sheet-photo-box relative m-[3mm] flex-1 overflow-hidden">
+        <div className="sheet-photo-box relative m-[3mm] min-h-[75mm] flex-1 overflow-hidden">
           {photo?.dataUrl ? (
             <div
               role="img"

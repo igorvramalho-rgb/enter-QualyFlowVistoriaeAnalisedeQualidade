@@ -63,6 +63,8 @@ export async function buildReportDocument(): Promise<{ pdf: JsPdfDocument; pages
       compress: true,
     });
 
+    let pageCount = 0;
+
     for (let index = 0; index < sheets.length; index += 1) {
       const canvas = await html2canvas(sheets[index], {
         scale: 2,
@@ -71,14 +73,53 @@ export async function buildReportDocument(): Promise<{ pdf: JsPdfDocument; pages
         logging: false,
       });
 
-      const image = canvas.toDataURL("image/jpeg", 0.96);
-      if (index > 0) {
-        pdf.addPage("a4", "portrait");
+      // Uma folha pode passar de A4 quando a observação é longa. Uma sobra de
+      // até 7 mm é absorvida em uma única página (compressão imperceptível);
+      // acima disso o conteúdo é fatiado em páginas inteiras, sem cortar texto.
+      const heightInMm = (canvas.height / canvas.width) * 210;
+      const sliceHeight = Math.floor((297 / 210) * canvas.width);
+      const slices = heightInMm <= 304 ? 1 : Math.ceil(canvas.height / sliceHeight);
+
+      for (let slice = 0; slice < slices; slice += 1) {
+        const offsetY = slice * sliceHeight;
+        const height = Math.min(sliceHeight, canvas.height - offsetY);
+        if (height <= 0) {
+          continue;
+        }
+
+        let source = canvas;
+        if (slices > 1) {
+          const part = document.createElement("canvas");
+          part.width = canvas.width;
+          part.height = height;
+          const context = part.getContext("2d");
+          if (!context) {
+            continue;
+          }
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, height);
+          context.drawImage(canvas, 0, offsetY, canvas.width, height, 0, 0, canvas.width, height);
+          source = part;
+        }
+
+        if (pageCount > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+        pdf.addImage(
+          source.toDataURL("image/jpeg", 0.96),
+          "JPEG",
+          0,
+          0,
+          210,
+          slices === 1 ? 297 : (height / canvas.width) * 210,
+          undefined,
+          "FAST",
+        );
+        pageCount += 1;
       }
-      pdf.addImage(image, "JPEG", 0, 0, 210, 297, undefined, "FAST");
     }
 
-    return { pdf, pages: sheets.length };
+    return { pdf, pages: pageCount };
   } finally {
     host.classList.remove("exporting");
     portal.classList.remove("exporting");

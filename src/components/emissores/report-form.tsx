@@ -23,7 +23,7 @@ interface ReportFormProps {
   onObservacoesChange: (value: string) => void;
 }
 
-const MAX_OBSERVACOES = 600;
+const MAX_OBSERVACOES = 2000;
 
 export function ReportForm({
   template,
@@ -109,12 +109,12 @@ export function ReportForm({
         </div>
         <Textarea
           id="campo-observacoes"
-          rows={4}
+          rows={6}
           maxLength={MAX_OBSERVACOES}
+          className="min-h-[120px] resize-y bg-background/70 text-sm leading-snug"
           value={observacoes}
           placeholder="Ex.: acesso pelo portão lateral, obra liberada às 14h, pendência de sinalização provisória..."
           onChange={(event) => onObservacoesChange(event.target.value)}
-          className="bg-background/70 text-sm leading-snug"
         />
         <p className="text-xs text-muted-foreground">
           O bloco de observações só aparece na folha quando há texto — caso contrário, o relatório
