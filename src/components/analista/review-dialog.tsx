@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import {
   ANALYSIS_FIELDS,
+  isKnownPolo,
+  POLOS,
   CONFIDENCE_LABELS,
   DOCUMENT_TYPE_LABELS,
   STATUS_LABELS,
@@ -85,22 +87,55 @@ export function ReviewDialog({ record, onOpenChange, onSave }: ReviewDialogProps
                         {CONFIDENCE_LABELS[draft.confidence[field.key] ?? "nenhuma"]}
                       </Badge>
                     </div>
-                    <Input
-                      id={`analise-${field.key}`}
-                      value={draft.fields[field.key] ?? ""}
-                      onChange={(event) =>
-                        setDraft((previous) =>
-                          previous
-                            ? {
-                                ...previous,
-                                fields: { ...previous.fields, [field.key]: event.target.value },
-                                confidence: { ...previous.confidence, [field.key]: "alta" },
-                              }
-                            : previous,
-                        )
-                      }
-                      className="bg-background/70"
-                    />
+                    {field.key === "polo" ? (
+                      <Select
+                        value={draft.fields.polo || undefined}
+                        onValueChange={(value) =>
+                          setDraft((previous) =>
+                            previous
+                              ? {
+                                  ...previous,
+                                  fields: { ...previous.fields, polo: value },
+                                  confidence: { ...previous.confidence, polo: "alta" },
+                                }
+                              : previous,
+                          )
+                        }
+                      >
+                        <SelectTrigger id={`analise-${field.key}`} className="bg-background/70">
+                          <SelectValue placeholder="Selecione o polo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {POLOS.map((polo) => (
+                            <SelectItem key={polo} value={polo}>
+                              {polo}
+                            </SelectItem>
+                          ))}
+                          {draft.fields.polo && !isKnownPolo(draft.fields.polo) && (
+                            <SelectItem value={draft.fields.polo}>
+                              {draft.fields.polo} (outro)
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        id={`analise-${field.key}`}
+                        value={draft.fields[field.key] ?? ""}
+                        onChange={(event) =>
+                          setDraft((previous) =>
+                            previous
+                              ? {
+                                  ...previous,
+                                  fields: { ...previous.fields, [field.key]: event.target.value },
+                                  confidence: { ...previous.confidence, [field.key]: "alta" },
+                                }
+                              : previous,
+                          )
+                        }
+                        className="bg-background/70"
+                      />
+                    )}
                   </div>
                 ))}
 

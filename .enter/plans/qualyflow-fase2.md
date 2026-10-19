@@ -260,3 +260,13 @@ Três correções pedidas após o uso real:
 - A extração lê **os dois rótulos** nos PDFs ("Nº FAC" e "FV"), gravando sempre em Nº FAC.
 - Migração automática dos dados já salvos: registros de análise e rascunhos que ficaram com `fv` são convertidos para `fac` ao abrir a tela, sem perder valores.
 - Verificado: folha com coluna **Nº FAC** e valor 69730; migração `fv → fac` em rascunho e registro; registro que já tem `fac` não é alterado.
+
+## Blocos de importação por polo
+
+- Polos fixos: **Vila Maria / Santana**, **Freguesia** e **Gopoúva** (`POLOS` em `src/lib/analysis.ts`).
+- A tela do Analista passou a ter **um bloco de importação por polo** (grade de 3 no desktop, empilhada no mobile). O arquivo solto/clicado no bloco recebe aquele polo no registro — o polo do bloco prevalece sobre o texto do PDF e entra com confiança "Alta".
+- Cada bloco mostra a contagem de vistorias do polo e o recorte por situação (conformes, em andamento, não conformes e a revisar), com progresso de leitura dentro do próprio bloco.
+- O gráfico "Vistorias por Polo/Região" e o filtro de polo da tabela seguem a ordem fixa dos três polos; polos desconhecidos aparecem depois.
+- O diálogo de revisão passou a oferecer **Nº polo como lista** dos três polos (mantendo valores antigos de outros polos como opção extra).
+- `pdf-uploader.tsx` foi substituído por `polo-upload-grid.tsx`.
+- Verificado com base de teste: 2 vistorias por polo, contagens e chips corretos, KPIs (6 vistorias, 3 polos) e gráfico na ordem Vila Maria / Santana → Freguesia → Gopoúva. Base de teste limpa ao final.

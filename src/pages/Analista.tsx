@@ -10,14 +10,24 @@ import {
   type StatusDatum,
 } from "@/components/analista/charts";
 import { KpiCards } from "@/components/analista/kpi-cards";
-import { PdfUploader, type UploadProgress } from "@/components/analista/pdf-uploader";
+import {
+  PoloUploadGrid,
+  type PoloSummary,
+  type UploadProgress,
+} from "@/components/analista/polo-upload-grid";
 import { ReviewDialog } from "@/components/analista/review-dialog";
 import { VistoriasTable } from "@/components/analista/vistorias-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { migrateRecordFields, normalizeNcType, type AnalysisRecord } from "@/lib/analysis";
+import {
+  comparePolo,
+  migrateRecordFields,
+  normalizeNcType,
+  POLOS,
+  type AnalysisRecord,
+} from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
 import { STORAGE_KEYS } from "@/lib/storage";
 
@@ -61,6 +71,36 @@ export default function Analista() {
     );
   }, [needsMigration, setAnalyses]);
 
+  const poloSummaries = useMemo<PoloSummary[]>(() => {
+    const base = POLOS.map((polo) => ({
+      polo,
+      total: 0,
+      conforme: 0,
+      emAndamento: 0,
+      naoConforme: 0,
+      pendente: 0,
+    }));
+
+    analyses.forEach((item) => {
+      const target = base.find((entry) => entry.polo === item.fields.polo?.trim());
+      if (!target) {
+        return;
+      }
+      target.total += 1;
+      if (item.status === "conforme") {
+        target.conforme += 1;
+      } else if (item.status === "em_andamento") {
+        target.emAndamento += 1;
+      } else if (item.status === "nao_conforme") {
+        target.naoConforme += 1;
+      } else {
+        target.pendente += 1;
+      }
+    });
+
+    return base;
+  }, [analyses]);
+
   const poloData = useMemo<PoloDatum[]>(() => {
     const map = new Map<string, PoloDatum>();
     analyses.forEach((item) => {
@@ -76,7 +116,7 @@ export default function Analista() {
       }
       map.set(polo, entry);
     });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    return Array.from(map.values()).sort((a, b) => comparePolo(a.polo, b.polo));
   }, [analyses]);
 
   const statusData = useMemo<StatusDatum[]>(
@@ -114,7 +154,7 @@ export default function Analista() {
 
   const tiposNcDistintos = ncTypeData.filter((item) => item.tipo !== "OUTROS TIPOS").length;
 
-  const handleFiles = async (files: File[]) => {
+  const handleFiles = async (files: File[], polo?: string) => {
     setBusy(true);
     const added: AnalysisRecord[] = [];
     let duplicates = 0;
@@ -132,12 +172,22 @@ export default function Analista() {
           total: 0,
           fileIndex: index + 1,
           fileCount: files.length,
+          polo,
         });
 
         try {
-          const record = await analyzePdfFile(file, (page, total) => {
+          const extracted = await analyzePdfFile(file, (page, total) => {
             setProgress((previous) => (previous ? { ...previous, page, total } : previous));
           });
+
+          // O bloco define o polo: ele prevalece sobre o texto do PDF
+          const record = polo
+            ? {
+                ...extracted,
+                fields: { ...extracted.fields, polo },
+                confidence: { ...extracted.confidence, polo: "alta" as const },
+              }
+            : extracted;
 
           if (known.has(record.fingerprint)) {
             duplicates += 1;
@@ -163,12 +213,14 @@ export default function Analista() {
       toast.success(
         added.length === 1 ? "Vistoria analisada" : `${added.length} vistorias analisadas`,
         {
-          description: [
-            duplicates > 0 ? `${duplicates} já constavam na base` : null,
-            failed > 0 ? `${failed} com falha de leitura` : null,
-          ]
-            .filter(Boolean)
-            .join(" • ") || undefined,
+          description:
+            [
+              polo ? `Polo: ${polo}` : null,
+              duplicates > 0 ? `${duplicates} já constavam na base` : null,
+              failed > 0 ? `${failed} com falha de leitura` : null,
+            ]
+              .filter(Boolean)
+              .join(" • ") || undefined,
         },
       );
       return;
@@ -231,12 +283,17 @@ export default function Analista() {
       <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <p>
-          A leitura roda no seu navegador e nada é enviado para servidores. PDFs digitalizados (sem
-          camada de texto) entram como "Pendente de revisão" para conferência manual.
+          A leitura roda no seu navegador e nada é enviado para servidores. Cada bloco grava o polo no
+          arquivo importado; PDFs digitalizados entram como "Pendente de revisão" para conferência manual.
         </p>
       </div>
 
-      <PdfUploader onFiles={(files) => void handleFiles(files)} busy={busy} progress={progress} />
+      <PoloUploadGrid
+        summaries={poloSummaries}
+        busy={busy}
+        progress={progress}
+        onFiles={(files, polo) => void handleFiles(files, polo)}
+      />
 
       {analyses.length === 0 ? (
         <Card className="flex flex-col items-center gap-3 border-dashed border-glass-border/60 px-6 py-14 text-center">
@@ -246,8 +303,8 @@ export default function Analista() {
           <div>
             <h2 className="text-sm font-semibold text-foreground">Nenhuma vistoria analisada ainda</h2>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-              Importe o primeiro PDF de vistoria para gerar os indicadores: total de vistorias,
-              percentual de conclusão, não conformidades e distribuição por polo.
+              Importe o primeiro PDF no bloco do polo correspondente para gerar os indicadores: total de
+              vistorias, percentual de conclusão, não conformidades e distribuição por polo.
             </p>
           </div>
         </Card>

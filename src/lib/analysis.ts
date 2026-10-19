@@ -6,6 +6,31 @@
 
 export const MAX_PAGES = 15;
 
+/** Polos operacionais usados na análise. A ordem é a exibida nos blocos. */
+export const POLOS = ["Vila Maria / Santana", "Freguesia", "Gopoúva"] as const;
+
+export type Polo = (typeof POLOS)[number];
+
+export function isKnownPolo(value: string | undefined): value is Polo {
+  return Boolean(value) && (POLOS as readonly string[]).includes(value as string);
+}
+
+/** Ordena polos conhecidos primeiro, na ordem fixa, e os demais depois. */
+export function comparePolo(a: string, b: string): number {
+  const indexA = (POLOS as readonly string[]).indexOf(a);
+  const indexB = (POLOS as readonly string[]).indexOf(b);
+  if (indexA >= 0 && indexB >= 0) {
+    return indexA - indexB;
+  }
+  if (indexA >= 0) {
+    return -1;
+  }
+  if (indexB >= 0) {
+    return 1;
+  }
+  return a.localeCompare(b, "pt-BR");
+}
+
 export type DocumentType = "sgz_156" | "pos_60_passeio" | "pos_60_via" | "indefinido";
 
 export type QualityStatus = "conforme" | "nao_conforme" | "em_andamento" | "pendente";

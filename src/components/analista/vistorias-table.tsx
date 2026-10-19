@@ -22,6 +22,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { buildAnalysisMatrix, SOURCE_LABELS } from "@/lib/analysis-export";
 import {
+  comparePolo,
   normalizeNcType,
   STATUS_LABELS,
   type AnalysisRecord,
@@ -71,14 +72,14 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
     const unique = new Set(
       analyses.map((item) => item.fields.polo?.trim()).filter((value): value is string => Boolean(value)),
     );
-    return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return Array.from(unique).sort(comparePolo);
   }, [analyses]);
 
   const tipos = useMemo(() => {
     const unique = new Set(
       analyses.map((item) => normalizeNcType(item.fields.tipoNaoConformidade)).filter(Boolean),
     );
-    return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return Array.from(unique).sort(comparePolo);
   }, [analyses]);
 
   const filtered = useMemo(() => {
