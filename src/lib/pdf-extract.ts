@@ -187,6 +187,11 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
       setField(key, value, "alta"),
     );
 
+    const itensNaoConformes = extractNonConformityItems(text);
+    if (itensNaoConformes) {
+      setField("tipoNaoConformidade", itensNaoConformes, "media");
+    }
+
     Object.entries(INLINE_PATTERNS).forEach(([key, patterns]) => {
       const value = matchFirst(text, normalized, patterns);
       if (value) {
@@ -469,6 +474,46 @@ function cutAtStopWords(value: string, fieldKey: string): string {
   });
 
   return value.slice(0, cutIndex).trim();
+}
+
+/**
+ * O formulário FV traz a tabela "ITENS AVALIADOS", onde cada item recebe um
+ * veredito (Conforme / Não Conforme / N/A). Aqui são montados os motivos: o
+ * número e a descrição de cada item marcado como "Não Conforme".
+ */
+export function extractNonConformityItems(raw: string, limit = 3): string {
+  const text = raw.replace(/\s+/g, " ");
+  const start = text.search(/itens\s*avaliados/i);
+  const section = start >= 0 ? text.slice(start) : text;
+
+  const found = new Map<string, string>();
+  const verdict = /n[aã]o\s*conforme/gi;
+  let match = verdict.exec(section);
+  let guard = 0;
+
+  while (match && guard < 60) {
+    guard += 1;
+    const before = section.slice(0, match.index);
+    const numberMatch = /(\d+\.\d+)\s+(?![\s\S]*\d+\.\d+)/.exec(before);
+
+    if (numberMatch) {
+      const item = numberMatch[1];
+      const description = before
+        .slice(numberMatch.index + numberMatch[0].length)
+        .replace(/n[aã]o\s*conforme/gi, " ")
+        .replace(/\s{2,}/g, " ")
+        .replace(/\s+(?:caso|e|ou|de|com|para|informe)\s*$/i, "")
+        .trim();
+
+      if (description && !found.has(item)) {
+        found.set(item, `${item} ${description}`.slice(0, 120).trim());
+      }
+    }
+
+    match = verdict.exec(section);
+  }
+
+  return Array.from(found.values()).slice(0, limit).join(" | ");
 }
 
 function rank(level: Confidence): number {

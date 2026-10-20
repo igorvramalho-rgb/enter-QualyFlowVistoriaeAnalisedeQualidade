@@ -33,6 +33,7 @@ import { toast } from "@/components/ui/sonner";
 import { useCloudAnalyses } from "@/hooks/use-cloud-data";
 import { comparePolo, normalizeNcType, POLOS, type AnalysisRecord } from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
+import { countAnalyses } from "@/lib/cloud";
 
 const STATUS_COLORS: Record<string, string> = {
   conforme: "hsl(var(--success))",

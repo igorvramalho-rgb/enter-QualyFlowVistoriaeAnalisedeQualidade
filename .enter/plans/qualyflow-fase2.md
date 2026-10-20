@@ -535,3 +535,27 @@ A leitura da base usava uma única consulta (`select *`), que o servidor limita 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Painel conferido com base de teste: 3 não conformidades em 2 polos (Freguesia 2, Gopoúva 1, Vila Maria / Santana 0), com contagem de "sem motivo informado", exclusão correta de conforme e não avaliado, e o gráfico "Motivos de não conformidade" acima.
 - Paginação e blocos conferidos por leitura de código + tipos; a conferência de volume real depende da base do usuário (chip "na base").
+
+---
+
+# Fase 12 — Correção do erro na tela do Analista e motivos lidos da tabela ITENS AVALIADOS
+
+## Erro relatado
+
+`ReferenceError: countAnalyses is not defined` ao abrir o Analista: o `useEffect` que lê o total da base usava a função sem o import (`import { countAnalyses } from "@/lib/cloud"`). Corrigido; `tsc`, lint e build limpos e a tela do Analista abriu com a base real (510 vistorias carregadas / 510 na base).
+
+## Descoberta com a base real
+
+Consultando os registros, os 416 "Não Conforme" **não são erro de leitura**: o formulário FV traz a tabela **"ITENS AVALIADOS"** com um veredito por item (`Conforme`, `Não Conforme`, `N/A`). O campo de motivo, porém, vinha vazio em todos os registros.
+
+## O que foi feito
+
+- Novo `extractNonConformityItems()`: varre a seção **ITENS AVALIADOS** e monta o motivo a partir de cada item marcado como **"Não Conforme"**, no formato `1.3 REPOSIÇÃO EXECUTADA ATENDE ÀS NORMAS MUNICIPAIS? | 1.5 CONFORMIDADE COM A LEGISLAÇÃO MUNICIPAL?` (até 3 itens, 120 caracteres).
+- O motivo da tabela tem prioridade sobre rótulos genéricos ("tipo:", "pendência:"), e vai para a tabela, o diálogo de revisão, o **Excel/CSV** e o painel **"Não conformidades identificadas"** do BI.
+- Como o banco não guarda o PDF, os registros antigos entram com motivo ao **reimportar os arquivos** — e a reimportação agora **atualiza** o registro existente em vez de descartá-lo.
+
+## Verificação
+
+- `extractNonConformityItems()` conferido com o trecho real de um FV da base: retornou `1.3 REPOSIÇÃO EXECUTADA ATENDE ÀS NORMAS MUNICIPAIS? | 1.5 CONFORMIDADE COM A LEGISLAÇÃO MUNICIPAL?`.
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Tela do Analista com a base real: 510 carregadas / 510 na base, 37 conformes, 416 não conformes, 17 não avaliados, 40 em andamento.
