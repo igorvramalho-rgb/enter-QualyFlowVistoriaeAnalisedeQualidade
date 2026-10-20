@@ -1,4 +1,3 @@
-import { BarChart3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { useAuth } from "@/hooks/auth-context";
@@ -23,16 +22,14 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         className="pointer-events-none absolute -right-20 top-40 h-52 w-52 rounded-full bg-brand-green/15 blur-3xl"
       />
 
-      <div className="relative flex items-center gap-3 border-b border-sidebar-border/60 px-5 py-5">
-        <span className="brand-gradient shadow-glow ring-glow flex h-11 w-11 items-center justify-center rounded-xl">
-          <BarChart3 className="h-5 w-5 text-onbrand" />
+      <div className="relative border-b border-sidebar-border/60 px-5 py-5">
+        <span className="flex items-center justify-center rounded-xl bg-logo-plate px-3 py-2 shadow-glow">
+          <img
+            src="/brand/qualyflow-logo.png"
+            alt="QualyFlow — Gestão de Qualidade & Análise"
+            className="h-9 w-auto"
+          />
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-base font-semibold tracking-tight text-sidebar-accent-foreground text-glow">
-            QualyFlow
-          </p>
-          <p className="truncate text-xs text-sidebar-foreground/70">Célula de Qualidade</p>
-        </div>
       </div>
 
       <nav className="relative flex-1 space-y-1.5 p-3">

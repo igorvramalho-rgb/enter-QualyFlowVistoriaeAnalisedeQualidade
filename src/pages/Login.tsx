@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  BarChart3,
   CloudUpload,
   Eye,
   EyeOff,
@@ -109,19 +108,13 @@ export default function Login() {
             <span aria-hidden className="tech-strip absolute inset-x-0 top-0" />
 
             <div className="relative space-y-6">
-              <div className="flex items-center gap-3">
-                <span className="brand-gradient shadow-glow ring-glow flex h-11 w-11 items-center justify-center rounded-xl">
-                  <BarChart3 className="h-5 w-5 text-onbrand" />
-                </span>
-                <div>
-                  <p className="text-lg font-semibold tracking-tight text-sidebar-accent-foreground">
-                    QualyFlow
-                  </p>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
-                    Célula de Qualidade
-                  </p>
-                </div>
-              </div>
+              <span className="inline-flex items-center rounded-2xl bg-logo-plate px-3.5 py-2.5 shadow-glow">
+                <img
+                  src="/brand/qualyflow-logo.png"
+                  alt="QualyFlow — Gestão de Qualidade & Análise"
+                  className="h-11 w-auto"
+                />
+              </span>
 
               <div className="space-y-3">
                 <span className="inline-flex items-center gap-2 rounded-full border border-sidebar-border/70 bg-sidebar-accent/40 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-sidebar-foreground/75">

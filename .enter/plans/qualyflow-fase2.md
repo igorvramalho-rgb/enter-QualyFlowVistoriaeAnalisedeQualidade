@@ -478,3 +478,30 @@ O usuário pediu que a **descrição (legenda) das fotos** também seja editáve
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido) com os três papéis: campos com legenda alterada mostraram "REPOSIÇÃO NA ESQUINA, VISTA FRONTAL" e "PANORAMA APÓS COMPACTAÇÃO" nas folhas, e no SGZ `FOTO Nº 1: R. SEMYON KIRLIAN 85 - NOTIFICAÇÃO ENTREGUE AO MORADOR`, mantendo as demais no padrão do modelo.
+
+---
+
+# Fase 10 — Marca QualyFlow no compartilhamento e na interface
+
+## Contexto
+
+O usuário enviou a logo oficial (símbolo circular com seta/check + "QUALY FLOW | GESTÃO DE QUALIDADE & ANÁLISE" + crédito) e pediu para usá-la ao **compartilhar o link** do sistema.
+
+## O que foi feito
+
+### Arquivos de marca (`public/brand/`)
+- `qualyflow-logo.png` — logo completa com fundo transparente (recortada dos espaços vazios).
+- `qualyflow-icon.png` — ícone 512×512 com cantos arredondados e a marca centralizada, usado como favicon e `apple-touch-icon`.
+
+### Compartilhamento do link (`index.html`)
+- `og:image` / `twitter:image` com a **logo da marca** (URL absoluta), `og:site_name` QualyFlow, título "QualyFlow — Gestão de Qualidade & Análise", descrição com o crédito "Sistema criado por Igor Ramalho | Célula de Qualidade", `og:locale` pt_BR e `twitter:card` grande.
+- Título da página atualizado, `theme-color` azul corporativo e favicon/apple-touch-icon apontando para o ícone da marca.
+
+### Interface
+- Barra lateral e painel institucional do login passaram a exibir a **logo real** sobre um "plate" claro (token novo `--logo-plate`), garantindo leitura nos temas escuro e claro — antes havia um ícone genérico e o nome em texto.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Logo conferida em recorte próprio e na tela de login (1360px).
+- Assets finais: `public/brand/qualyflow-logo.png` (604×185) e `public/brand/qualyflow-icon.png` (512×512).

@@ -67,6 +67,7 @@ export default {
 				},
 				hairline: 'hsl(var(--hairline))',
 				onbrand: 'hsl(var(--on-brand))',
+				'logo-plate': 'hsl(var(--logo-plate))',
 				mesh: 'hsl(var(--mesh))',
 				brand: {
 					DEFAULT: 'hsl(var(--brand))',

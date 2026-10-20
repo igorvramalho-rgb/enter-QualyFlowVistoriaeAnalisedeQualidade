@@ -3,27 +3,43 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link href="/favicon.ico" rel="icon shortcut">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <title>QualyFlow — Gestão de Vistorias e Análise de Qualidade</title>
-  <meta name="description"
-    content="QualyFlow: emissão automatizada de relatórios fotográficos de vistoria e análise preditiva de PDFs com dashboards analíticos." />
-  <meta name="author" content="Igor Ramalho" />
 
-  <meta property="og:title" content="QualyFlow - Gestão de Vistorias e Análise de Qualidade" />
+  <title>QualyFlow — Gestão de Qualidade &amp; Análise</title>
+  <meta name="description"
+    content="Sistema criado por Igor Ramalho | Célula de Qualidade. Emissão de relatórios fotográficos de vistoria e análise de PDFs de fiscalização com indicadores por polo." />
+  <meta name="author" content="Igor Ramalho" />
+  <meta name="theme-color" content="#005691" />
+
+  <link rel="icon" type="image/png" href="/brand/qualyflow-icon.png" />
+  <link rel="apple-touch-icon" href="/brand/qualyflow-icon.png" />
+
+  <!-- Compartilhamento do link: marca do sistema -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="QualyFlow" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:title" content="QualyFlow — Gestão de Qualidade &amp; Análise" />
   <meta property="og:description"
-    content="Emissor de relatórios fotográficos de vistoria e analista de PDFs com dashboards de qualidade." />
+    content="Relatórios fotográficos de vistoria, análise dos PDFs de fiscalização e indicadores por polo. Sistema criado por Igor Ramalho | Célula de Qualidade." />
   <meta property="og:image"
-    content="https://jtrrmltzqcfjkvribmwe.supabase.co/storage/v1/object/public/enter/enter-og-image-square-1.jpeg" />
+    content="https://cdn.enter.pro/visual_resources/100652772/d459a43df6f64e7ea0e079a489624017/dda4788f.png" />
+  <meta property="og:image:width" content="650" />
+  <meta property="og:image:height" content="253" />
+  <meta property="og:image:alt" content="Logo QualyFlow - Gestão de Qualidade e Análise" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="QualyFlow — Gestão de Qualidade &amp; Análise" />
+  <meta name="twitter:description"
+    content="Relatórios fotográficos de vistoria, análise de PDFs de fiscalização e indicadores de qualidade." />
+  <meta name="twitter:image"
+    content="https://cdn.enter.pro/visual_resources/100652772/d459a43df6f64e7ea0e079a489624017/dda4788f.png" />
 </head>
 
 <body>
   <div id="root"></div>
   <!-- Porta de impressão: recebe a cópia das folhas A4 usada na impressão e no PDF.
        O host controla a visibilidade; a porta em si nunca é ocultada por CSS, pois o
-       html2pdf clona esse elemento e o clone precisa manter o layout normal. -->
+       html2canvas clona esse elemento e o clone precisa manter o layout normal. -->
   <div id="print-portal-host">
     <div id="print-portal"></div>
   </div>
