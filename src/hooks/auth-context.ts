@@ -1,13 +1,18 @@
 import { createContext, useContext } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import type { AppUser } from "@/lib/users";
 
 export interface AuthContextValue {
   user: User | null;
   session: Session | null;
+  profile: AppUser | null;
+  /** Carregando a sessão inicial. */
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>;
+  /** Carregando o perfil de acesso do usuário logado. */
+  profileLoading: boolean;
+  signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

@@ -1,6 +1,7 @@
 import { BarChart3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
+import { useAuth } from "@/hooks/auth-context";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
@@ -8,6 +9,9 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
+  const { profile } = useAuth();
+  const items = NAV_ITEMS.filter((item) => !item.gestorOnly || profile?.role === "gestor");
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
       <div
@@ -32,7 +36,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       </div>
 
       <nav className="relative flex-1 space-y-1.5 p-3">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -76,6 +80,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           <span className="glow-dot" aria-hidden />
           Base compartilhada na nuvem
         </p>
+        {profile && (
+          <p className="truncate text-sidebar-foreground/70" title={profile.displayName || profile.username}>
+            {profile.displayName ? `${profile.displayName} • ` : ""}@{profile.username}
+          </p>
+        )}
         <p>Desenvolvido por Igor Ramalho.</p>
       </div>
     </div>

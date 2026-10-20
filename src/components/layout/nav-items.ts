@@ -1,10 +1,12 @@
-import { BarChart3, FileText, type LucideIcon } from "lucide-react";
+import { BarChart3, FileText, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
   label: string;
   description: string;
   icon: LucideIcon;
+  /** Somente o gestor enxerga este item. */
+  gestorOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -19,5 +21,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Analista BI",
     description: "Análise de PDFs e indicadores",
     icon: BarChart3,
+  },
+  {
+    to: "/usuarios",
+    label: "Usuários",
+    description: "Liberar e cadastrar acessos",
+    icon: Users,
+    gestorOnly: true,
   },
 ];

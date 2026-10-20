@@ -311,3 +311,42 @@ Até aqui os dados viviam só no armazenamento local do navegador. O usuário pe
 - Guarda de rota conferida: `/emissor` sem sessão abre a tela de login; `/login` renderiza com o design do sistema.
 - Conta de teste usada na validação teve a senha invalidada.
 - **Pendente de conferência do usuário**: criar a própria conta, salvar um relatório e abrir em outro computador.
+
+---
+
+# Fase 5 — Perfil de gestor e liberação de usuários
+
+## Contexto
+
+O usuário pediu um perfil **gestor** que controla quem entra no sistema: só ele cadastra e autoriza novos acessos, em uma aba específica de usuários. Credencial definida por ele: usuário `ramalhoigor`, senha `805099`.
+
+## Banco
+
+- Nova tabela `qualyflow_profiles` (user_id → auth.users, username único, display_name, role `gestor`/`vistoriador`, status `ativo`/`pendente`/`bloqueado`).
+- `public.qualyflow_is_manager()` (security definer, stable) evita recursão de RLS: responde se o usuário logado é gestor ativo.
+- RLS: cada usuário lê o próprio perfil; **somente gestor** lê todos, altera (aprovar/bloquear) e exclui. Nenhum cliente cria perfil — a criação passa pela backend function com service role.
+- Gestor semeado: `ramalhoigor` / `Igor Ramalho` / gestor / ativo.
+
+## Backend function `qualyflow-users`
+
+- Valida o JWT do chamador, lê o perfil com service role e **exige role gestor + status ativo** antes de qualquer ação.
+- Ações: `create` (usuário, senha, nome, status inicial), `set-status` (liberar/bloquear), `reset-password`, `delete` (remove também o perfil).
+- Bloqueia auto-bloqueio e auto-exclusão. CORS tratado; erros traduzidos.
+- Login por usuário curto: o front converte `ramalhoigor` em `ramalhoigor@qualyflow.local` antes de autenticar.
+
+## Aplicação
+
+- **Cadastro público desativado**: só o gestor cria contas. A tela de login perdeu a aba "Criar conta" e passou a aceitar **usuário ou e-mail**.
+- `AuthProvider` carrega o perfil junto da sessão; `AuthContext` expõe `profile`, `profileLoading` e `refreshProfile`.
+- Portão de acesso (`AccessGate`): sem perfil, `pendente` ou `bloqueado` o usuário não entra no app e vê a orientação para falar com o gestor.
+- Item **Usuários** na sidebar apenas para gestor; rota `/usuarios` protegida.
+- Página Usuários: cartões de contagem (total/ativos/aguardando), formulário de cadastro (nome, usuário, senha com gerador, switch "liberar imediatamente"), lista com papel, status, data e ações **Liberar / Bloquear / Nova senha / Remover** (com confirmação em dois cliques).
+- Cabeçalho mostra `@usuario` e o papel (Gestor/Vistoriador); sidebar mostra o usuário logado.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Fluxo validado com harness temporário (removido): login do gestor por usuário curto, leitura do perfil, **backend function criando usuário**, listagem com 2 perfis, bloqueio e exclusão do usuário de teste.
+- Aba Usuários conferida visualmente com sessão de gestor: sidebar com o item, contadores, formulário e lista.
+- Base final: apenas o perfil `ramalhoigor` (gestor/ativo); nenhum usuário de teste remanescente.
+- **Pendente do usuário**: entrar com `ramalhoigor` / `805099`, cadastrar a equipe e conferir o acesso de um vistoriador.

@@ -5,6 +5,7 @@ import { RouteFallback } from "./components/common/route-fallback";
 
 const Analista = lazy(() => import("./pages/Analista"));
 const Login = lazy(() => import("./pages/Login"));
+const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Emissor = lazy(() => import("./pages/Emissor"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -29,6 +30,15 @@ export const routers = [
         element: (
           <Suspense fallback={<RouteFallback />}>
             <Emissor />
+          </Suspense>
+        ),
+      },
+      {
+        path: "usuarios",
+        name: "usuarios",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <Usuarios />
           </Suspense>
         ),
       },

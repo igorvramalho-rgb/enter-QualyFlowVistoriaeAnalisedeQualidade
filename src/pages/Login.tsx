@@ -1,23 +1,18 @@
 import { useEffect, useState } from "react";
-import { BarChart3, CloudUpload, Loader2, LockKeyhole, LogIn, Mail, UserPlus } from "lucide-react";
+import { BarChart3, CloudUpload, Loader2, LockKeyhole, LogIn, ShieldCheck, UserRound } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
 
-type Mode = "entrar" | "criar";
-
 export default function Login() {
   const navigate = useNavigate();
-  const { user, loading, signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<Mode>("entrar");
-  const [email, setEmail] = useState("");
+  const { user, loading, signIn } = useAuth();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -33,35 +28,18 @@ export default function Login() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email.trim() || !password) {
-      toast.error("Informe e-mail e senha.");
-      return;
-    }
-    if (mode === "criar" && password !== confirm) {
-      toast.error("As senhas não conferem.");
+    if (!identifier.trim() || !password) {
+      toast.error("Informe usuário e senha.");
       return;
     }
 
     setBusy(true);
     try {
-      if (mode === "entrar") {
-        await signIn(email.trim(), password);
-        toast.success("Bem-vindo de volta!");
-        navigate("/emissor", { replace: true });
-        return;
-      }
-
-      const { needsConfirmation } = await signUp(email.trim(), password);
-      if (needsConfirmation) {
-        toast.success("Conta criada", {
-          description: "Confirme o e-mail para entrar.",
-        });
-      } else {
-        toast.success("Conta criada e acesso liberado");
-        navigate("/emissor", { replace: true });
-      }
+      await signIn(identifier, password);
+      toast.success("Bem-vindo de volta!");
+      navigate("/emissor", { replace: true });
     } catch (error) {
-      toast.error("Não foi possível continuar", {
+      toast.error("Não foi possível entrar", {
         description: error instanceof Error ? error.message : undefined,
       });
     } finally {
@@ -88,9 +66,9 @@ export default function Login() {
               Seus relatórios e vistorias sempre salvos na nuvem
             </h1>
             <p className="max-w-md text-sm text-muted-foreground">
-              Entre com sua conta para acessar a base de vistorias da equipe de qualquer computador. Os
-              relatórios fotográficos, as análises por polo e o cabeçalho institucional ficam guardados na
-              nuvem.
+              Entre com o usuário liberado pelo gestor para acessar a base de vistorias da equipe de
+              qualquer computador. Os relatórios fotográficos, as análises por polo e o cabeçalho
+              institucional ficam guardados na nuvem.
             </p>
 
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -99,97 +77,66 @@ export default function Login() {
                 Base compartilhada com toda a equipe
               </li>
               <li className="flex items-center gap-2">
-                <LockKeyhole className="h-4 w-4 text-primary" />
-                Acesso somente para quem tem conta
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Novos acessos liberados apenas pelo gestor
               </li>
             </ul>
           </div>
 
           <Card className="p-6">
-            <Tabs value={mode} onValueChange={(value) => setMode(value as Mode)}>
-              <TabsList className="mb-4 grid w-full grid-cols-2 bg-glass/40">
-                <TabsTrigger value="entrar">Entrar</TabsTrigger>
-                <TabsTrigger value="criar">Criar conta</TabsTrigger>
-              </TabsList>
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-foreground">Entrar no sistema</h2>
+              <p className="text-xs text-muted-foreground">Use o usuário e a senha cadastrados pelo gestor.</p>
+            </div>
 
-              <TabsContent value={mode}>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-xs text-muted-foreground">
-                      E-mail
-                    </Label>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        type="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="nome@empresa.com.br"
-                        className="bg-background/70 pl-9"
-                        required
-                      />
-                    </div>
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="identifier" className="text-xs text-muted-foreground">
+                  Usuário ou e-mail
+                </Label>
+                <div className="relative">
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="identifier"
+                    type="text"
+                    autoComplete="username"
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
+                    placeholder="ex.: ramalhoigor"
+                    className="bg-background/70 pl-9"
+                    required
+                  />
+                </div>
+              </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password" className="text-xs text-muted-foreground">
-                      Senha
-                    </Label>
-                    <div className="relative">
-                      <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="password"
-                        type="password"
-                        autoComplete={mode === "entrar" ? "current-password" : "new-password"}
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder="Mínimo de 6 caracteres"
-                        className="bg-background/70 pl-9"
-                        required
-                        minLength={6}
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs text-muted-foreground">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Sua senha"
+                    className="bg-background/70 pl-9"
+                    required
+                  />
+                </div>
+              </div>
 
-                  {mode === "criar" && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="confirm" className="text-xs text-muted-foreground">
-                        Repita a senha
-                      </Label>
-                      <Input
-                        id="confirm"
-                        type="password"
-                        autoComplete="new-password"
-                        value={confirm}
-                        onChange={(event) => setConfirm(event.target.value)}
-                        className="bg-background/70"
-                        required
-                        minLength={6}
-                      />
-                    </div>
-                  )}
+              <Button type="submit" variant="glow" className="w-full" disabled={busy}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                Entrar
+              </Button>
 
-                  <Button type="submit" variant="glow" className="w-full" disabled={busy}>
-                    {busy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : mode === "entrar" ? (
-                      <LogIn className="h-4 w-4" />
-                    ) : (
-                      <UserPlus className="h-4 w-4" />
-                    )}
-                    {mode === "entrar" ? "Entrar" : "Criar conta"}
-                  </Button>
-
-                  <p className="text-center text-xs text-muted-foreground">
-                    {mode === "entrar"
-                      ? "Primeiro acesso? Use a aba Criar conta para liberar seu usuário."
-                      : "A conta dá acesso à base compartilhada da Célula de Qualidade."}
-                  </p>
-                </form>
-              </TabsContent>
-            </Tabs>
+              <p className="text-center text-xs text-muted-foreground">
+                Ainda não tem acesso? Peça ao gestor para cadastrar seu usuário na aba Usuários.
+              </p>
+            </form>
           </Card>
         </div>
 

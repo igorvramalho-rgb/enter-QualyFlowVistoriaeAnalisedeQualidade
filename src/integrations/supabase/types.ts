@@ -3417,6 +3417,36 @@ export type Database = {
         }
         Relationships: []
       }
+      qualyflow_profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       qualyflow_reports: {
         Row: {
           created_at: string
@@ -3482,7 +3512,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      qualyflow_is_manager: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

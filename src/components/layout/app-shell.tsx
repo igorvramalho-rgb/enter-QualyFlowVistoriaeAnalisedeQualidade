@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { AccessGate } from "@/components/auth/access-gate";
 import { useAuth } from "@/hooks/auth-context";
 import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,13 +17,13 @@ export default function AppShell() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, profileLoading, signOut } = useAuth();
 
   useLegacyCloudMigration();
 
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="tech-mesh flex h-screen w-full items-center justify-center p-6">
         <div className="w-full max-w-md space-y-3">
@@ -36,6 +37,18 @@ export default function AppShell() {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (!profile) {
+    return (
+      <AccessGate status="sem-perfil" username={user.email ?? ""} onSignOut={signOut} />
+    );
+  }
+
+  if (profile.status !== "ativo") {
+    return (
+      <AccessGate status={profile.status} username={profile.username} onSignOut={signOut} />
+    );
   }
 
   return (
@@ -73,13 +86,13 @@ export default function AppShell() {
             </div>
 
             <div className="hidden items-center gap-2 lg:flex">
-              <span className="chip-tech max-w-[220px] truncate" title={user.email ?? ""}>
+              <span className="chip-tech max-w-[220px] truncate" title={profile.username}>
                 <span className="glow-dot" aria-hidden />
-                {user.email}
+                @{profile.username}
               </span>
               <span className="chip-tech">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                Igor Ramalho
+                {profile.role === "gestor" ? "Gestor" : "Vistoriador"}
               </span>
             </div>
 
