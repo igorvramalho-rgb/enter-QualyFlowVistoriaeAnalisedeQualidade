@@ -119,3 +119,51 @@ export function percent(part: number, total: number): number {
   }
   return Math.round((part / total) * 100);
 }
+
+/** Termos que nunca fazem parte do endereço (vêm de células vizinhas no PDF). */
+const ADDRESS_CUT = /\b(categoria|coordenadas|auditor|conceito|lider|servico acatado|servico executado|unidade\s*\/?\s*area|municipio|regiao)\b/i;
+
+/** Mantém apenas o endereço: uma linha, sem campos vizinhos. */
+export function sanitizeAddress(value: string | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  let out = value.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+
+  const cut = out.search(ADDRESS_CUT);
+  if (cut > 0) {
+    out = out.slice(0, cut);
+  }
+
+  out = out.split(/\s+(?=\d{9,11}\b)/)[0];
+  out = out.split(/\s+(?=\d{2}[/.-]\d{2}[/.-]\d{2,4})/)[0];
+  out = out.replace(/\s*(?:categoria\s*)?(?:servico\s*completo)\s*$/i, "");
+
+  return out.replace(/[,;:.\-\s]+$/, "").trim();
+}
+
+export interface FileNameNumbers {
+  fac?: string;
+  os?: string;
+}
+
+/**
+ * Extrai os números que acompanham o nome do arquivo (FV-46384 2618864709.pdf):
+ * o FAC vem depois do "FV" e a OS é o número longo (9 a 11 dígitos).
+ */
+export function deriveNumbersFromFileName(fileName: string | undefined): FileNameNumbers {
+  if (!fileName) {
+    return {};
+  }
+
+  const base = fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ");
+  const fac = base.match(/\bfv\s*[-–:.]?\s*(\d{2,})\b/i)?.[1];
+  const labeledOs = base.match(/\bos\s*n?[º°.:]*\s*(\d{6,})/i)?.[1];
+  const longNumber = base.match(/\b(\d{9,11})\b/)?.[1];
+
+  return {
+    fac: fac ?? undefined,
+    os: labeledOs ?? longNumber,
+  };
+}

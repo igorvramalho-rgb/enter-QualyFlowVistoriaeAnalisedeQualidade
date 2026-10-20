@@ -5,7 +5,7 @@ import {
   type AnalysisRecord,
   type AnalysisSource,
 } from "@/lib/analysis";
-import { formatDateBR } from "@/lib/fields";
+import { formatDateBR, sanitizeAddress } from "@/lib/fields";
 
 export interface ExportMatrix {
   headers: string[];
@@ -53,6 +53,9 @@ function formatField(record: AnalysisRecord, key: string): string {
   if (key === "data" && value) {
     const formatted = formatDateBR(value);
     return sanitizeCell(formatted || value);
+  }
+  if (key === "endereco") {
+    return sanitizeCell(sanitizeAddress(value));
   }
   return sanitizeCell(value);
 }

@@ -8,6 +8,7 @@ import type {
   ReportValues,
 } from "@/lib/report-document";
 import { normalizeSettings } from "@/lib/report-document";
+import { deriveNumbersFromFileName, sanitizeAddress } from "@/lib/fields";
 import type { ReportTemplateId } from "@/lib/report-templates";
 
 type Tables = Database["public"]["Tables"];
@@ -101,6 +102,9 @@ export async function deleteReport(id: string): Promise<void> {
 /* -------------------------------------------------------------------- vistorias */
 
 export function toAnalysis(row: AnalysisRow): AnalysisRecord {
+  const fields = migrateRecordFields(asObject<Record<string, string>>(row.fields, {}));
+  const derived = deriveNumbersFromFileName(row.file_name);
+
   return {
     id: row.id,
     fingerprint: row.fingerprint,
@@ -110,7 +114,13 @@ export function toAnalysis(row: AnalysisRow): AnalysisRecord {
     documentType: row.document_type as AnalysisRecord["documentType"],
     textAvailable: row.text_available,
     source: row.source as AnalysisRecord["source"],
-    fields: migrateRecordFields(asObject<Record<string, string>>(row.fields, {})),
+    fields: {
+      ...fields,
+      // garante OS/FAC em registros antigos e limpa resíduos do endereço
+      fac: fields.fac || derived.fac || "",
+      os: fields.os || derived.os || "",
+      endereco: sanitizeAddress(fields.endereco),
+    },
     confidence: asObject<AnalysisRecord["confidence"]>(row.confidence, {}),
     status: row.status as AnalysisRecord["status"],
     snippet: row.snippet,

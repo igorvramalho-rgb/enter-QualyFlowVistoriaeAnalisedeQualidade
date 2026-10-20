@@ -10,7 +10,13 @@ import {
   type DocumentType,
   type QualityStatus,
 } from "@/lib/analysis";
-import { normalizeText, stripAccents, tidyValue } from "@/lib/fields";
+import {
+  deriveNumbersFromFileName,
+  normalizeText,
+  sanitizeAddress,
+  stripAccents,
+  tidyValue,
+} from "@/lib/fields";
 import { createId } from "@/lib/storage";
 
 export * from "@/lib/analysis";
@@ -82,6 +88,9 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
   ],
   tipoNaoConformidade: [
     /tipo\s*de\s*nao\s*conformidade\s*[:=]?\s*([^\n|]{3,80})/,
+    /motivo\s*(?:da\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
+    /descri[cçc][aã]o\s*(?:da\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
+    /apontamento\s*(?:de\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
     /nao\s*conformidade\s*[:=]\s*([^\n|]{3,80})/,
     /tipo\s*[:=]\s*([^\n|]{3,80})/,
   ],
@@ -159,7 +168,7 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
   const confidence: Record<string, Confidence> = {};
 
   const setField = (key: string, value: string, level: Confidence) => {
-    const base = key === "endereco" ? cleanAddress(value) : value;
+    const base = key === "endereco" ? sanitizeAddress(value) : value;
     const clean = tidyValue(cutAtStopWords(stripTrailingLabels(base), key), 120);
     if (!clean) {
       return;
@@ -460,15 +469,6 @@ function cutAtStopWords(value: string, fieldKey: string): string {
   return value.slice(0, cutIndex).trim();
 }
 
-/** Mantém o endereço em uma linha e corta resíduos de campos vizinhos. */
-function cleanAddress(value: string): string {
-  let out = value.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
-  out = out.split(/\s+(?=\d{9,11}\b)/)[0];
-  out = out.split(/\s+(?=\d{2}[/.-]\d{2}[/.-]\d{2,4})/)[0];
-  out = out.split(/\s+(?=protocolo|origem|prazo|contratada|servico|equipe|polo)\b/i)[0];
-  return out.replace(/[,;:.\-\s]+$/, "").trim();
-}
-
 function rank(level: Confidence): number {
   return { nenhuma: 0, baixa: 1, media: 2, alta: 3 }[level];
 }
@@ -513,15 +513,12 @@ function recordFromFileName(fileName: string): Partial<Record<string, string>> {
     result.data = `${date[1].padStart(2, "0")}/${date[2].padStart(2, "0")}/${date[3]}`;
   }
 
-  const osMatch = base.match(/\b(?:os|o\.s\.?)\s*[nº:.]*\s*([0-9]{6,})/i);
-  if (osMatch) {
-    result.os = osMatch[1];
-  } else {
-    // A OS costuma vir junto do número do PDF, com 9 a 11 dígitos.
-    const longNumber = base.match(/\b(\d{9,11})\b/);
-    if (longNumber) {
-      result.os = longNumber[1];
-    }
+  const fromName = deriveNumbersFromFileName(fileName);
+  if (fromName.fac) {
+    result.fac = fromName.fac;
+  }
+  if (fromName.os) {
+    result.os = fromName.os;
   }
 
   const address = base.match(

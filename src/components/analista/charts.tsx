@@ -182,11 +182,11 @@ export interface NcTypeDatum {
 export function NcTypeChart({ data }: { data: NcTypeDatum[] }) {
   return (
     <ChartShell
-      title="Não conformidades por tipo"
-      description="Tipos de não conformidade mais recorrentes nas vistorias analisadas."
+      title="Motivos de não conformidade"
+      description="Motivos apontados nos relatórios de fiscalização, ordenados por recorrência."
     >
       {data.length === 0 ? (
-        <EmptyChart message="Nenhum tipo de não conformidade registrado ainda. Importe PDFs ou preencha o tipo na revisão." />
+        <EmptyChart message="Nenhum motivo de não conformidade registrado ainda. Importe os PDFs ou preencha o motivo na revisão." />
       ) : (
         <div className="h-[260px] w-full">
           <ResponsiveContainer width="100%" height="100%">

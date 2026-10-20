@@ -421,3 +421,36 @@ Com a imagem do formulário **FV / FCR - Pós 60**, o usuário pediu:
 - Harness temporário (removido) com o texto do FV: campos acima conferidos e status `conforme`.
 - `Inspeção impossibilitada`, `Não executado` e `Não localizado` classificados como `nao_avaliado`.
 - Tabela com 4 registros em 2 datas: dois grupos com contagem correta e badge "Não avaliado" visível.
+
+---
+
+# Fase 8 — OS pelo nome do arquivo, endereço limpo, motivo de NC e login moderno
+
+## Contexto
+
+Com o print "FV-46384 2618864709.pdf": a coluna **Ordem de serviço** ficava vazia embora o número esteja no nome do arquivo; o endereço exportado arrastava "Categoria Serviço Completo"; e o usuário pediu para mapear o **motivo da não conformidade** no Excel e no BI, além de um login mais tecnológico.
+
+## O que foi feito
+
+### OS e FAC a partir do nome do arquivo
+- Novo helper `deriveNumbersFromFileName()` (em `src/lib/fields.ts`): `FV-<fac>` fornece o Nº FAC e o número longo de 9–11 dígitos fornece a OS.
+- Usado na extração de PDFs novos **e na leitura dos registros já salvos** (`toAnalysis`), então a linha antiga do print passa a mostrar `2618864709` sem reimportar.
+- `recordFromFileName()` passou a usar o helper (mesmo critério para FAC e OS).
+
+### Endereço apenas com o endereço
+- `sanitizeAddress()` (compartilhado entre extração, leitura da nuvem e exportação) corta termos vizinhos do formulário — `categoria`, `coordenadas`, `auditor`, `conceito`, `líder`, `serviço acatado/executado`, `unidade/área`, `município`, `região` — e remove "Serviço Completo" no fim.
+- Resultado no FV de exemplo: célula do Excel fica só com `Rua capitão nascimento 309`.
+
+### Motivo da não conformidade
+- Extração ampliada: além de "Tipo de Não Conformidade", lê **"Motivo"**, **"Descrição"** e **"Apontamento"** da não conformidade (com ou sem dois-pontos).
+- O motivo aparece na tabela, no diálogo de revisão, no **Excel/CSV** (coluna "Tipo de Não Conformidade") e no BI, cujo gráfico passou a se chamar **"Motivos de não conformidade"**.
+
+### Login
+- Tela refeita em duas colunas: painel institucional escuro com malha, brilhos, faixa animada, destaque "Acesso corporativo" e três pilares do sistema; formulário em painel de vidro com faixa luminosa, campos com ícone, botão **mostrar/ocultar senha**, CTA em gradiente e nota de acesso controlado.
+- Mesmo desenho empilhado no mobile.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Regras conferidas por script: `FV-46384 2618864709.pdf` → FAC `46384`, OS `2618864709`; `Rua capitão nascimento 309 Categoria Serviço Completo` → `Rua capitão nascimento 309`; "motivo da nao conformidade: desnivel de 18 mm..." → capturado inteiro.
+- Login conferido em 1360px e em `mobile_390`.
