@@ -151,7 +151,8 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
   const confidence: Record<string, Confidence> = {};
 
   const setField = (key: string, value: string, level: Confidence) => {
-    const clean = tidyValue(cutAtStopWords(stripTrailingLabels(value), key), 120);
+    const base = key === "endereco" ? cleanAddress(value) : value;
+    const clean = tidyValue(cutAtStopWords(stripTrailingLabels(base), key), 120);
     if (!clean) {
       return;
     }
@@ -173,6 +174,15 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
         setField(key, value, "media");
       }
     });
+
+    const osFallback = matchFirst(text, normalized, [
+      /\b(\d{10})\b/,
+      /\b(\d{9})\b/,
+      /\b(\d{11})\b/,
+    ]);
+    if (osFallback) {
+      setField("os", osFallback, "baixa");
+    }
 
     const address = matchFirst(text, normalized, ADDRESS_FALLBACK);
     if (address) {
@@ -210,7 +220,7 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
     source,
     fields,
     confidence,
-    status: detectStatus(normalized, fields.situacao, documentType),
+    status: detectStatus(normalized, fields.situacao, documentType, fields.tipoNaoConformidade),
     snippet: text.slice(0, 1200),
   };
 }
@@ -431,6 +441,15 @@ function cutAtStopWords(value: string, fieldKey: string): string {
   return value.slice(0, cutIndex).trim();
 }
 
+/** Mantém o endereço em uma linha e corta resíduos de campos vizinhos. */
+function cleanAddress(value: string): string {
+  let out = value.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  out = out.split(/\s+(?=\d{9,11}\b)/)[0];
+  out = out.split(/\s+(?=\d{2}[/.-]\d{2}[/.-]\d{2,4})/)[0];
+  out = out.split(/\s+(?=protocolo|origem|prazo|contratada|servico|equipe|polo)\b/i)[0];
+  return out.replace(/[,;:.\-\s]+$/, "").trim();
+}
+
 function rank(level: Confidence): number {
   return { nenhuma: 0, baixa: 1, media: 2, alta: 3 }[level];
 }
@@ -478,6 +497,12 @@ function recordFromFileName(fileName: string): Partial<Record<string, string>> {
   const osMatch = base.match(/\b(?:os|o\.s\.?)\s*[nº:.]*\s*([0-9]{6,})/i);
   if (osMatch) {
     result.os = osMatch[1];
+  } else {
+    // A OS costuma vir junto do número do PDF, com 9 a 11 dígitos.
+    const longNumber = base.match(/\b(\d{9,11})\b/);
+    if (longNumber) {
+      result.os = longNumber[1];
+    }
   }
 
   const address = base.match(
@@ -511,11 +536,70 @@ function detectDocumentType(normalized: string, fileName: string): DocumentType 
   return "indefinido";
 }
 
+/**
+ * "N/A" / "não avaliado" indica que a vistoria não foi avaliada — isso não é
+ * não conformidade. O sinal é lido do campo de tipo de NC, de um valor rotulado
+ * (status/situação/resultado) e de células isoladas com "N/A".
+ */
+function hasNotEvaluatedSignal(normalized: string, tipoNc: string): boolean {
+  const token = /\bn\s*[./]\s*a\b|\bnao\s*avaliad|\bsem\s*avaliacao\b|\bnao\s*se\s*aplica\b/;
+
+  if (tipoNc && token.test(stripAccents(tipoNc).toLowerCase())) {
+    return true;
+  }
+
+  const labeled = /(status|situacao|resultado|avaliacao|parecer)\s*[:=]?\s*([^\n|]{0,40})/g;
+  let found: RegExpExecArray | null = labeled.exec(normalized);
+  while (found) {
+    if (token.test(found[2])) {
+      return true;
+    }
+    found = labeled.exec(normalized);
+  }
+
+  return normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .some((line) => /^(n\s*[./]\s*a|nao\s*avaliad[oa]?|nao\s*se\s*aplica|sem\s*avaliacao)$/.test(line));
+}
+
+/** Lê o veredito de um campo rotulado (STATUS / SITUAÇÃO / RESULTADO / PARECER). */
+function readLabeledStatus(normalized: string): QualityStatus | null {
+  const labeled = /(?:status|situacao|resultado|parecer|avaliacao)\s*[:=]?\s*([^\n|]{0,48})/g;
+  let found: RegExpExecArray | null = labeled.exec(normalized);
+
+  while (found) {
+    const value = found[1];
+    if (/n\s*[./]\s*a\b|nao\s*avaliad|sem\s*avaliacao|nao\s*se\s*aplica/.test(value)) {
+      return "nao_avaliado";
+    }
+    if (/nao\s*conforme|reprovad|irregular|nao\s*atende/.test(value)) {
+      return "nao_conforme";
+    }
+    if (/\bconforme\b|aprovad|regularizad/.test(value)) {
+      return "conforme";
+    }
+    found = labeled.exec(normalized);
+  }
+
+  return null;
+}
+
 function detectStatus(
   normalized: string,
   situacao: string,
   documentType: DocumentType,
+  tipoNaoConformidade: string,
 ): QualityStatus {
+  const labeled = readLabeledStatus(normalized);
+
+  if (labeled === "nao_avaliado" || hasNotEvaluatedSignal(normalized, tipoNaoConformidade)) {
+    return "nao_avaliado";
+  }
+  if (labeled === "nao_conforme" || labeled === "conforme") {
+    return labeled;
+  }
+
   if (situacao) {
     const situacaoNormalized = stripAccents(situacao).toLowerCase();
     if (situacaoNormalized.includes("asfalto definitivo")) {

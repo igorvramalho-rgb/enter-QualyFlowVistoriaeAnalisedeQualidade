@@ -33,7 +33,12 @@ export function comparePolo(a: string, b: string): number {
 
 export type DocumentType = "sgz_156" | "pos_60_passeio" | "pos_60_via" | "indefinido";
 
-export type QualityStatus = "conforme" | "nao_conforme" | "em_andamento" | "pendente";
+export type QualityStatus =
+  | "conforme"
+  | "nao_conforme"
+  | "em_andamento"
+  | "nao_avaliado"
+  | "pendente";
 
 export type Confidence = "alta" | "media" | "baixa" | "nenhuma";
 
@@ -107,6 +112,7 @@ export const STATUS_LABELS: Record<QualityStatus, string> = {
   conforme: "Conforme",
   nao_conforme: "Não Conforme",
   em_andamento: "Em Andamento",
+  nao_avaliado: "Não avaliado",
   pendente: "Pendente de revisão",
 };
 

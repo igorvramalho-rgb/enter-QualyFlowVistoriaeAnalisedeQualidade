@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Clock,
   FileCheck2,
+  FileQuestion,
   FileWarning,
   Hammer,
   MapPin,
@@ -39,6 +40,7 @@ export function KpiCards({ analyses }: KpiCardsProps) {
   const naoConformes = analyses.filter((item) => item.status === "nao_conforme").length;
   const emAndamento = analyses.filter((item) => item.status === "em_andamento").length;
   const pendentes = analyses.filter((item) => item.status === "pendente").length;
+  const naoAvaliados = analyses.filter((item) => item.status === "nao_avaliado").length;
   const polos = new Set(
     analyses.map((item) => item.fields.polo?.trim()).filter((polo): polo is string => Boolean(polo)),
   ).size;
@@ -82,6 +84,13 @@ export function KpiCards({ analyses }: KpiCardsProps) {
       hint: "Obra em execução ou asfalto provisório",
       icon: Hammer,
       tone: "warning",
+    },
+    {
+      label: "Não avaliados",
+      value: String(naoAvaliados),
+      hint: "Status N/A no documento",
+      icon: FileQuestion,
+      tone: "neutral",
     },
     {
       label: "Pendentes de revisão",

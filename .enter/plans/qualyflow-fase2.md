@@ -350,3 +350,42 @@ O usuário pediu um perfil **gestor** que controla quem entra no sistema: só el
 - Aba Usuários conferida visualmente com sessão de gestor: sidebar com o item, contadores, formulário e lista.
 - Base final: apenas o perfil `ramalhoigor` (gestor/ativo); nenhum usuário de teste remanescente.
 - **Pendente do usuário**: entrar com `ramalhoigor` / `805099`, cadastrar a equipe e conferir o acesso de um vistoriador.
+
+---
+
+# Fase 6 — Status "Não avaliado", OS de 10 dígitos e limpeza do endereço
+
+## Contexto
+
+Três correções pedidas após uso real:
+
+1. Documento com status **N/A** estava caindo em "Não Conforme"; deve existir a categoria **Não avaliado**.
+2. A **Ordem de Serviço** costuma vir junto do número do PDF, com ~10 dígitos (ex.: `2618864709`), e precisa entrar no bloco de OS.
+3. Ao exportar, o **endereço** saía bagunçado, com quebras/valores de campos vizinhos.
+
+## O que foi feito
+
+### Status "Não avaliado"
+- Novo status `nao_avaliado` (rótulo **Não avaliado**) em `QualityStatus` e `STATUS_LABELS`.
+- Leitura do veredito em **campos rotulados** (STATUS / SITUAÇÃO / RESULTADO / PARECER / AVALIAÇÃO) antes da varredura de palavras-chave: `N/A`, `não avaliado`, `não se aplica` → Não avaliado; `não conforme`/`reprovado` → Não Conforme; `conforme`/`aprovado` → Conforme.
+- Também conta como Não avaliado quando o **Tipo de Não Conformidade** é `N/A` ou quando existe uma **célula isolada** com "N/A".
+- Efeito prático: um checklist que contém a opção "NÃO CONFORME" não classifica mais o documento como não conforme quando o status real é N/A.
+- UI: novo status no gráfico de status (cor `--chart-5`), na tabela (badge/ponto), no filtro, no diálogo de revisão, no CSV/Excel e novo KPI **Não avaliados**.
+
+### Ordem de Serviço (10 dígitos)
+- Sem rótulo explícito, o extrator assume o primeiro número de **9 a 11 dígitos** do texto (preferindo 10) como OS.
+- O mesmo critério é aplicado ao **nome do arquivo**, então arquivos nomeados só com o número já preenchem a OS.
+
+### Endereço e planilha
+- `cleanAddress()` mantém o endereço em **uma linha** e corta resíduos de campos vizinhos (data, OS de 9–11 dígitos, protocolo, origem, prazo, contratada, serviço, equipe, polo).
+- Toda célula exportada passa por `sanitizeCell()` (sem `\n`/`\t`, sem espaços duplicados), garantindo **uma informação por célula** no CSV e no `.xlsx`.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Casos validados com harness temporário (removido):
+  - `STATUS: N/A` + checklist "Nao conforme" → **nao_avaliado**.
+  - `STATUS: NAO CONFORME` → **nao_conforme**.
+  - `STATUS: conforme` + endereço colado em data/OS → **conforme**, endereço `RUA SERVILHA, 108`, OS `2618864709`.
+  - OS apenas no nome do arquivo → OS `2618864711`.
+  - Matriz do Excel: cabeçalho com as colunas na ordem, linha única sem quebras e status "Não avaliado".

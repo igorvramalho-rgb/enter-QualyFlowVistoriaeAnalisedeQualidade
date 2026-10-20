@@ -37,9 +37,9 @@ export function buildAnalysisMatrix(records: AnalysisRecord[]): ExportMatrix {
 
   const rows = records.map((record) => [
     ...EXPORT_FIELDS.map((field) => formatField(record, field.key)),
-    STATUS_LABELS[record.status],
-    DOCUMENT_TYPE_LABELS[record.documentType],
-    record.fileName,
+    sanitizeCell(STATUS_LABELS[record.status]),
+    sanitizeCell(DOCUMENT_TYPE_LABELS[record.documentType]),
+    sanitizeCell(record.fileName),
     String(record.pages),
     SOURCE_LABELS[record.source],
     record.reviewed ? "Sim" : "Não",
@@ -52,7 +52,15 @@ function formatField(record: AnalysisRecord, key: string): string {
   const value = record.fields[key] ?? "";
   if (key === "data" && value) {
     const formatted = formatDateBR(value);
-    return formatted || value;
+    return sanitizeCell(formatted || value);
   }
-  return value;
+  return sanitizeCell(value);
+}
+
+/** Uma célula por informação: sem quebras de linha nem espaços duplicados. */
+function sanitizeCell(value: string): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
