@@ -4,7 +4,11 @@
  * um arquivo.
  */
 
-export const MAX_PAGES = 15;
+/**
+ * Sem limite prático de páginas por arquivo: o valor existe só como proteção
+ * contra arquivos corrompidos gigantes.
+ */
+export const MAX_PAGES = 2000;
 
 /** Polos operacionais usados na análise. A ordem é a exibida nos blocos. */
 export const POLOS = ["Vila Maria / Santana", "Freguesia", "Gopoúva"] as const;

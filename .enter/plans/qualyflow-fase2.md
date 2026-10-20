@@ -559,3 +559,25 @@ Consultando os registros, os 416 "Não Conforme" **não são erro de leitura**: 
 - `extractNonConformityItems()` conferido com o trecho real de um FV da base: retornou `1.3 REPOSIÇÃO EXECUTADA ATENDE ÀS NORMAS MUNICIPAIS? | 1.5 CONFORMIDADE COM A LEGISLAÇÃO MUNICIPAL?`.
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Tela do Analista com a base real: 510 carregadas / 510 na base, 37 conformes, 416 não conformes, 17 não avaliados, 40 em andamento.
+
+---
+
+# Fase 13 — Painel removido, tabela paginada e importação sem limite
+
+## Contexto
+
+O painel "Não conformidades identificadas" deixou a tela pesada (416 cartões renderizados) e a importação por polo parou de aceitar arquivos.
+
+## O que foi feito
+
+- **Painel de não conformidades removido** do Analista (`src/components/analista/nc-panel.tsx` excluído). O motivo da NC continua visível na tabela, na revisão e no Excel.
+- **Tabela paginada**: 50/100/200 registros por página, com "Mostrando X–Y de Z", botões Anterior/Próxima e exportação sempre com **todas** as linhas filtradas. Base de 510+ registros deixa de renderizar tudo de uma vez.
+- **Limite de páginas removido**: `MAX_PAGES` passou de 15 para 2000 (apenas guarda contra arquivo corrompido gigante). O bloco de importação avisa "Sem limite de páginas ou de arquivos".
+- **Paginação do banco com ordenação estável** (`analyzed_at desc`, `id asc`): lotes com o mesmo timestamp não repetem nem perdem linhas entre páginas.
+- **Falhas visíveis**: o resumo da importação agora traz o **motivo da primeira falha** e, quando nada entra, um aviso explícito "Nenhum arquivo foi importado".
+- Reimportar arquivos existentes continua **atualizando** o registro (polo e dados), sem duplicar.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Analista conferido com a base real (510 carregadas / 510 na base), sem o painel removido e com o aviso de importação sem limites.

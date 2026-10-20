@@ -56,6 +56,7 @@ export async function fetchReports(): Promise<ReportDraft[]> {
       .from("qualyflow_reports")
       .select("*")
       .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {
@@ -153,6 +154,7 @@ export async function fetchAnalyses(): Promise<AnalysisRecord[]> {
       .from("qualyflow_analyses")
       .select("*")
       .order("analyzed_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {

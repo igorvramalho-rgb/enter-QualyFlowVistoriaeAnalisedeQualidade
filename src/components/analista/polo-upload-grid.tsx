@@ -2,7 +2,7 @@ import { FileUp, Loader2, MapPin, ShieldAlert } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { MAX_PAGES, POLOS } from "@/lib/analysis";
+import { POLOS } from "@/lib/analysis";
 import { cn } from "@/lib/utils";
 
 export interface UploadProgress {
@@ -47,7 +47,7 @@ export function PoloUploadGrid({ summaries, busy, progress, onFiles }: PoloUploa
         </div>
         <span className="chip-tech">
           <ShieldAlert className="h-3.5 w-3.5 text-warning" />
-          Até {MAX_PAGES} páginas por arquivo
+          Sem limite de páginas ou de arquivos
         </span>
       </div>
 

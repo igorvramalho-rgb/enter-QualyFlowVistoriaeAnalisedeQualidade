@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowDownUp, FileSpreadsheet, Filter, Pencil, Sheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,8 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
   const [sortKey, setSortKey] = useState<SortKey>("data");
   const [sortAsc, setSortAsc] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pageSize, setPageSize] = useState("50");
+  const [page, setPage] = useState(1);
 
   const polos = useMemo(() => {
     const unique = new Set(
@@ -153,7 +155,18 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
     });
   }, [analyses, from, polo, query, sortAsc, sortKey, status, tipo, to]);
 
+  const perPage = Number(pageSize);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const firstRow = filtered.length === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  const lastRow = Math.min(currentPage * perPage, filtered.length);
+
   const exportMatrix = () => buildAnalysisMatrix(filtered);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, polo, status, tipo, from, to, pageSize, sortKey, sortAsc]);
 
   const handleExportCsv = () => {
     const { headers, rows } = exportMatrix();
@@ -317,10 +330,10 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item, index) => {
+              pageRows.map((item, index) => {
                 const currentDate = item.fields.data?.trim() || "Sem data";
                 const previousDate =
-                  index > 0 ? filtered[index - 1].fields.data?.trim() || "Sem data" : null;
+                  index > 0 ? pageRows[index - 1].fields.data?.trim() || "Sem data" : null;
                 const showDateGroup = sortKey === "data" && currentDate !== previousDate;
                 const dateCount = filtered.filter(
                   (candidate) => (candidate.fields.data?.trim() || "Sem data") === currentDate,
@@ -411,6 +424,50 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border/40 px-4 py-3 text-xs text-muted-foreground">
+        <span>
+          Mostrando {firstRow}–{lastRow} de {filtered.length} registro(s) • a exportação inclui todas as
+          linhas filtradas
+        </span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={pageSize} onValueChange={setPageSize}>
+            <SelectTrigger className="h-8 w-[130px] bg-background/70 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="50">50 por página</SelectItem>
+              <SelectItem value="100">100 por página</SelectItem>
+              <SelectItem value="200">200 por página</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            className="h-8"
+            disabled={currentPage <= 1}
+            onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+          >
+            Anterior
+          </Button>
+          <span className="font-mono">
+            {currentPage}/{pageCount}
+          </span>
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            className="h-8"
+            disabled={currentPage >= pageCount}
+            onClick={() => setPage((previous) => Math.min(pageCount, previous + 1))}
+          >
+            Próxima
+          </Button>
+        </div>
       </div>
     </Card>
   );

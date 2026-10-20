@@ -19,7 +19,6 @@ import {
   type StatusDatum,
 } from "@/components/analista/charts";
 import { KpiCards } from "@/components/analista/kpi-cards";
-import { NcPanel } from "@/components/analista/nc-panel";
 import {
   PoloUploadGrid,
   type PoloSummary,
@@ -174,6 +173,7 @@ export default function Analista() {
     const updates: AnalysisRecord[] = [];
     let duplicates = 0;
     let failed = 0;
+    let firstFailure = "";
 
     try {
       const { analyzePdfFile } = await import("@/lib/pdf-extract");
@@ -216,6 +216,9 @@ export default function Analista() {
           added.push(record);
         } catch (error) {
           failed += 1;
+          if (!firstFailure) {
+            firstFailure = `${file.name}: ${error instanceof Error ? error.message : "erro desconhecido"}`;
+          }
           toast.error(`Falha ao analisar ${file.name}`, {
             description: error instanceof Error ? error.message : undefined,
           });
@@ -241,7 +244,7 @@ export default function Analista() {
             [
               polo ? `Polo: ${polo}` : null,
               duplicates > 0 ? `${duplicates} atualizado(s) na base` : null,
-              failed > 0 ? `${failed} com falha de leitura` : null,
+              failed > 0 ? `${failed} com falha: ${firstFailure}` : null,
             ]
               .filter(Boolean)
               .join(" • ") || undefined,
@@ -252,8 +255,12 @@ export default function Analista() {
 
     if (duplicates > 0 && failed === 0 && added.length === 0) {
       toast.info("Nenhum arquivo novo", {
-        description: "Os PDFs enviados já estavam na base e foram atualizados.",
+        description: `${duplicates} arquivo(s) já estavam na base e foram atualizados (polo e dados).`,
       });
+    }
+
+    if (failed > 0 && added.length === 0 && duplicates === 0) {
+      toast.error("Nenhum arquivo foi importado", { description: firstFailure });
     }
   };
 
@@ -354,7 +361,6 @@ export default function Analista() {
 
           <NcTypeChart data={ncTypeData} />
 
-          <NcPanel analyses={analyses} onReview={setReviewing} />
 
           <VistoriasTable
             analyses={analyses}
