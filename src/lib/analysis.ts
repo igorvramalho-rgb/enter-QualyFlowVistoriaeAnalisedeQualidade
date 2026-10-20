@@ -62,7 +62,7 @@ export const ANALYSIS_FIELDS: AnalysisFieldDefinition[] = [
   { key: "situacao", label: "Situação Atual" },
   { key: "polo", label: "Polo" },
   { key: "endereco", label: "Endereço" },
-  { key: "data", label: "Data de Vistoria" },
+  { key: "data", label: "Data de avaliação" },
 ];
 
 /**
@@ -73,7 +73,7 @@ export const EXPORT_FIELDS: AnalysisFieldDefinition[] = [
   { key: "endereco", label: "Endereço" },
   { key: "fac", label: "Nº FAC" },
   { key: "os", label: "Ordem de Serviço" },
-  { key: "data", label: "Data de Vistoria" },
+  { key: "data", label: "Data de avaliação" },
   { key: "equipeExecutante", label: "Equipe Executante" },
   { key: "tipoNaoConformidade", label: "Tipo de Não Conformidade" },
   { key: "polo", label: "Polo" },

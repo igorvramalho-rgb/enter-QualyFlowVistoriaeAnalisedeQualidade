@@ -61,7 +61,8 @@ const TABLE_LABELS: ColumnLabel[] = [
 const INLINE_PATTERNS: Record<string, RegExp[]> = {
   os: [
     /n[º°.]?\s*o\.?\s*s\.?\s*n?[º°.]?\s*[:=]?\s*([0-9][0-9./-]{4,})/,
-    /\bo\.?\s*s\.?\s*[:=]\s*([0-9][0-9./-]{4,})/,
+    /\bos\s*n[º°.]?\s*[:=]?\s*([0-9][0-9./-]{4,})/,
+    /\bo\.?\s*s\.?\s*[:=]?\s*([0-9][0-9./-]{4,})/,
   ],
   fac: [
     /n[º°.]?\s*fac\s*[:=]?\s*([0-9][0-9./-]{2,})/,
@@ -69,8 +70,13 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
     /\bfv\s*[:=]\s*([0-9][0-9./-]{2,})/,
   ],
   protocoloSgz: [/protocolo\s*(?:sgz)?\s*[:=]?\s*([0-9][0-9./-]{4,})/],
-  contratada: [/contratada\s*[:=]\s*([^\n|]{2,60})/],
-  servicoExda: [/servi[cc]o\s*exda\s*[:=]?\s*([^\n|]{3,60})/],
+  contratada: [
+    /contratada(?:\s*auditada)?\s*[:=]?\s*([^\n|]{2,60})/,
+  ],
+  servicoExda: [
+    /servi[cc]o\s*(?:exda|executado)\s*[:=]?\s*([^\n|]{3,60})/,
+    /servi[cc]o\s*[:=]\s*([^\n|]{3,60})/,
+  ],
   equipeExecutante: [
     /equipe\s*(?:executante|de\s*execucao)?\s*[:=]?\s*([^\n|]{3,60})/,
   ],
@@ -84,10 +90,12 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
     /prazo\s*para\s*conclusao\s*[:=]?\s*([^\n|]{2,40})/,
     /prazo\s*[:=]?\s*([^\n|]{2,40})/,
   ],
-  polo: [/polo\s*[:=]\s*([a-z0-9][^\n|]{1,40})/],
+  polo: [/polo\s*[:=]?\s*([a-z][^\n|]{1,40})/],
   endereco: [/endere[cç]o\s*[:=]?\s*([^\n|]{5,80})/],
   data: [
-    /data\s*(?:da\s*vistoria)?\s*[:=]?\s*(\d{2}[/.-]\d{2}[/.-]\d{2,4})/,
+    /data\s*(?:da\s*|de\s*)?avaliacao\s*[:=]?\s*(\d{2}[/.-]\d{2}[/.-]\d{2,4})/,
+    /data\s*(?:da\s*)?vistoria\s*[:=]?\s*(\d{2}[/.-]\d{2}[/.-]\d{2,4})/,
+    /data\s*[:=]?\s*(\d{2}[/.-]\d{2}[/.-]\d{2,4})/,
     /(\d{2}\/\d{2}\/\d{4})/,
   ],
 };
@@ -201,6 +209,10 @@ function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisReco
       confidence[key] = "nenhuma";
     }
   });
+
+  if (fields.polo) {
+    fields.polo = fields.polo.charAt(0).toUpperCase() + fields.polo.slice(1);
+  }
 
   const documentType = detectDocumentType(normalized, file.name);
   const source: AnalysisSource = hasText
@@ -401,6 +413,13 @@ const STOP_WORDS = [
   "endereco",
   "polo",
   "servico exda",
+  "servico acatado",
+  "coordenadas",
+  "categoria",
+  "auditor",
+  "conceito",
+  "lider",
+  "unidade area",
   "tipo de nao conformidade",
   "equipe executante",
   "equipe",
@@ -541,8 +560,11 @@ function detectDocumentType(normalized: string, fileName: string): DocumentType 
  * não conformidade. O sinal é lido do campo de tipo de NC, de um valor rotulado
  * (status/situação/resultado) e de células isoladas com "N/A".
  */
+const NOT_EVALUATED_TOKEN =
+  /\bn\s*[./]\s*a\b|\bnao\s*avaliad|\bsem\s*avaliacao\b|\bnao\s*se\s*aplica\b|inspecao\s*impossibilitad|\bnao\s*executad|\bnao\s*localizad|\bnao\s*realizad/;
+
 function hasNotEvaluatedSignal(normalized: string, tipoNc: string): boolean {
-  const token = /\bn\s*[./]\s*a\b|\bnao\s*avaliad|\bsem\s*avaliacao\b|\bnao\s*se\s*aplica\b/;
+  const token = NOT_EVALUATED_TOKEN;
 
   if (tipoNc && token.test(stripAccents(tipoNc).toLowerCase())) {
     return true;
@@ -560,7 +582,11 @@ function hasNotEvaluatedSignal(normalized: string, tipoNc: string): boolean {
   return normalized
     .split("\n")
     .map((line) => line.trim())
-    .some((line) => /^(n\s*[./]\s*a|nao\s*avaliad[oa]?|nao\s*se\s*aplica|sem\s*avaliacao)$/.test(line));
+    .some((line) =>
+      /^(n\s*[./]\s*a|nao\s*avaliad[oa]?|nao\s*se\s*aplica|sem\s*avaliacao|inspecao\s*impossibilitad[ao]?|nao\s*executad[ao]?|nao\s*localizad[ao]?|nao\s*realizad[ao]?)$/.test(
+        line,
+      ),
+    );
 }
 
 /** Lê o veredito de um campo rotulado (STATUS / SITUAÇÃO / RESULTADO / PARECER). */
@@ -570,7 +596,7 @@ function readLabeledStatus(normalized: string): QualityStatus | null {
 
   while (found) {
     const value = found[1];
-    if (/n\s*[./]\s*a\b|nao\s*avaliad|sem\s*avaliacao|nao\s*se\s*aplica/.test(value)) {
+    if (NOT_EVALUATED_TOKEN.test(value)) {
       return "nao_avaliado";
     }
     if (/nao\s*conforme|reprovad|irregular|nao\s*atende/.test(value)) {

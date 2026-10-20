@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ArrowDownUp, FileSpreadsheet, Filter, Pencil, Sheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -301,7 +301,7 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
               <SortableHead label="Arquivo" active={sortKey === "fileName"} asc={sortAsc} onClick={() => toggleSort("fileName")} />
               <SortableHead label="Nº FAC" active={sortKey === "fac"} asc={sortAsc} onClick={() => toggleSort("fac")} />
               <SortableHead label="Ordem de serviço" active={sortKey === "os"} asc={sortAsc} onClick={() => toggleSort("os")} />
-              <SortableHead label="Data" active={sortKey === "data"} asc={sortAsc} onClick={() => toggleSort("data")} />
+              <SortableHead label="Data avaliação" active={sortKey === "data"} asc={sortAsc} onClick={() => toggleSort("data")} />
               <SortableHead label="Polo" active={sortKey === "polo"} asc={sortAsc} onClick={() => toggleSort("polo")} />
               <TableHead className="whitespace-nowrap">Endereço</TableHead>
               <TableHead className="whitespace-nowrap">Não conformidade</TableHead>
@@ -317,8 +317,28 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item) => (
-                <TableRow key={item.id} className="transition-smooth hover:bg-accent/40">
+              filtered.map((item, index) => {
+                const currentDate = item.fields.data?.trim() || "Sem data";
+                const previousDate =
+                  index > 0 ? filtered[index - 1].fields.data?.trim() || "Sem data" : null;
+                const showDateGroup = sortKey === "data" && currentDate !== previousDate;
+                const dateCount = filtered.filter(
+                  (candidate) => (candidate.fields.data?.trim() || "Sem data") === currentDate,
+                ).length;
+
+                return (
+                <Fragment key={item.id}>
+                {showDateGroup && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={9}
+                      className="bg-glass/50 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
+                    >
+                      Data de avaliação {currentDate} • {dateCount} vistoria(s)
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow className="transition-smooth hover:bg-accent/40">
                   <TableCell className="max-w-[220px]">
                     <p className="truncate text-sm font-medium text-foreground" title={item.fileName}>
                       {item.fileName}
@@ -385,7 +405,9 @@ export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableP
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                </Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>

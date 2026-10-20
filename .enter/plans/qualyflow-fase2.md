@@ -389,3 +389,35 @@ Três correções pedidas após uso real:
   - `STATUS: conforme` + endereço colado em data/OS → **conforme**, endereço `RUA SERVILHA, 108`, OS `2618864709`.
   - OS apenas no nome do arquivo → OS `2618864711`.
   - Matriz do Excel: cabeçalho com as colunas na ordem, linha única sem quebras e status "Não avaliado".
+
+---
+
+# Fase 7 — Data de avaliação (FV), não avaliados ampliados e agrupamento
+
+## Contexto
+
+Com a imagem do formulário **FV / FCR - Pós 60**, o usuário pediu:
+1. os arquivos separados por **Data avaliação** (campo do PDF);
+2. que **inspeção impossibilitada**, **não executado** e **não localizado** também entrem em **Não avaliados**.
+
+## O que foi feito
+
+### Leitura do formulário FV
+- `Data avaliação` (e variações "data de avaliação"/"data da vistoria") passou a ser extraída como **primeira opção** da data; rótulo do campo agora é **"Data de avaliação"**.
+- Novos padrões: `OS nº`, `Contratada auditada`, `Serviço executado`, `Polo` sem dois-pontos.
+- Palavras de corte para não vazar campos vizinhos: coordenadas, categoria, auditor, conceito, líder, unidade/área, serviço acatado.
+- Resultado no FV de exemplo: Nº FAC 8319, data 01/07/2026, OS 2617577299, Polo Santana, endereço "Rua capitão nascimento 309", contratada "Consórcio Nova Norte - 01.005/21", serviço "Pós 60 - Passeio cimentado".
+
+### Não avaliados (ampliado)
+- Entram em **Não avaliado**: `N/A`, `não avaliado`, `sem avaliação`, `não se aplica`, **`inspeção impossibilitada`**, **`não executado(a)`**, **`não localizado(a)`** e `não realizado(a)` — tanto em campo rotulado (status/situação/resultado/parecer) quanto em célula isolada e no Tipo de Não Conformidade.
+
+### Agrupamento por data de avaliação
+- Na tabela do Analista, quando ordenada por data (padrão), as linhas são **separadas por faixa de data**: "DATA DE AVALIAÇÃO 01/07/2026 • 3 vistoria(s)" antes de cada grupo.
+- Coluna renomeada para **Data avaliação**; CSV/Excel seguem a mesma ordem.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) com o texto do FV: campos acima conferidos e status `conforme`.
+- `Inspeção impossibilitada`, `Não executado` e `Não localizado` classificados como `nao_avaliado`.
+- Tabela com 4 registros em 2 datas: dois grupos com contagem correta e badge "Não avaliado" visível.
