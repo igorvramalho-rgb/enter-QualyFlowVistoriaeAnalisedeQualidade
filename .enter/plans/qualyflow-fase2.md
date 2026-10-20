@@ -581,3 +581,25 @@ O painel "Não conformidades identificadas" deixou a tela pesada (416 cartões r
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Analista conferido com a base real (510 carregadas / 510 na base), sem o painel removido e com o aviso de importação sem limites.
+
+---
+
+# Fase 14 — Relatório Gerencial BI do Analista
+
+## Contexto
+
+O usuário pediu um relatório no estilo BI, apenas do módulo Analista, alimentado por tudo que é importado (lotes de 1 a 500 arquivos).
+
+## O que foi feito
+
+- Novo componente `src/components/analista/bi-report.tsx` gera **2 folhas A4** no padrão dos relatórios (papel claro, molduras, logos oficiais):
+  - **Página 1:** cabeçalho com logos, título "RELATÓRIO GERENCIAL — ANALISTA BI", data de geração, responsável e tamanho da base; grade de **6 indicadores** (vistorias, % concluídas, não conformidades, em andamento, não avaliados N/A, polos); **Resumo por polo** (Vila Maria / Santana, Freguesia, Gopoúva + total) com conformidade e % de conclusão; **Distribuição por status** com barras e percentuais.
+  - **Página 2:** **Motivos de não conformidade** (top 12, com quantidade e % das NC), **Vistorias por data de avaliação** (10 datas mais recentes), legenda do critério de classificação e crédito no rodapé.
+- Nova página `src/pages/RelatorioBi.tsx` em `/relatorio-bi`, com pré-visualização A4 escalada, botões **Voltar**, **Imprimir** e **Baixar PDF** (reaproveita `PrintPortal` + `downloadReportPdf`, o mesmo mecanismo validado do Emissor).
+- Botão **Relatório BI** no cabeçalho do Analista (aparece quando há base carregada).
+- Importação comunicada como **1 a 500 arquivos por envio, sem limite de páginas**; lotes maiores continuam sendo processados na ordem.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Página conferida com a base real (510 vistorias): cabeçalho, indicadores 510 / 7% / 416 / 40 / 17 / 1, resumo por polo com totais e barras de distribuição por status.

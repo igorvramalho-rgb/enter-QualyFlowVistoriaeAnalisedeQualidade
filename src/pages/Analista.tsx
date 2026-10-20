@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   Database,
+  FileBarChart,
   DatabaseZap,
   FileCheck2,
   Info,
@@ -30,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { useCloudAnalyses } from "@/hooks/use-cloud-data";
+import { useNavigate } from "react-router-dom";
 import { comparePolo, normalizeNcType, POLOS, type AnalysisRecord } from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
 import { countAnalyses } from "@/lib/cloud";
@@ -64,6 +66,7 @@ export default function Analista() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [reviewing, setReviewing] = useState<AnalysisRecord | null>(null);
   const [clearing, setClearing] = useState(false);
+  const navigate = useNavigate();
   const [serverTotal, setServerTotal] = useState<number | null>(null);
 
   useEffect(() => {
@@ -302,22 +305,28 @@ export default function Analista() {
         }
         actions={
           analyses.length > 0 ? (
-            <Button
-              type="button"
-              variant={clearing ? "destructive" : "glass"}
-              onClick={() => {
-                if (!clearing) {
-                  setClearing(true);
-                  toast.warning("Clique novamente para limpar a base de análise");
-                  return;
-                }
-                void clearAnalyses();
-                setClearing(false);
-                toast.success("Base de análise limpa");
-              }}
+            <>
+              <Button type="button" variant="glow" onClick={() => navigate("/relatorio-bi")}>
+                <FileBarChart className="h-4 w-4" />
+                Relatório BI
+              </Button>
+              <Button
+                type="button"
+                variant={clearing ? "destructive" : "glass"}
+                onClick={() => {
+                  if (!clearing) {
+                    setClearing(true);
+                    toast.warning("Clique novamente para limpar a base de análise");
+                    return;
+                  }
+                  void clearAnalyses();
+                  setClearing(false);
+                  toast.success("Base de análise limpa");
+                }}
             >
-              {clearing ? "Confirmar limpeza" : "Limpar base"}
-            </Button>
+                {clearing ? "Confirmar limpeza" : "Limpar base"}
+              </Button>
+            </>
           ) : undefined
         }
       />
