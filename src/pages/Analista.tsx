@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Activity, BarChart3, DatabaseZap, FileCheck2, Info, Loader2, Tags } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import {
@@ -20,16 +20,9 @@ import { VistoriasTable } from "@/components/analista/vistorias-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import {
-  comparePolo,
-  migrateRecordFields,
-  normalizeNcType,
-  POLOS,
-  type AnalysisRecord,
-} from "@/lib/analysis";
+import { useCloudAnalyses } from "@/hooks/use-cloud-data";
+import { comparePolo, normalizeNcType, POLOS, type AnalysisRecord } from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
-import { STORAGE_KEYS } from "@/lib/storage";
 
 const STATUS_COLORS: Record<string, string> = {
   conforme: "hsl(var(--success))",
@@ -48,28 +41,17 @@ const STATUS_NAMES: Record<string, string> = {
 };
 
 export default function Analista() {
-  const [analyses, setAnalyses] = useLocalStorage<AnalysisRecord[]>(STORAGE_KEYS.analyses, []);
+  const {
+    analyses,
+    addMany,
+    save: saveAnalysis,
+    remove: removeAnalysis,
+    clear: clearAnalyses,
+  } = useCloudAnalyses();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [reviewing, setReviewing] = useState<AnalysisRecord | null>(null);
   const [clearing, setClearing] = useState(false);
-
-  const needsMigration = useMemo(
-    () => analyses.some((record) => !record.fields.fac && Boolean(record.fields.fv)),
-    [analyses],
-  );
-
-  useEffect(() => {
-    if (!needsMigration) {
-      return;
-    }
-    setAnalyses((previous) =>
-      previous.map((record) => {
-        const fields = migrateRecordFields(record.fields);
-        return fields === record.fields ? record : { ...record, fields };
-      }),
-    );
-  }, [needsMigration, setAnalyses]);
 
   const poloSummaries = useMemo<PoloSummary[]>(() => {
     const base = POLOS.map((polo) => ({
@@ -209,7 +191,7 @@ export default function Analista() {
     }
 
     if (added.length > 0) {
-      setAnalyses((previous) => [...added, ...previous]);
+      await addMany(added);
       toast.success(
         added.length === 1 ? "Vistoria analisada" : `${added.length} vistorias analisadas`,
         {
@@ -233,14 +215,18 @@ export default function Analista() {
     }
   };
 
-  const handleSaveReview = (record: AnalysisRecord) => {
-    setAnalyses((previous) => previous.map((item) => (item.id === record.id ? record : item)));
-    toast.success("Dados revisados e salvos");
+  const handleSaveReview = async (record: AnalysisRecord) => {
+    const saved = await saveAnalysis(record);
+    if (saved) {
+      toast.success("Dados revisados e salvos na nuvem");
+    }
   };
 
-  const handleDelete = (recordId: string) => {
-    setAnalyses((previous) => previous.filter((item) => item.id !== recordId));
-    toast.success("Registro removido da análise");
+  const handleDelete = async (recordId: string) => {
+    const removed = await removeAnalysis(recordId);
+    if (removed) {
+      toast.success("Registro removido da análise");
+    }
   };
 
   return (
@@ -269,7 +255,7 @@ export default function Analista() {
                   toast.warning("Clique novamente para limpar a base de análise");
                   return;
                 }
-                setAnalyses([]);
+                void clearAnalyses();
                 setClearing(false);
                 toast.success("Base de análise limpa");
               }}
@@ -283,8 +269,8 @@ export default function Analista() {
       <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <p>
-          A leitura roda no seu navegador e nada é enviado para servidores. Cada bloco grava o polo no
-          arquivo importado; PDFs digitalizados entram como "Pendente de revisão" para conferência manual.
+          Cada bloco grava o polo no arquivo importado e a base fica salva na nuvem, compartilhada com a
+          equipe. PDFs digitalizados entram como "Pendente de revisão" para conferência manual.
         </p>
       </div>
 
@@ -319,7 +305,11 @@ export default function Analista() {
 
           <NcTypeChart data={ncTypeData} />
 
-          <VistoriasTable analyses={analyses} onReview={setReviewing} onDelete={handleDelete} />
+          <VistoriasTable
+            analyses={analyses}
+            onReview={setReviewing}
+            onDelete={(recordId) => void handleDelete(recordId)}
+          />
         </>
       )}
 
@@ -337,7 +327,7 @@ export default function Analista() {
             setReviewing(null);
           }
         }}
-        onSave={handleSaveReview}
+        onSave={(record) => void handleSaveReview(record)}
       />
     </div>
   );

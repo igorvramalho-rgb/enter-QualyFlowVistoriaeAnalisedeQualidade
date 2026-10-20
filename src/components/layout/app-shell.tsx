@@ -1,20 +1,42 @@
 import { useState } from "react";
-import { Menu, ShieldCheck } from "lucide-react";
-import { Outlet, useLocation } from "react-router-dom";
+import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "@/components/layout/app-footer";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/auth-context";
+import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function AppShell() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, loading, signOut } = useAuth();
+
+  useLegacyCloudMigration();
 
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
+
+  if (loading) {
+    return (
+      <div className="tech-mesh flex h-screen w-full items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-3">
+          <Skeleton className="h-12 w-40 rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
 
   return (
     <div className="tech-mesh flex h-screen w-full overflow-hidden">
@@ -51,17 +73,28 @@ export default function AppShell() {
             </div>
 
             <div className="hidden items-center gap-2 lg:flex">
-              <span className="chip-tech">
+              <span className="chip-tech max-w-[220px] truncate" title={user.email ?? ""}>
                 <span className="glow-dot" aria-hidden />
-                Base local ativa
+                {user.email}
               </span>
               <span className="chip-tech">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                Desenvolvido por Igor Ramalho
+                Igor Ramalho
               </span>
             </div>
 
             <ThemeToggle />
+
+            <Button
+              type="button"
+              variant="glass"
+              size="icon"
+              aria-label="Sair da conta"
+              title="Sair"
+              onClick={() => void signOut()}
+            >
+              <LogOut className="h-[18px] w-[18px]" />
+            </Button>
           </div>
         </header>
 

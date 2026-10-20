@@ -4,10 +4,20 @@ import AppShell from "./components/layout/app-shell";
 import { RouteFallback } from "./components/common/route-fallback";
 
 const Analista = lazy(() => import("./pages/Analista"));
+const Login = lazy(() => import("./pages/Login"));
 const Emissor = lazy(() => import("./pages/Emissor"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 export const routers = [
+  {
+    path: "/login",
+    name: "login",
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <Login />
+      </Suspense>
+    ),
+  },
   {
     path: "/",
     element: <AppShell />,

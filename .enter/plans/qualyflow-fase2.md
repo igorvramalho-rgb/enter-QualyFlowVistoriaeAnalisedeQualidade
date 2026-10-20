@@ -270,3 +270,44 @@ Três correções pedidas após o uso real:
 - O diálogo de revisão passou a oferecer **Nº polo como lista** dos três polos (mantendo valores antigos de outros polos como opção extra).
 - `pdf-uploader.tsx` foi substituído por `polo-upload-grid.tsx`.
 - Verificado com base de teste: 2 vistorias por polo, contagens e chips corretos, KPIs (6 vistorias, 3 polos) e gráfico na ordem Vila Maria / Santana → Freguesia → Gopoúva. Base de teste limpa ao final.
+
+---
+
+# Fase 4 — Persistência na nuvem (login + base compartilhada)
+
+## Contexto
+
+Até aqui os dados viviam só no armazenamento local do navegador. O usuário pediu para manter tudo salvo na nuvem, com acesso de outros computadores, e escolheu **e-mail e senha** com **base compartilhada** entre a equipe.
+
+## O que foi feito
+
+### Banco (Enter Cloud)
+- Tabelas novas, sem tocar em nada existente:
+  - `qualyflow_reports` — relatórios do Emissor (nome, modelo, valores, fotos em jsonb, objeto, observações, autor, datas).
+  - `qualyflow_analyses` — vistorias analisadas (fingerprint, arquivo, páginas, tipo, campos, confiança, status, trecho, revisado).
+  - `qualyflow_settings` — linha única `default` com cabeçalho institucional e logos.
+- **RLS habilitado nas três** com políticas: leitura para `authenticated`, escrita apenas com `auth.uid()` preenchido. Base compartilhada: quem tem conta vê a mesma base; visitante sem login não vê nada.
+- Trigger `qualyflow_touch_updated_at` mantém `updated_at`.
+- Confirmação por `supabase_get_table_schema`: colunas, índices e políticas aplicados.
+
+### Autenticação
+- E-mail + senha com **cadastro habilitado** e **confirmação automática** (sem ida ao e-mail), sem usuários anônimos.
+- `AuthProvider` com `onAuthStateChange` registrado antes da checagem inicial de sessão; sessão e usuário guardados juntos.
+- `/login` (fora do shell) com abas **Entrar** e **Criar conta**, mensagens de erro traduzidas.
+- `AppShell` redireciona para `/login` sem sessão, mostra o e-mail logado e o botão **Sair**.
+
+### Dados
+- `src/lib/cloud.ts`: mapeamento e CRUD das três tabelas (upsert, exclusão, contagem), com conversão de `fv` → Nº FAC na leitura.
+- `src/hooks/use-cloud-data.ts`: `useCloudReports`, `useCloudAnalyses`, `useCloudSettings` (gravação das logos com debounce) e `useLegacyCloudMigration`.
+- Emissor e Analista deixaram o `localStorage` e passaram a usar esses hooks; a nuvem é a fonte da verdade.
+- **Migração única**: no primeiro login, se a nuvem estiver vazia, os relatórios, vistorias e configurações que estavam neste navegador são enviados para a nuvem (marcador `qualyflow:cloud-migrated:v1`).
+- Avisos de tela atualizados: base compartilhada na nuvem.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Validação de ponta a ponta (harness temporário, removido): cadastro cria sessão, gravação de relatório e vistoria retorna as linhas (insert + select sob RLS), configurações gravadas, exclusão dos registros de teste e logout.
+- Base final conferida: 0 relatórios, 0 vistorias e 1 linha de configurações padrão.
+- Guarda de rota conferida: `/emissor` sem sessão abre a tela de login; `/login` renderiza com o design do sistema.
+- Conta de teste usada na validação teve a senha invalidada.
+- **Pendente de conferência do usuário**: criar a própria conta, salvar um relatório e abrir em outro computador.

@@ -74,7 +74,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       <div className="relative space-y-2 border-t border-sidebar-border/60 px-5 py-4 text-xs leading-relaxed text-sidebar-foreground/60">
         <p className="flex items-center gap-2 text-sidebar-foreground/75">
           <span className="glow-dot" aria-hidden />
-          Dados salvos neste navegador
+          Base compartilhada na nuvem
         </p>
         <p>Desenvolvido por Igor Ramalho.</p>
       </div>

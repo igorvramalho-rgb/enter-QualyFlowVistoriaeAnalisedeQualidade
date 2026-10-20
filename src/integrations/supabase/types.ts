@@ -3360,7 +3360,123 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      qualyflow_analyses: {
+        Row: {
+          analyzed_at: string
+          confidence: Json
+          created_at: string
+          created_by: string | null
+          document_type: string
+          fields: Json
+          file_name: string
+          fingerprint: string
+          id: string
+          pages: number
+          reviewed: boolean
+          snippet: string
+          source: string
+          status: string
+          text_available: boolean
+          updated_at: string
+        }
+        Insert: {
+          analyzed_at?: string
+          confidence?: Json
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          fields?: Json
+          file_name: string
+          fingerprint: string
+          id?: string
+          pages?: number
+          reviewed?: boolean
+          snippet?: string
+          source?: string
+          status?: string
+          text_available?: boolean
+          updated_at?: string
+        }
+        Update: {
+          analyzed_at?: string
+          confidence?: Json
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          fields?: Json
+          file_name?: string
+          fingerprint?: string
+          id?: string
+          pages?: number
+          reviewed?: boolean
+          snippet?: string
+          source?: string
+          status?: string
+          text_available?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qualyflow_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          objeto: string
+          observacoes: string
+          photos: Json
+          template_id: string
+          updated_at: string
+          values: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          objeto?: string
+          observacoes?: string
+          photos?: Json
+          template_id: string
+          updated_at?: string
+          values?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          objeto?: string
+          observacoes?: string
+          photos?: Json
+          template_id?: string
+          updated_at?: string
+          values?: Json
+        }
+        Relationships: []
+      }
+      qualyflow_settings: {
+        Row: {
+          header: Json
+          id: string
+          logos: Json
+          updated_at: string
+        }
+        Insert: {
+          header?: Json
+          id?: string
+          logos?: Json
+          updated_at?: string
+        }
+        Update: {
+          header?: Json
+          id?: string
+          logos?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

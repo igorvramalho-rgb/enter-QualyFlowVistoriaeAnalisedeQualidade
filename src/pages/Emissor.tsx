@@ -23,10 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useCloudReports, useCloudSettings } from "@/hooks/use-cloud-data";
 import { useScaledContainer } from "@/hooks/use-scaled-container";
 import {
-  DEFAULT_SETTINGS,
   countFilledPhotos,
   draftLabel,
   includedSlots,
@@ -45,16 +44,13 @@ import {
   mergeValuesForTemplate,
   REPORT_TEMPLATES,
 } from "@/lib/report-templates";
-import { createId, STORAGE_KEYS } from "@/lib/storage";
+import { createId } from "@/lib/storage";
 
 const FIRST_TEMPLATE = REPORT_TEMPLATES[0];
 
 export default function Emissor() {
-  const [settings, setSettings] = useLocalStorage<QualyflowSettings>(
-    STORAGE_KEYS.settings,
-    DEFAULT_SETTINGS,
-  );
-  const [drafts, setDrafts] = useLocalStorage<ReportDraft[]>(STORAGE_KEYS.drafts, []);
+  const { settings, update: updateSettings } = useCloudSettings();
+  const { drafts, save: saveReport, remove: removeReport } = useCloudReports();
 
   const [templateId, setTemplateId] = useState<string>(FIRST_TEMPLATE.id);
   const [values, setValues] = useState<ReportValues>(() => getDefaultValues(FIRST_TEMPLATE));
@@ -113,36 +109,33 @@ export default function Emissor() {
     });
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     const now = new Date().toISOString();
-    const label = draftLabel(templateId, values);
-
-    if (currentDraftId) {
-      setDrafts((previous) =>
-        previous.map((draft) =>
-          draft.id === currentDraftId
-            ? { ...draft, templateId, values, photos, objeto, observacoes, name: label, updatedAt: now }
-            : draft,
-        ),
-      );
-      toast.success("Rascunho atualizado", { description: label });
-      return;
-    }
+    const existing = currentDraftId
+      ? drafts.find((draft) => draft.id === currentDraftId)
+      : undefined;
 
     const draft: ReportDraft = {
-      id: createId(),
-      name: label,
+      id: currentDraftId ?? createId(),
+      name: draftLabel(templateId, values),
       templateId,
       values,
       photos,
       objeto,
       observacoes,
-      createdAt: now,
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
-    setDrafts((previous) => [draft, ...previous]);
-    setCurrentDraftId(draft.id);
-    toast.success("Relatório salvo neste navegador", { description: label });
+
+    const saved = await saveReport(draft);
+    if (!saved) {
+      return;
+    }
+
+    setCurrentDraftId(saved.id);
+    toast.success(existing ? "Rascunho atualizado na nuvem" : "Relatório salvo na nuvem", {
+      description: draft.name,
+    });
   };
 
   const handleNewReport = () => {
@@ -165,19 +158,23 @@ export default function Emissor() {
     toast.success("Relatório carregado", { description: draft.name });
   };
 
-  const handleDuplicateDraft = (draft: ReportDraft) => {
+  const handleDuplicateDraft = async (draft: ReportDraft) => {
     const now = new Date().toISOString();
-    const copy: ReportDraft = { ...draft, id: createId(), createdAt: now, updatedAt: now };
-    setDrafts((previous) => [copy, ...previous]);
-    toast.success("Relatório duplicado");
+    const saved = await saveReport({ ...draft, id: createId(), createdAt: now, updatedAt: now });
+    if (saved) {
+      toast.success("Relatório duplicado");
+    }
   };
 
-  const handleDeleteDraft = (draftId: string) => {
-    setDrafts((previous) => previous.filter((draft) => draft.id !== draftId));
+  const handleDeleteDraft = async (draftId: string) => {
+    const removed = await removeReport(draftId);
+    if (!removed) {
+      return;
+    }
     if (currentDraftId === draftId) {
       setCurrentDraftId(null);
     }
-    toast.success("Relatório excluído");
+    toast.success("Relatório excluído da nuvem");
   };
 
   const handleDownload = async () => {
@@ -219,7 +216,7 @@ export default function Emissor() {
                 <Plus className="h-4 w-4" />
                 Novo relatório
               </Button>
-              <Button type="button" variant="secondary" onClick={handleSaveDraft}>
+              <Button type="button" variant="secondary" onClick={() => void handleSaveDraft()}>
                 <Save className="h-4 w-4" />
                 {currentDraftId ? "Atualizar rascunho" : "Salvar rascunho"}
               </Button>
@@ -230,8 +227,8 @@ export default function Emissor() {
         <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
           <span>
-            Os relatórios ficam salvos apenas neste navegador. Use "Baixar PDF" ou "Imprimir" para gerar
-            o arquivo antes de limpar os dados do navegador.
+            Os relatórios e as logos ficam salvos na nuvem e disponíveis para toda a equipe. Use "Baixar
+            PDF" ou "Imprimir" para gerar o arquivo final.
           </span>
         </div>
 
@@ -247,14 +244,14 @@ export default function Emissor() {
               observacoes={observacoes}
               onObservacoesChange={setObservacoes}
             />
-            <InstitutionalHeaderForm settings={settings} onChange={setSettings} />
+            <InstitutionalHeaderForm settings={settings} onChange={updateSettings} />
             <PhotoSlotGrid slots={template.photoSlots} photos={photos} onChange={handlePhotoChange} />
             <DraftsList
               drafts={drafts}
               currentId={currentDraftId}
               onOpen={handleOpenDraft}
-              onDuplicate={handleDuplicateDraft}
-              onDelete={handleDeleteDraft}
+              onDuplicate={(draft) => void handleDuplicateDraft(draft)}
+              onDelete={(draftId) => void handleDeleteDraft(draftId)}
             />
           </div>
 

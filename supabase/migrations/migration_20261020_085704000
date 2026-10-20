@@ -1,0 +1,78 @@
+-- QualyFlow: persistência na nuvem (base compartilhada entre usuários autenticados)
+create table public.qualyflow_reports (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  template_id text not null,
+  values jsonb not null default '{}'::jsonb,
+  photos jsonb not null default '{}'::jsonb,
+  objeto text not null default '',
+  observacoes text not null default '',
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.qualyflow_analyses (
+  id uuid primary key default gen_random_uuid(),
+  fingerprint text not null,
+  file_name text not null,
+  pages integer not null default 1,
+  document_type text not null default 'indefinido',
+  text_available boolean not null default true,
+  source text not null default 'texto',
+  fields jsonb not null default '{}'::jsonb,
+  confidence jsonb not null default '{}'::jsonb,
+  status text not null default 'pendente',
+  snippet text not null default '',
+  reviewed boolean not null default false,
+  analyzed_at timestamptz not null default now(),
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index qualyflow_analyses_fingerprint_idx on public.qualyflow_analyses (fingerprint);
+
+create table public.qualyflow_settings (
+  id text primary key default 'default',
+  header jsonb not null default '{}'::jsonb,
+  logos jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.qualyflow_reports enable row level security;
+alter table public.qualyflow_analyses enable row level security;
+alter table public.qualyflow_settings enable row level security;
+
+create policy qualyflow_reports_select on public.qualyflow_reports for select to authenticated using (true);
+create policy qualyflow_reports_insert on public.qualyflow_reports for insert to authenticated with check (auth.uid() is not null);
+create policy qualyflow_reports_update on public.qualyflow_reports for update to authenticated using (true) with check (auth.uid() is not null);
+create policy qualyflow_reports_delete on public.qualyflow_reports for delete to authenticated using (true);
+
+create policy qualyflow_analyses_select on public.qualyflow_analyses for select to authenticated using (true);
+create policy qualyflow_analyses_insert on public.qualyflow_analyses for insert to authenticated with check (auth.uid() is not null);
+create policy qualyflow_analyses_update on public.qualyflow_analyses for update to authenticated using (true) with check (auth.uid() is not null);
+create policy qualyflow_analyses_delete on public.qualyflow_analyses for delete to authenticated using (true);
+
+create policy qualyflow_settings_select on public.qualyflow_settings for select to authenticated using (true);
+create policy qualyflow_settings_insert on public.qualyflow_settings for insert to authenticated with check (auth.uid() is not null);
+create policy qualyflow_settings_update on public.qualyflow_settings for update to authenticated using (true) with check (auth.uid() is not null);
+
+create or replace function public.qualyflow_touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger qualyflow_reports_touch before update on public.qualyflow_reports
+  for each row execute function public.qualyflow_touch_updated_at();
+
+create trigger qualyflow_analyses_touch before update on public.qualyflow_analyses
+  for each row execute function public.qualyflow_touch_updated_at();
+
+create trigger qualyflow_settings_touch before update on public.qualyflow_settings
+  for each row execute function public.qualyflow_touch_updated_at();
