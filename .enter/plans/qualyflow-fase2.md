@@ -625,3 +625,10 @@ O usuário pediu a marca de campo vista nas fotos (data/hora, coordenadas, ender
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido): painel com os cinco campos, contador de fotos marcadas, marca editável por foto e folha Pós 60 com o carimbo completo (data/hora, coordenadas, endereço, bairro, cidade) — e sem marca na foto com "Mostrar na folha" desligado.
+
+## Ajuste de padrão da marca (fonte e escrita)
+
+- Marca refeita no padrão da referência do usuário: **Arial/Helvetica**, branco, peso semibold, `11,5 px` com entrelinha 1,32, alinhada à direita no canto inferior direito da foto (margens de 2,5 mm) e sombra suave (`0 1px 2px` + `0 0 7px`) para leitura sobre qualquer imagem.
+- Cinco linhas na ordem da referência: data/hora, coordenadas, endereço, bairro e cidade.
+- Miniatura no formulário segue o mesmo estilo, com corpo proporcional.
+- Conferido em folha Pós 60: bloco de texto com a mesma proporção e posição da foto de campo enviada.

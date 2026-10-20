@@ -18,12 +18,16 @@ export function GeotagStamp({ geotag }: { geotag: GeotagData | undefined }) {
   ].filter((line) => line.trim().length > 0);
 
   return (
-    <div className="pointer-events-none absolute bottom-[2mm] right-[2mm] max-w-[80%] text-right">
+    <div className="pointer-events-none absolute bottom-[2.5mm] right-[2.5mm] max-w-[88%] text-right">
       {lines.map((line) => (
         <p
           key={line}
-          className="text-[9.5px] font-semibold leading-snug text-white"
-          style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.9)" }}
+          className="text-[11.5px] font-semibold leading-[1.32] text-white"
+          style={{
+            fontFamily: "Arial, Helvetica, sans-serif",
+            letterSpacing: "0.01em",
+            textShadow: "0 1px 2px rgba(0, 0, 0, 0.85), 0 0 7px rgba(0, 0, 0, 0.55)",
+          }}
         >
           {line}
         </p>

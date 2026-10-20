@@ -372,8 +372,11 @@ export function PhotoSlotGrid({
                           .map((line) => (
                             <p
                               key={line}
-                              className="text-[9px] font-semibold leading-tight text-white"
-                              style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}
+                              className="text-[10px] font-semibold leading-tight text-white"
+                              style={{
+                                fontFamily: "Arial, Helvetica, sans-serif",
+                                textShadow: "0 1px 2px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.5)",
+                              }}
                             >
                               {line}
                             </p>
