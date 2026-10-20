@@ -505,3 +505,33 @@ O usuário enviou a logo oficial (símbolo circular com seta/check + "QUALY FLOW
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Logo conferida em recorte próprio e na tela de login (1360px).
 - Assets finais: `public/brand/qualyflow-logo.png` (604×185) e `public/brand/qualyflow-icon.png` (512×512).
+
+---
+
+# Fase 11 — Base sem teto de linhas e não conformidades especificadas
+
+## Contexto
+
+Dois problemas relatados com a base real de PDFs:
+
+1. Os arquivos importados "paravam" de aparecer por volta de 510 registros.
+2. As não conformidades precisavam ser **especificadas** na análise (motivo, polo, data e arquivo), lembrando que **N/A é não avaliado**.
+
+## Causa do teto de registros
+
+A leitura da base usava uma única consulta (`select *`), que o servidor limita a uma página de linhas — os PDFs continuavam sendo gravados, mas a tela só mostrava os primeiros. A gravação também enviava todos os registros em uma única requisição, o que fica frágil com lotes grandes.
+
+## O que foi feito
+
+- **Leitura paginada** de vistorias e relatórios (páginas de 500 linhas até esgotar, com salvaguarda de 50.000) — a base inteira passa a ser carregada, em qualquer tamanho.
+- **Gravação em blocos de 200** registros por requisição, evitando falha silenciosa em lotes grandes.
+- Reimportar um arquivo já existente agora **atualiza** o registro (inclusive o polo do bloco) em vez de ser descartado, e o aviso informa "N atualizado(s) na base".
+- Cabeçalho do Analista mostra **"carregadas"** e o **total na nuvem**, sinalizando "sincronizando" se houver diferença — dá para conferir que nada ficou de fora.
+- Extração de motivo ampliada: além de tipo/motivo/descrição/apontamento, lê **"itens não conformes"** e **"pendência"**.
+- Novo painel **"Não conformidades identificadas"**: agrupa por polo (Vila Maria / Santana, Freguesia, Gopoúva) e lista motivo, OS, endereço e data de cada não conformidade, com botão **Especificar** que abre a revisão para completar o motivo quando o PDF não traz. Vistorias **não avaliadas (N/A)**, "inspeção impossibilitada", "não executado" e "não localizado" **não** entram nesse painel.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Painel conferido com base de teste: 3 não conformidades em 2 polos (Freguesia 2, Gopoúva 1, Vila Maria / Santana 0), com contagem de "sem motivo informado", exclusão correta de conforme e não avaliado, e o gráfico "Motivos de não conformidade" acima.
+- Paginação e blocos conferidos por leitura de código + tipos; a conferência de volume real depende da base do usuário (chip "na base").

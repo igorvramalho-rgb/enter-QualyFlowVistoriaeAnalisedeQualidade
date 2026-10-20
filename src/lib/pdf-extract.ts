@@ -91,6 +91,8 @@ const INLINE_PATTERNS: Record<string, RegExp[]> = {
     /motivo\s*(?:da\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
     /descri[cçc][aã]o\s*(?:da\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
     /apontamento\s*(?:de\s*)?(?:nao\s*conformidade)?\s*[:=]?\s*([^\n|]{3,80})/,
+    /itens?\s*nao\s*conformes?\s*[:=]?\s*([^\n|]{3,80})/,
+    /pendencia\s*[:=]?\s*([^\n|]{3,80})/,
     /nao\s*conformidade\s*[:=]\s*([^\n|]{3,80})/,
     /tipo\s*[:=]\s*([^\n|]{3,80})/,
   ],

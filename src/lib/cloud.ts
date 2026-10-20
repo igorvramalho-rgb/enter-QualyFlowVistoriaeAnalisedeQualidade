@@ -45,16 +45,29 @@ export function toReport(row: ReportRow): ReportDraft {
   };
 }
 
-export async function fetchReports(): Promise<ReportDraft[]> {
-  const { data, error } = await supabase
-    .from("qualyflow_reports")
-    .select("*")
-    .order("updated_at", { ascending: false });
+const PAGE_SIZE = 500;
+const MAX_ROWS = 50000;
 
-  if (error) {
-    throw error;
+export async function fetchReports(): Promise<ReportDraft[]> {
+  const rows: ReportRow[] = [];
+
+  for (let from = 0; rows.length < MAX_ROWS; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("qualyflow_reports")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      throw error;
+    }
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) {
+      break;
+    }
   }
-  return (data ?? []).map(toReport);
+
+  return rows.map(toReport);
 }
 
 export async function saveReport(draft: ReportDraft): Promise<ReportDraft> {
@@ -128,16 +141,30 @@ export function toAnalysis(row: AnalysisRow): AnalysisRecord {
   };
 }
 
+/**
+ * Lê a base inteira em páginas: sem isso o servidor devolve apenas a primeira
+ * página (limite de linhas) e parte dos PDFs importados "desaparecia" da tela.
+ */
 export async function fetchAnalyses(): Promise<AnalysisRecord[]> {
-  const { data, error } = await supabase
-    .from("qualyflow_analyses")
-    .select("*")
-    .order("analyzed_at", { ascending: false });
+  const rows: AnalysisRow[] = [];
 
-  if (error) {
-    throw error;
+  for (let from = 0; rows.length < MAX_ROWS; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("qualyflow_analyses")
+      .select("*")
+      .order("analyzed_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      throw error;
+    }
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) {
+      break;
+    }
   }
-  return (data ?? []).map(toAnalysis);
+
+  return rows.map(toAnalysis);
 }
 
 function analysisPayload(record: AnalysisRecord) {
@@ -185,6 +212,8 @@ export async function saveAnalysis(record: AnalysisRecord): Promise<AnalysisReco
   return toAnalysis(data);
 }
 
+const INSERT_CHUNK = 200;
+
 export async function saveAnalyses(records: AnalysisRecord[]): Promise<AnalysisRecord[]> {
   if (records.length === 0) {
     return [];
@@ -195,11 +224,18 @@ export async function saveAnalyses(records: AnalysisRecord[]): Promise<AnalysisR
     ...analysisPayload(record),
   }));
 
-  const { data, error } = await supabase.from("qualyflow_analyses").insert(rows).select("*");
-  if (error) {
-    throw error;
+  const saved: AnalysisRecord[] = [];
+
+  for (let index = 0; index < rows.length; index += INSERT_CHUNK) {
+    const chunk = rows.slice(index, index + INSERT_CHUNK);
+    const { data, error } = await supabase.from("qualyflow_analyses").insert(chunk).select("*");
+    if (error) {
+      throw error;
+    }
+    saved.push(...(data ?? []).map(toAnalysis));
   }
-  return (data ?? []).map(toAnalysis);
+
+  return saved;
 }
 
 export async function deleteAnalysis(id: string): Promise<void> {

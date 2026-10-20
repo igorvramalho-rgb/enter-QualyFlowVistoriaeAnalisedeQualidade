@@ -1,5 +1,14 @@
-import { useMemo, useState } from "react";
-import { Activity, BarChart3, DatabaseZap, FileCheck2, Info, Loader2, Tags } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Activity,
+  BarChart3,
+  Database,
+  DatabaseZap,
+  FileCheck2,
+  Info,
+  Loader2,
+  Tags,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import {
   NcTypeChart,
@@ -10,6 +19,7 @@ import {
   type StatusDatum,
 } from "@/components/analista/charts";
 import { KpiCards } from "@/components/analista/kpi-cards";
+import { NcPanel } from "@/components/analista/nc-panel";
 import {
   PoloUploadGrid,
   type PoloSummary,
@@ -54,6 +64,25 @@ export default function Analista() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [reviewing, setReviewing] = useState<AnalysisRecord | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void countAnalyses()
+      .then((total) => {
+        if (active) {
+          setServerTotal(total);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setServerTotal(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [analyses]);
 
   const poloSummaries = useMemo<PoloSummary[]>(() => {
     const base = POLOS.map((polo) => ({
@@ -141,12 +170,13 @@ export default function Analista() {
   const handleFiles = async (files: File[], polo?: string) => {
     setBusy(true);
     const added: AnalysisRecord[] = [];
+    const updates: AnalysisRecord[] = [];
     let duplicates = 0;
     let failed = 0;
 
     try {
       const { analyzePdfFile } = await import("@/lib/pdf-extract");
-      const known = new Set(analyses.map((item) => item.fingerprint));
+      const known = new Map(analyses.map((item) => [item.fingerprint, item]));
 
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
@@ -173,12 +203,15 @@ export default function Analista() {
               }
             : extracted;
 
-          if (known.has(record.fingerprint)) {
+          const existing = known.get(record.fingerprint);
+          if (existing) {
+            // Mesmo arquivo: atualiza o registro (inclusive o polo do bloco)
+            updates.push({ ...record, id: existing.id, reviewed: existing.reviewed });
             duplicates += 1;
             continue;
           }
 
-          known.add(record.fingerprint);
+          known.set(record.fingerprint, record);
           added.push(record);
         } catch (error) {
           failed += 1;
@@ -192,6 +225,12 @@ export default function Analista() {
       setProgress(null);
     }
 
+    if (updates.length > 0) {
+      for (const record of updates) {
+        await saveAnalysis(record);
+      }
+    }
+
     if (added.length > 0) {
       await addMany(added);
       toast.success(
@@ -200,7 +239,7 @@ export default function Analista() {
           description:
             [
               polo ? `Polo: ${polo}` : null,
-              duplicates > 0 ? `${duplicates} já constavam na base` : null,
+              duplicates > 0 ? `${duplicates} atualizado(s) na base` : null,
               failed > 0 ? `${failed} com falha de leitura` : null,
             ]
               .filter(Boolean)
@@ -210,9 +249,9 @@ export default function Analista() {
       return;
     }
 
-    if (duplicates > 0 && failed === 0) {
+    if (duplicates > 0 && failed === 0 && added.length === 0) {
       toast.info("Nenhum arquivo novo", {
-        description: "Todos os PDFs enviados já foram analisados anteriormente.",
+        description: "Os PDFs enviados já estavam na base e foram atualizados.",
       });
     }
   };
@@ -240,7 +279,14 @@ export default function Analista() {
         chips={
           analyses.length > 0
             ? [
-                { icon: FileCheck2, label: `${analyses.length} vistorias` },
+                { icon: FileCheck2, label: `${analyses.length} vistorias carregadas` },
+                {
+                  icon: Database,
+                  label:
+                    serverTotal === null
+                      ? "Base na nuvem"
+                      : `${serverTotal} na base${serverTotal > analyses.length ? " (sincronizando)" : ""}`,
+                },
                 { icon: Tags, label: `${tiposNcDistintos} tipos de NC` },
                 { icon: Activity, label: lastAnalysisLabel(analyses) },
               ]
@@ -306,6 +352,8 @@ export default function Analista() {
           </div>
 
           <NcTypeChart data={ncTypeData} />
+
+          <NcPanel analyses={analyses} onReview={setReviewing} />
 
           <VistoriasTable
             analyses={analyses}
