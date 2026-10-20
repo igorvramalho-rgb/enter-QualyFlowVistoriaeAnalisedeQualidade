@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { EmptyPhoto } from "@/components/report/empty-photo";
 import { formatDateBR, upper } from "@/lib/fields";
+import { resolveCaption } from "@/lib/report-document";
 import type { PhotoEntry } from "@/lib/report-document";
 import type { QualyflowSettings } from "@/lib/report-document";
 import { SGZ_SITUACOES, type ReportPhotoSlot } from "@/lib/report-templates";
@@ -33,9 +34,10 @@ export function ReportSheetSgz({
   observacoes,
 }: ReportSheetSgzProps) {
   const endereco = upper(values.endereco);
+  const slotCaption = upper(resolveCaption(photo?.caption, slot.caption));
   const caption = endereco
-    ? `FOTO Nº ${photoNumber}: ${endereco} - ${slot.caption}`
-    : `FOTO Nº ${photoNumber}: ${slot.caption}`;
+    ? `FOTO Nº ${photoNumber}: ${endereco} - ${slotCaption}`
+    : `FOTO Nº ${photoNumber}: ${slotCaption}`;
 
   return (
     <article className="print-sheet mx-auto flex flex-col px-[10mm] py-[8mm] font-sheet">
@@ -141,13 +143,13 @@ export function ReportSheetSgz({
           {photo?.dataUrl ? (
             <div
               role="img"
-              aria-label={slot.caption}
+              aria-label={slotCaption}
               className="sheet-photo-frame sheet-photo-frame--contain absolute inset-[3mm]"
               style={{ backgroundImage: `url(${photo.dataUrl})` }}
             >
               <img
                 src={photo.dataUrl}
-                alt={slot.caption}
+                alt={slotCaption}
                 className="sheet-photo-img sheet-photo-img--contain"
               />
             </div>

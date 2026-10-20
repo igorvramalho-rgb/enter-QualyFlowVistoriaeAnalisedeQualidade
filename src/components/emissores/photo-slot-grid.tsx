@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardPaste, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ClipboardPaste, ImagePlus, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { estimateDataUrlSize, fileToCompressedDataUrl, isImageFile } from "@/lib/image";
 import { formatBytes } from "@/lib/fields";
@@ -112,6 +114,7 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
     0,
   );
   const totalSizeLabel = formatBytes(totalBytes);
+  const hasCustomCaptions = slots.some((slot) => Boolean(photos[slot.id]?.caption?.trim()));
 
   return (
     <div
@@ -131,6 +134,24 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            className="h-8"
+            disabled={!hasCustomCaptions}
+            onClick={() => {
+              slots.forEach((slot) => {
+                const entry = photos[slot.id];
+                if (entry?.caption?.trim()) {
+                  onChange(slot.id, { ...entry, caption: undefined });
+                }
+              });
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restaurar legendas padrão
+          </Button>
           <span className="chip-tech">
             <ClipboardPaste className="h-3.5 w-3.5 text-primary" />
             Ctrl+V direto da vistoria
@@ -144,6 +165,7 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
           const photo = photos[slot.id];
           const isActive = activeSlotId === slot.id;
           const isProcessing = processingId === slot.id;
+          const isCustomCaption = Boolean(photo?.caption?.trim());
 
           return (
             <div
@@ -169,7 +191,11 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
                   <Switch
                     checked={photo?.include ?? slot.includeByDefault}
                     onCheckedChange={(checked) =>
-                      onChange(slot.id, photo ? { ...photo, include: checked } : null)
+                      onChange(slot.id, {
+                        dataUrl: photo?.dataUrl ?? "",
+                        include: checked,
+                        caption: photo?.caption,
+                      })
                     }
                     aria-label={`Incluir ${slot.caption} na impressão`}
                   />
@@ -191,6 +217,47 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
                 )}
               </div>
 
+              <div className="space-y-1">
+                <Label
+                  htmlFor={`legenda-${slot.id}`}
+                  className="flex items-center justify-between text-[11px] text-muted-foreground"
+                >
+                  Legenda da foto
+                  {isCustomCaption && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onChange(slot.id, {
+                          dataUrl: photo?.dataUrl ?? "",
+                          include: photo?.include ?? slot.includeByDefault,
+                          caption: undefined,
+                        });
+                      }}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      padrão do modelo
+                    </button>
+                  )}
+                </Label>
+                <Input
+                  id={`legenda-${slot.id}`}
+                  value={photo?.caption ?? ""}
+                  placeholder={slot.caption}
+                  maxLength={70}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) =>
+                    onChange(slot.id, {
+                      dataUrl: photo?.dataUrl ?? "",
+                      include: photo?.include ?? slot.includeByDefault,
+                      caption: event.target.value,
+                    })
+                  }
+                  className="h-8 bg-background/70 text-xs uppercase"
+                />
+              </div>
+
               <div className="flex items-center gap-2">
                 <DropzoneButton
                   onFile={(file) => void handleFile(slot.id, file)}
@@ -206,7 +273,11 @@ export function PhotoSlotGrid({ slots, photos, onChange }: PhotoSlotGridProps) {
                     className="text-muted-foreground hover:text-destructive"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onChange(slot.id, null);
+                      onChange(slot.id, {
+                        dataUrl: "",
+                        include: photo?.include ?? slot.includeByDefault,
+                        caption: photo?.caption,
+                      });
                     }}
                   >
                     <Trash2 className="h-4 w-4" />

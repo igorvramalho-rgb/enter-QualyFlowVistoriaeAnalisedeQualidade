@@ -6,6 +6,14 @@ import { getTemplate } from "@/lib/report-templates";
 export interface PhotoEntry {
   dataUrl: string;
   include: boolean;
+  /** Legenda editada pelo usuário; vazio usa a legenda padrão do modelo. */
+  caption?: string;
+}
+
+/** Legenda que vai para a folha: a editada ou a padrão do modelo. */
+export function resolveCaption(caption: string | undefined, fallback: string): string {
+  const custom = caption?.trim();
+  return custom && custom.length > 0 ? custom : fallback;
 }
 
 export type PhotoMap = Record<string, PhotoEntry>;

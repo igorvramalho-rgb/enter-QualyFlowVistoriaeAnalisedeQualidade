@@ -1,7 +1,7 @@
 import { EmptyPhoto } from "@/components/report/empty-photo";
 import { formatDateBR } from "@/lib/fields";
 import type { PhotoMap, QualyflowSettings, ReportValues } from "@/lib/report-document";
-import { includedSlots } from "@/lib/report-document";
+import { includedSlots, resolveCaption } from "@/lib/report-document";
 import type { ReportTemplate } from "@/lib/report-templates";
 
 interface ReportSheetPos60Props {
@@ -102,19 +102,20 @@ export function ReportSheetPos60({
         <div className="mt-[5mm] grid min-h-[138mm] flex-1 grid-cols-2 grid-rows-3 gap-x-[5mm] gap-y-[4mm]">
           {slots.map((slot) => {
             const photo = photos[slot.id];
+            const slotCaption = resolveCaption(photo?.caption, slot.caption);
             return (
               <figure key={slot.id} className="flex min-h-0 flex-col">
                 <div className="sheet-frame relative min-h-0 flex-1 overflow-hidden">
                   {photo?.dataUrl ? (
                     <div
                       role="img"
-                      aria-label={slot.caption}
+                      aria-label={slotCaption}
                       className="sheet-photo-frame sheet-photo-frame--cover absolute inset-0"
                       style={{ backgroundImage: `url(${photo.dataUrl})` }}
                     >
                       <img
                         src={photo.dataUrl}
-                        alt={slot.caption}
+                        alt={slotCaption}
                         className="sheet-photo-img sheet-photo-img--cover"
                       />
                     </div>
@@ -125,7 +126,7 @@ export function ReportSheetPos60({
                   )}
                 </div>
                 <figcaption className="mt-[1.4mm] text-[10px] uppercase leading-tight">
-                  {slot.caption}
+                  {slotCaption}
                 </figcaption>
               </figure>
             );

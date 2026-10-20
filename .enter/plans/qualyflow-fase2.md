@@ -454,3 +454,27 @@ Com o print "FV-46384 2618864709.pdf": a coluna **Ordem de serviço** ficava vaz
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Regras conferidas por script: `FV-46384 2618864709.pdf` → FAC `46384`, OS `2618864709`; `Rua capitão nascimento 309 Categoria Serviço Completo` → `Rua capitão nascimento 309`; "motivo da nao conformidade: desnivel de 18 mm..." → capturado inteiro.
 - Login conferido em 1360px e em `mobile_390`.
+
+---
+
+# Fase 9 — Legendas das fotos editáveis no Emissor
+
+## Contexto
+
+O usuário pediu que a **descrição (legenda) das fotos** também seja editável no Emissor, mantendo o texto do modelo como padrão, nos três modelos de relatório.
+
+## O que foi feito
+
+- `PhotoEntry` ganhou `caption?: string` e o helper `resolveCaption()` (legenda editada ou a padrão do modelo).
+- Cada campo de foto agora tem um input **"Legenda da foto"** já preenchido com o texto padrão do modelo (ex.: `REPOSIÇÃO PERPENDICULAR A FACHADA DO IMÓVEL`), com:
+  - link **"padrão do modelo"** por campo quando a legenda foi alterada;
+  - botão **"Restaurar legendas padrão"** na seção, que volta todos os campos de uma vez;
+  - limite de 70 caracteres e texto exibido em maiúsculas na folha.
+- A legenda editada vale para as folhas SGZ-156 e Pós 60 (Passeio e Via): no SGZ ela entra na linha `FOTO Nº n: ENDEREÇO - LEGENDA`; no Pós 60 substitui a legenda abaixo da foto.
+- Remover a foto **mantém** a legenda editada; incluir/excluir da impressão também preserva o texto.
+- A legenda viaja no rascunho e no registro salvo na nuvem (mesmo objeto `photos`).
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) com os três papéis: campos com legenda alterada mostraram "REPOSIÇÃO NA ESQUINA, VISTA FRONTAL" e "PANORAMA APÓS COMPACTAÇÃO" nas folhas, e no SGZ `FOTO Nº 1: R. SEMYON KIRLIAN 85 - NOTIFICAÇÃO ENTREGUE AO MORADOR`, mantendo as demais no padrão do modelo.
