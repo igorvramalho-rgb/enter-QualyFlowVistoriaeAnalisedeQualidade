@@ -1,6 +1,7 @@
 import { EmptyPhoto } from "@/components/report/empty-photo";
 import { formatDateBR } from "@/lib/fields";
 import type { PhotoMap, QualyflowSettings, ReportValues } from "@/lib/report-document";
+import { GeotagStamp } from "@/components/report/geotag-stamp";
 import { includedSlots, resolveCaption } from "@/lib/report-document";
 import type { ReportTemplate } from "@/lib/report-templates";
 
@@ -118,6 +119,7 @@ export function ReportSheetPos60({
                         alt={slotCaption}
                         className="sheet-photo-img sheet-photo-img--cover"
                       />
+                      {photo.showGeotag !== false && <GeotagStamp geotag={photo.geotag} />}
                     </div>
                   ) : (
                     <div className="absolute inset-0">

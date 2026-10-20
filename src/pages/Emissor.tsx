@@ -3,6 +3,7 @@ import {
   Download,
   FileText,
   Images,
+  MapPin,
   Info,
   Layers,
   Loader2,
@@ -25,10 +26,12 @@ import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { useCloudReports, useCloudSettings } from "@/hooks/use-cloud-data";
 import { useScaledContainer } from "@/hooks/use-scaled-container";
+import { emptyGeotag } from "@/lib/geotag";
 import {
   countFilledPhotos,
   draftLabel,
   includedSlots,
+  type GeotagSettings,
   type PhotoEntry,
   type PhotoMap,
   type QualyflowSettings,
@@ -57,6 +60,7 @@ export default function Emissor() {
   const [photos, setPhotos] = useState<PhotoMap>({});
   const [objeto, setObjeto] = useState<string>(FIRST_TEMPLATE.objeto ?? "");
   const [observacoes, setObservacoes] = useState<string>("");
+  const [geotag, setGeotag] = useState<GeotagSettings>({ enabled: false, defaults: emptyGeotag() });
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -123,6 +127,7 @@ export default function Emissor() {
       photos,
       objeto,
       observacoes,
+      geotag,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
@@ -143,6 +148,7 @@ export default function Emissor() {
     setPhotos({});
     setObjeto(template.objeto ?? "");
     setObservacoes("");
+    setGeotag({ enabled: false, defaults: emptyGeotag() });
     setCurrentDraftId(null);
     toast.success("Novo relatório em branco");
   };
@@ -154,6 +160,7 @@ export default function Emissor() {
     setPhotos(draft.photos ?? {});
     setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
     setObservacoes(draft.observacoes ?? "");
+    setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
     setCurrentDraftId(draft.id);
     toast.success("Relatório carregado", { description: draft.name });
   };
@@ -209,6 +216,7 @@ export default function Emissor() {
               icon: MessageSquareText,
               label: observacoes.trim() ? "Observação preenchida" : "Sem observação",
             },
+            { icon: MapPin, label: geotag.enabled ? "Marca de local ativa" : "Sem marca de local" },
           ]}
           actions={
             <>
@@ -245,7 +253,14 @@ export default function Emissor() {
               onObservacoesChange={setObservacoes}
             />
             <InstitutionalHeaderForm settings={settings} onChange={updateSettings} />
-            <PhotoSlotGrid slots={template.photoSlots} photos={photos} onChange={handlePhotoChange} />
+            <PhotoSlotGrid
+              slots={template.photoSlots}
+              photos={photos}
+              onChange={handlePhotoChange}
+              geotag={geotag}
+              onGeotagChange={setGeotag}
+              enderecoPadrao={values.endereco}
+            />
             <DraftsList
               drafts={drafts}
               currentId={currentDraftId}

@@ -603,3 +603,25 @@ O usuário pediu um relatório no estilo BI, apenas do módulo Analista, aliment
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Página conferida com a base real (510 vistorias): cabeçalho, indicadores 510 / 7% / 416 / 40 / 17 / 1, resumo por polo com totais e barras de distribuição por status.
+
+---
+
+# Fase 15 — Marca de data e local (GPS) nas fotos
+
+## Contexto
+
+O usuário pediu a marca de campo vista nas fotos (data/hora, coordenadas, endereço, bairro e cidade), **100% editável** e com **botão para habilitar/desabilitar** quando quiser.
+
+## O que foi feito
+
+- `src/lib/geotag.ts`: leitura do **GPS do EXIF** das fotos (JPEG, melhor esforço), formatação `23,4932S 46,5915W` (vírgula decimal + hemisfério) e carimbo de data/hora.
+- `PhotoEntry` ganhou `geotag` (as cinco linhas) e `showGeotag` (liga/desliga por foto); o rascunho guarda a configuração (`geotag: { enabled, defaults }`).
+- **Painel na seção de fotos**: botão **ligar/desligar** a marca, cinco campos padrão editáveis (data e hora, coordenadas, endereço, bairro, cidade), atalho "Usar data e hora de agora" e "Aplicar às fotos inseridas". O endereço padrão já vem do próprio relatório, e a cidade padrão é São Paulo.
+- **Por foto**: bloco recolhível "Data e local desta foto" com os cinco campos e um interruptor "Mostrar na folha", então cada foto pode ter sua própria informação.
+- Ao inserir uma foto com a marca ligada, o sistema tenta ler o GPS do arquivo e preenche as coordenadas automaticamente.
+- Na folha (SGZ e Pós 60) a marca é desenhada no canto inferior direito da foto, em branco com sombra, na mesma disposição das fotos de campo.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido): painel com os cinco campos, contador de fotos marcadas, marca editável por foto e folha Pós 60 com o carimbo completo (data/hora, coordenadas, endereço, bairro, cidade) — e sem marca na foto com "Mostrar na folha" desligado.

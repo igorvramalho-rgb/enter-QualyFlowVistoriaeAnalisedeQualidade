@@ -1,3 +1,4 @@
+import type { GeotagData } from "@/lib/geotag";
 import type { InstitutionalHeader, LogoSettings } from "@/lib/report-settings";
 import { DEFAULT_INSTITUTIONAL_HEADER, DEFAULT_LOGOS } from "@/lib/report-settings";
 import type { ReportTemplateId } from "@/lib/report-templates";
@@ -8,6 +9,16 @@ export interface PhotoEntry {
   include: boolean;
   /** Legenda editada pelo usuário; vazio usa a legenda padrão do modelo. */
   caption?: string;
+  /** Marca de data/local (GPS) impressa sobre a foto. */
+  geotag?: GeotagData;
+  /** Liga/desliga a marca só nesta foto. */
+  showGeotag?: boolean;
+}
+
+/** Configuração da marca de data/local aplicada às fotos novas. */
+export interface GeotagSettings {
+  enabled: boolean;
+  defaults: GeotagData;
 }
 
 /** Legenda que vai para a folha: a editada ou a padrão do modelo. */
@@ -29,6 +40,8 @@ export interface ReportDraft {
   objeto: string;
   /** Observação impressa logo abaixo dos dados de cabeçalho (só quando preenchida). */
   observacoes?: string;
+  /** Marca de data/local das fotos. */
+  geotag?: GeotagSettings;
   createdAt: string;
   updatedAt: string;
 }

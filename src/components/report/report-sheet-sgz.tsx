@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { EmptyPhoto } from "@/components/report/empty-photo";
 import { formatDateBR, upper } from "@/lib/fields";
+import { GeotagStamp } from "@/components/report/geotag-stamp";
 import { resolveCaption } from "@/lib/report-document";
 import type { PhotoEntry } from "@/lib/report-document";
 import type { QualyflowSettings } from "@/lib/report-document";
@@ -152,6 +153,7 @@ export function ReportSheetSgz({
                 alt={slotCaption}
                 className="sheet-photo-img sheet-photo-img--contain"
               />
+              {photo.showGeotag !== false && <GeotagStamp geotag={photo.geotag} />}
             </div>
           ) : (
             <div className="absolute inset-[3mm]">
