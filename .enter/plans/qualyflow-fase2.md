@@ -678,3 +678,21 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido): campo exibindo `31/07/2026` com o botão **Hoje** e a folha Pós 60 imprimindo `31/07/2026` na coluna DATA.
+
+---
+
+# Fase 18 — Mover e recortar fotos já inseridas
+
+## O que foi feito
+
+- Novo diálogo **"Ajustar foto"** (`src/components/emissores/photo-crop-dialog.tsx`), aberto pelo botão **Ajustar** em cada foto:
+  - **Arrastar** a imagem para mover o enquadramento (pointer events, funciona no toque);
+  - **Zoom** de 1x a 3x (slider) para recortar;
+  - **Centralizar** para voltar ao enquadramento neutro.
+- O recorte é **aplicado na imagem** (canvas 1500 × 1000, proporção 3:2, JPEG 0.92) e substitui a foto do slot — assim a folha impressa e o PDF ficam idênticos, sem depender de `object-fit` ou transformações.
+- A pré-visualização usa a mesma matemática do recorte final (o que você vê é o que sai).
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Diálogo conferido com imagem de teste: prévia 3:2, dica de arrastar, slider de zoom, "Centralizar", Cancelar e Aplicar recorte.

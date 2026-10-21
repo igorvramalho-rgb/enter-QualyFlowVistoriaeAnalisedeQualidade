@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardPaste, ImagePlus, Loader2, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { ClipboardPaste, Crop, ImagePlus, Loader2, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhotoCropDialog } from "@/components/emissores/photo-crop-dialog";
 import { estimateDataUrlSize, fileToCompressedDataUrl, isImageFile } from "@/lib/image";
 import { formatBytes } from "@/lib/fields";
 import { formatCoordinates, nowStamp, readPhotoGps, type GeotagData } from "@/lib/geotag";
@@ -45,6 +46,7 @@ export function PhotoSlotGrid({
 }: PhotoSlotGridProps) {
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [cropSlot, setCropSlot] = useState<string | null>(null);
   const photosRef = useRef(photos);
   photosRef.current = photos;
 
@@ -479,6 +481,20 @@ export function PhotoSlotGrid({
                 {photo?.dataUrl && (
                   <Button
                     type="button"
+                    variant="glass"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCropSlot(slot.id);
+                    }}
+                  >
+                    <Crop className="h-4 w-4" />
+                    Ajustar
+                  </Button>
+                )}
+                {photo?.dataUrl && (
+                  <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground hover:text-destructive"
@@ -496,6 +512,23 @@ export function PhotoSlotGrid({
           );
         })}
       </div>
+
+      <PhotoCropDialog
+        open={Boolean(cropSlot)}
+        image={cropSlot ? photos[cropSlot]?.dataUrl ?? null : null}
+        caption={slots.find((slot) => slot.id === cropSlot)?.caption ?? ""}
+        onClose={() => setCropSlot(null)}
+        onApply={(cropped) => {
+          if (!cropSlot) {
+            return;
+          }
+          const entry = photos[cropSlot];
+          if (entry) {
+            onChange(cropSlot, { ...entry, dataUrl: cropped });
+            toast.success("Enquadramento atualizado");
+          }
+        }}
+      />
     </div>
   );
 }
