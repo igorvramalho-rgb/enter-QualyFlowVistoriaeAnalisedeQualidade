@@ -1,3 +1,5 @@
+import { CalendarDays } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +26,25 @@ interface ReportFormProps {
 }
 
 const MAX_OBSERVACOES = 2000;
+
+/** Mantém a digitação no formato dd/mm/aaaa. */
+function maskDate(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+  return parts.join("/");
+}
+
+/** Converte datas antigas em ISO (aaaa-mm-dd) para o formato digitado. */
+function toDisplayDate(value: string): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : value;
+}
+
+function todayBR(): string {
+  const today = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
+}
 
 export function ReportForm({
   template,
@@ -68,10 +89,34 @@ export function ReportForm({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : field.type === "date" ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={inputId}
+                    type="text"
+                    inputMode="numeric"
+                    value={toDisplayDate(values[field.id] ?? "")}
+                    placeholder="dd/mm/aaaa"
+                    maxLength={10}
+                    onChange={(event) => onValueChange(field.id, maskDate(event.target.value))}
+                    className="bg-background/70"
+                  />
+                  <Button
+                    type="button"
+                    variant="glass"
+                    size="sm"
+                    className="h-10 shrink-0"
+                    title="Usar a data de hoje"
+                    onClick={() => onValueChange(field.id, todayBR())}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    Hoje
+                  </Button>
+                </div>
               ) : (
                 <Input
                   id={inputId}
-                  type={field.type === "date" ? "date" : "text"}
+                  type="text"
                   value={values[field.id] ?? ""}
                   placeholder={field.placeholder}
                   onChange={(event) => onValueChange(field.id, event.target.value)}

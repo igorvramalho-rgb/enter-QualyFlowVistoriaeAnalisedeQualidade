@@ -654,3 +654,27 @@ Ao navegar para o Analista e voltar, o Emissor recomeçava vazio: o formulário 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Teste ponta a ponta com harness (removido): rascunho gravado, Emissor aberto com **Pós 60 Via**, contratada/OS/FAC/endereço/data, observação e **"Marca de local ativa"** restaurados, botão em "Atualizar rascunho" e aviso de restauração.
 - Rascunhos de teste removidos do banco após a validação.
+
+---
+
+# Fase 17 — Data do relatório: entrada dd/mm/aaaa e botão "Hoje"
+
+## Contexto
+
+O usuário relatou que a data escolhida não aparecia no relatório e pediu a opção de usar a data atual.
+
+## Causa
+
+O campo usava `<input type="date">`, que segue o idioma do navegador: em máquina configurada em inglês o campo espera **mm/dd/aaaa** e descarta uma digitação em **dd/mm/aaaa** — o valor ficava vazio e a folha saía sem data.
+
+## O que foi feito
+
+- Campo de data passou a ser **texto com máscara dd/mm/aaaa** (até 8 dígitos, barras automáticas) — igual ao padrão dos relatórios.
+- Botão **"Hoje"** ao lado de cada campo de data (Data da Vistoria no SGZ-156 e DATA no Pós 60) para usar a data atual com um clique.
+- Datas antigas gravadas em ISO (aaaa-mm-dd) são convertidas para exibição; a folha continua formatando qualquer um dos dois formatos via `formatDateBR`.
+- Vale para os três modelos e para os rascunhos restaurados.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido): campo exibindo `31/07/2026` com o botão **Hoje** e a folha Pós 60 imprimindo `31/07/2026` na coluna DATA.
