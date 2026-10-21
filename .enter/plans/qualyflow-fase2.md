@@ -696,3 +696,12 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Diálogo conferido com imagem de teste: prévia 3:2, dica de arrastar, slider de zoom, "Centralizar", Cancelar e Aplicar recorte.
+
+---
+
+# Fase 19 — Botão "Limpar relatório"
+
+- Novo botão **Limpar relatório** no cabeçalho do Emissor, ao lado de Novo relatório / Salvar rascunho.
+- Confirmação em **dois cliques** ("Confirmar limpeza") para não apagar por engano.
+- Zera os campos (inclusive os padrões do modelo), todas as fotos, legendas, observação e a marca de data/local; mantém o texto de Objeto do modelo e **desvincula** o formulário do rascunho salvo — ou seja, o relatório salvo anteriormente **não é apagado**, só deixa de ser sobrescrito.
+- Para apagar de fato um relatório salvo, continua valendo o botão de exclusão na lista "Relatórios salvos".

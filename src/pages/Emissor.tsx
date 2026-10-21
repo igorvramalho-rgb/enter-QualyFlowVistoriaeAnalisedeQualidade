@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
+  Eraser,
   FileText,
   Images,
   MapPin,
@@ -91,6 +92,7 @@ export default function Emissor() {
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [clearingReport, setClearingReport] = useState(false);
   const savedSignature = useRef("");
   const pendingDraft = useRef<ReportDraft | null>(null);
 
@@ -310,6 +312,26 @@ export default function Emissor() {
     toast.success("Novo relatório em branco");
   };
 
+  /** Zera o formulário (campos, fotos, legendas, observação e marca) sem apagar o rascunho salvo. */
+  const handleClearReport = () => {
+    if (!clearingReport) {
+      setClearingReport(true);
+      toast.warning("Clique em Limpar relatório novamente para confirmar");
+      return;
+    }
+
+    setClearingReport(false);
+    setValues(Object.fromEntries(template.fields.map((field) => [field.id, ""])));
+    setPhotos({});
+    setObjeto(template.objeto ?? "");
+    setObservacoes("");
+    setGeotag({ enabled: false, defaults: emptyGeotag() });
+    setCurrentDraftId(null);
+    savedSignature.current = "";
+    window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+    toast.success("Relatório limpo para novo preenchimento");
+  };
+
   const handleOpenDraft = (draft: ReportDraft) => {
     hydrateDraft(draft);
     window.localStorage.setItem(CURRENT_DRAFT_KEY, draft.id);
@@ -376,6 +398,14 @@ export default function Emissor() {
               <Button type="button" variant="glass" onClick={handleNewReport}>
                 <Plus className="h-4 w-4" />
                 Novo relatório
+              </Button>
+              <Button
+                type="button"
+                variant={clearingReport ? "destructive" : "glass"}
+                onClick={handleClearReport}
+              >
+                <Eraser className="h-4 w-4" />
+                {clearingReport ? "Confirmar limpeza" : "Limpar relatório"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => void handleSaveDraft()}>
                 <Save className="h-4 w-4" />
