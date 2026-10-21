@@ -632,3 +632,25 @@ O usuário pediu a marca de campo vista nas fotos (data/hora, coordenadas, ender
 - Cinco linhas na ordem da referência: data/hora, coordenadas, endereço, bairro e cidade.
 - Miniatura no formulário segue o mesmo estilo, com corpo proporcional.
 - Conferido em folha Pós 60: bloco de texto com a mesma proporção e posição da foto de campo enviada.
+
+---
+
+# Fase 16 — Relatório em andamento não se perde ao sair da tela
+
+## Contexto
+
+Ao navegar para o Analista e voltar, o Emissor recomeçava vazio: o formulário vivia só em memória. O usuário pediu que o relatório em andamento permaneça até a emissão ou até ele excluir.
+
+## O que foi feito
+
+- **Salvamento automático**: enquanto há conteúdo no formulário, o rascunho é gravado na nuvem 700 ms após a última alteração (valores, fotos, legendas, observação e configuração da marca de local). A assinatura do conteúdo evita gravações repetidas.
+- **Gravação ao sair**: o que estiver pendente é enviado no desmonte da tela, então trocar de aba/módulo não perde a última alteração.
+- **Restauração**: o id do relatório em andamento fica em `qualyflow:current-draft:v1`; ao voltar, a tela retoma modelo, dados, fotos, legendas, observação e marca de local, com o aviso "Relatório em andamento restaurado".
+- **Controle do operador**: "Novo relatório" limpa o ponteiro (não restaura o anterior) e excluir o rascunho na lista também limpa — a base não fica com lixo.
+- **Correção**: a configuração da marca de local não era gravada no rascunho (faltava a coluna). Foi criada a coluna `geotag jsonb` em `qualyflow_reports` (aditiva, sem tocar em dados) e o mapeamento passou a incluí-la.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Teste ponta a ponta com harness (removido): rascunho gravado, Emissor aberto com **Pós 60 Via**, contratada/OS/FAC/endereço/data, observação e **"Marca de local ativa"** restaurados, botão em "Atualizar rascunho" e aviso de restauração.
+- Rascunhos de teste removidos do banco após a validação.

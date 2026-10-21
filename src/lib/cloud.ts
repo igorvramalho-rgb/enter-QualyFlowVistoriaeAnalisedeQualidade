@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { migrateRecordFields, type AnalysisRecord } from "@/lib/analysis";
 import type {
+  GeotagSettings,
   PhotoMap,
   QualyflowSettings,
   ReportDraft,
@@ -40,6 +41,7 @@ export function toReport(row: ReportRow): ReportDraft {
     photos: asObject<PhotoMap>(row.photos, {}),
     objeto: row.objeto,
     observacoes: row.observacoes,
+    geotag: asObject<GeotagSettings>(row.geotag, { enabled: false, defaults: { dataHora: "", coordenadas: "", endereco: "", bairro: "", cidade: "" } }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -79,6 +81,7 @@ export async function saveReport(draft: ReportDraft): Promise<ReportDraft> {
     photos: draft.photos,
     objeto: draft.objeto ?? "",
     observacoes: draft.observacoes ?? "",
+    geotag: draft.geotag ?? {},
   };
 
   if (isUuid(draft.id)) {

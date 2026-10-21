@@ -1,0 +1,1 @@
+delete from public.qualyflow_reports where id in ('14d4d9fb-b8d3-40e1-9bc5-e4efbb07e1ce', '60e09996-3368-48a8-94f5-b346f92d2579')

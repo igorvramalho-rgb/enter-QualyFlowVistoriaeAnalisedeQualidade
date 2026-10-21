@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
   FileText,
@@ -50,10 +50,37 @@ import {
 import { createId } from "@/lib/storage";
 
 const FIRST_TEMPLATE = REPORT_TEMPLATES[0];
+const CURRENT_DRAFT_KEY = "qualyflow:current-draft:v1";
+
+/** Assinatura leve do conteúdo (sem serializar as imagens inteiras). */
+function draftSignature(draft: {
+  templateId: string;
+  values: Record<string, string>;
+  objeto?: string;
+  observacoes?: string;
+  geotag?: unknown;
+  photos: PhotoMap;
+}): string {
+  return JSON.stringify({
+    templateId: draft.templateId,
+    values: draft.values,
+    objeto: draft.objeto ?? "",
+    observacoes: draft.observacoes ?? "",
+    geotag: draft.geotag ?? null,
+    photos: Object.entries(draft.photos).map(([slot, entry]) => [
+      slot,
+      entry.dataUrl.length,
+      entry.include,
+      entry.caption ?? "",
+      entry.showGeotag ?? true,
+      entry.geotag ?? null,
+    ]),
+  });
+}
 
 export default function Emissor() {
   const { settings, update: updateSettings } = useCloudSettings();
-  const { drafts, save: saveReport, remove: removeReport } = useCloudReports();
+  const { drafts, loading: draftsLoading, save: saveReport, remove: removeReport } = useCloudReports();
 
   const [templateId, setTemplateId] = useState<string>(FIRST_TEMPLATE.id);
   const [values, setValues] = useState<ReportValues>(() => getDefaultValues(FIRST_TEMPLATE));
@@ -63,6 +90,9 @@ export default function Emissor() {
   const [geotag, setGeotag] = useState<GeotagSettings>({ enabled: false, defaults: emptyGeotag() });
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const savedSignature = useRef("");
+  const pendingDraft = useRef<ReportDraft | null>(null);
 
   const template = getTemplate(templateId);
   const safeSettings = useMemo(() => normalizeSettings(settings), [settings]);
@@ -79,6 +109,116 @@ export default function Emissor() {
       observacoes={observacoes}
       settings={safeSettings}
     />
+  );
+
+  const hasContent = useMemo(
+    () =>
+      Object.values(values).some((value) => value.trim().length > 0) ||
+      Object.values(photos).some((entry) => entry.dataUrl.length > 0) ||
+      observacoes.trim().length > 0 ||
+      (template.layout === "pos60" && objeto !== (template.objeto ?? "")) ||
+      geotag.enabled,
+    [values, photos, observacoes, objeto, template.objeto, template.layout, geotag.enabled],
+  );
+
+  const signature = useMemo(
+    () => draftSignature({ templateId, values, photos, objeto, observacoes, geotag }),
+    [templateId, values, photos, objeto, observacoes, geotag],
+  );
+
+  // Retoma o relatório em andamento ao voltar para a tela
+  useEffect(() => {
+    if (hydrated || draftsLoading) {
+      return;
+    }
+    setHydrated(true);
+
+    const storedId = window.localStorage.getItem(CURRENT_DRAFT_KEY);
+    if (!storedId) {
+      return;
+    }
+
+    const draft = drafts.find((item) => item.id === storedId);
+    if (!draft) {
+      window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+      return;
+    }
+
+    const draftTemplate = getTemplate(draft.templateId);
+    setTemplateId(draftTemplate.id);
+    setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
+    setPhotos(draft.photos ?? {});
+    setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
+    setObservacoes(draft.observacoes ?? "");
+    setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
+    setCurrentDraftId(draft.id);
+    savedSignature.current = draftSignature(draft);
+    toast.info("Relatório em andamento restaurado", { description: draft.name });
+  }, [drafts, draftsLoading, hydrated]);
+
+  // Salva automaticamente enquanto o operador preenche
+  useEffect(() => {
+    if (!hydrated || !hasContent || signature === savedSignature.current) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const existing = currentDraftId
+      ? drafts.find((item) => item.id === currentDraftId)
+      : undefined;
+
+    const draft: ReportDraft = {
+      id: currentDraftId ?? createId(),
+      name: draftLabel(templateId, values),
+      templateId,
+      values,
+      photos,
+      objeto,
+      observacoes,
+      geotag,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    pendingDraft.current = draft;
+    const timer = window.setTimeout(() => {
+      void saveReport(draft).then((saved) => {
+        if (!saved) {
+          return;
+        }
+        setCurrentDraftId(saved.id);
+        window.localStorage.setItem(CURRENT_DRAFT_KEY, saved.id);
+        savedSignature.current = draftSignature(saved);
+        pendingDraft.current = null;
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    signature,
+    hydrated,
+    hasContent,
+    currentDraftId,
+    drafts,
+    templateId,
+    values,
+    photos,
+    objeto,
+    observacoes,
+    geotag,
+    saveReport,
+  ]);
+
+  // Grava o que estiver pendente ao sair da tela
+  useEffect(
+    () => () => {
+      const pending = pendingDraft.current;
+      if (pending) {
+        pendingDraft.current = null;
+        void saveReport(pending);
+      }
+    },
+    [saveReport],
   );
 
   const handleTemplateChange = (nextId: string) => {
@@ -113,14 +253,12 @@ export default function Emissor() {
     });
   };
 
-  const handleSaveDraft = async () => {
+  const buildDraft = (id?: string): ReportDraft => {
     const now = new Date().toISOString();
-    const existing = currentDraftId
-      ? drafts.find((draft) => draft.id === currentDraftId)
-      : undefined;
+    const existing = id ? drafts.find((draft) => draft.id === id) : undefined;
 
-    const draft: ReportDraft = {
-      id: currentDraftId ?? createId(),
+    return {
+      id: id ?? createId(),
       name: draftLabel(templateId, values),
       templateId,
       values,
@@ -131,19 +269,38 @@ export default function Emissor() {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
+  };
 
+  const hydrateDraft = (draft: ReportDraft) => {
+    const draftTemplate = getTemplate(draft.templateId);
+    setTemplateId(draftTemplate.id);
+    setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
+    setPhotos(draft.photos ?? {});
+    setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
+    setObservacoes(draft.observacoes ?? "");
+    setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
+    setCurrentDraftId(draft.id);
+  };
+
+  const handleSaveDraft = async () => {
+    const draft = buildDraft(currentDraftId ?? undefined);
+    const existing = drafts.find((item) => item.id === draft.id);
     const saved = await saveReport(draft);
     if (!saved) {
       return;
     }
 
     setCurrentDraftId(saved.id);
+    window.localStorage.setItem(CURRENT_DRAFT_KEY, saved.id);
+    savedSignature.current = draftSignature(saved);
     toast.success(existing ? "Rascunho atualizado na nuvem" : "Relatório salvo na nuvem", {
       description: draft.name,
     });
   };
 
   const handleNewReport = () => {
+    window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+    savedSignature.current = "";
     setValues(getDefaultValues(template));
     setPhotos({});
     setObjeto(template.objeto ?? "");
@@ -154,14 +311,9 @@ export default function Emissor() {
   };
 
   const handleOpenDraft = (draft: ReportDraft) => {
-    const draftTemplate = getTemplate(draft.templateId);
-    setTemplateId(draftTemplate.id);
-    setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
-    setPhotos(draft.photos ?? {});
-    setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
-    setObservacoes(draft.observacoes ?? "");
-    setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
-    setCurrentDraftId(draft.id);
+    hydrateDraft(draft);
+    window.localStorage.setItem(CURRENT_DRAFT_KEY, draft.id);
+    savedSignature.current = draftSignature(draft);
     toast.success("Relatório carregado", { description: draft.name });
   };
 
@@ -180,6 +332,7 @@ export default function Emissor() {
     }
     if (currentDraftId === draftId) {
       setCurrentDraftId(null);
+      window.localStorage.removeItem(CURRENT_DRAFT_KEY);
     }
     toast.success("Relatório excluído da nuvem");
   };

@@ -3451,6 +3451,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          geotag: Json
           id: string
           name: string
           objeto: string
@@ -3463,6 +3464,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          geotag?: Json
           id?: string
           name?: string
           objeto?: string
@@ -3475,6 +3477,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          geotag?: Json
           id?: string
           name?: string
           objeto?: string
