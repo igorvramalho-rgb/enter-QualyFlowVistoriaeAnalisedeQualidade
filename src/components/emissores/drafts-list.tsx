@@ -1,4 +1,5 @@
-import { Copy, FileStack, FolderOpen, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Copy, FileStack, FolderOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDateTimeBR } from "@/lib/fields";
@@ -15,16 +16,35 @@ interface DraftsListProps {
 }
 
 export function DraftsList({ drafts, currentId, onOpen, onDuplicate, onDelete }: DraftsListProps) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? drafts : drafts.slice(0, 1);
+
   return (
     <Card className="p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Relatórios salvos</h2>
           <p className="text-xs text-muted-foreground">
-            Rascunhos guardados neste navegador, com fotos e cabeçalho.
+            {drafts.length > 1 && !showAll
+              ? `Mostrando o último relatório editado (de ${drafts.length} salvos).`
+              : "Rascunhos guardados na nuvem, com fotos, legenda e cabeçalho."}
           </p>
         </div>
-        <span className="chip-tech font-mono">{drafts.length}</span>
+
+        {drafts.length > 1 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-muted-foreground"
+            onClick={() => setShowAll((previous) => !previous)}
+          >
+            {showAll ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {showAll ? "Mostrar só o último" : `Mostrar todos (${drafts.length})`}
+          </Button>
+        )}
+
+        <span className="chip-tech font-mono">{showAll ? drafts.length : Math.min(1, drafts.length)}</span>
       </div>
 
       {drafts.length === 0 ? (
@@ -36,7 +56,7 @@ export function DraftsList({ drafts, currentId, onOpen, onDuplicate, onDelete }:
         </div>
       ) : (
         <ul className="space-y-2">
-          {drafts.map((draft) => {
+          {visible.map((draft) => {
             const template = getTemplate(draft.templateId);
             return (
               <li

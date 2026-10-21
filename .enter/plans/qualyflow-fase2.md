@@ -705,3 +705,11 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - Confirmação em **dois cliques** ("Confirmar limpeza") para não apagar por engano.
 - Zera os campos (inclusive os padrões do modelo), todas as fotos, legendas, observação e a marca de data/local; mantém o texto de Objeto do modelo e **desvincula** o formulário do rascunho salvo — ou seja, o relatório salvo anteriormente **não é apagado**, só deixa de ser sobrescrito.
 - Para apagar de fato um relatório salvo, continua valendo o botão de exclusão na lista "Relatórios salvos".
+
+---
+
+# Fase 20 — Lista de relatórios salvos apenas com o último editado
+
+- A lista "Relatórios salvos" passou a exibir **somente o último relatório editado** (ordenada por data de atualização), deixando a tela mais leve e direta na rotina.
+- Quando existe mais de um salvo, aparece o atalho **"Mostrar todos (N)"** / **"Mostrar só o último"** — nada é apagado, apenas oculto por padrão.
+- Cabeçalho informa o contexto ("Mostrando o último relatório editado (de N salvos)") e o contador acompanha o modo escolhido.
