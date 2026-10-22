@@ -85,6 +85,7 @@ export function PhotoSlotGrid({
         const stamp = await buildGeotag(file);
         onChange(slotId, {
           dataUrl,
+          originalDataUrl: dataUrl,
           include: true,
           caption: photosRef.current[slotId]?.caption,
           geotag: stamp,
@@ -515,7 +516,11 @@ export function PhotoSlotGrid({
 
       <PhotoCropDialog
         open={Boolean(cropSlot)}
-        image={cropSlot ? photos[cropSlot]?.dataUrl ?? null : null}
+        image={
+          cropSlot
+            ? photos[cropSlot]?.originalDataUrl ?? photos[cropSlot]?.dataUrl ?? null
+            : null
+        }
         caption={slots.find((slot) => slot.id === cropSlot)?.caption ?? ""}
         onClose={() => setCropSlot(null)}
         onApply={(cropped) => {
@@ -524,7 +529,11 @@ export function PhotoSlotGrid({
           }
           const entry = photos[cropSlot];
           if (entry) {
-            onChange(cropSlot, { ...entry, dataUrl: cropped });
+            onChange(cropSlot, {
+              ...entry,
+              originalDataUrl: entry.originalDataUrl ?? entry.dataUrl,
+              dataUrl: cropped,
+            });
             toast.success("Enquadramento atualizado");
           }
         }}

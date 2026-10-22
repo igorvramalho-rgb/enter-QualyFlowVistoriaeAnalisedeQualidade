@@ -24,6 +24,14 @@ import { ReportDocumentView } from "@/components/report/report-document-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import { useCloudReports, useCloudSettings } from "@/hooks/use-cloud-data";
 import { useScaledContainer } from "@/hooks/use-scaled-container";
@@ -92,7 +100,7 @@ export default function Emissor() {
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const [clearingReport, setClearingReport] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
   const savedSignature = useRef("");
   const pendingDraft = useRef<ReportDraft | null>(null);
 
@@ -314,13 +322,7 @@ export default function Emissor() {
 
   /** Zera o formulário (campos, fotos, legendas, observação e marca) sem apagar o rascunho salvo. */
   const handleClearReport = () => {
-    if (!clearingReport) {
-      setClearingReport(true);
-      toast.warning("Clique em Limpar relatório novamente para confirmar");
-      return;
-    }
-
-    setClearingReport(false);
+    setClearOpen(false);
     setValues(Object.fromEntries(template.fields.map((field) => [field.id, ""])));
     setPhotos({});
     setObjeto(template.objeto ?? "");
@@ -399,13 +401,9 @@ export default function Emissor() {
                 <Plus className="h-4 w-4" />
                 Novo relatório
               </Button>
-              <Button
-                type="button"
-                variant={clearingReport ? "destructive" : "glass"}
-                onClick={handleClearReport}
-              >
+              <Button type="button" variant="glass" onClick={() => setClearOpen(true)}>
                 <Eraser className="h-4 w-4" />
-                {clearingReport ? "Confirmar limpeza" : "Limpar relatório"}
+                Limpar relatório
               </Button>
               <Button type="button" variant="secondary" onClick={() => void handleSaveDraft()}>
                 <Save className="h-4 w-4" />
@@ -501,6 +499,28 @@ export default function Emissor() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={clearOpen} onOpenChange={setClearOpen}>
+        <DialogContent className="panel-glass rounded-2xl sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Limpar relatório</DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed">
+              Deseja limpar os dados deste relatório e iniciar um novo? Verifique se suas alterações
+              foram salvas antes de continuar. O relatório salvo anteriormente permanece na lista de
+              relatórios salvos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setClearOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="glow" onClick={handleClearReport}>
+              <Eraser className="h-4 w-4" />
+              Limpar e iniciar novo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PrintPortal>{documentView}</PrintPortal>
     </>

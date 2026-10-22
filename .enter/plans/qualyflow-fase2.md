@@ -747,3 +747,11 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido) medindo folhas e quadros: larguras 794 px e alturas 1121 px em todos os modelos, quadros de 333 × 221 px na grade do Pós 60 e caixa de foto do SGZ visivelmente maior.
+
+---
+
+# Fase 23 — Ajustes conforme especificação (qualidade + limpar relatório)
+
+- **Recorte sem perda cumulativa**: `PhotoEntry.originalDataUrl` guarda a imagem da inserção; todo "Ajustar foto" parte do original, então recortes repetidos não degradam a imagem. (`src/lib/report-document.ts`, `src/components/emissores/photo-slot-grid.tsx`)
+- **Limpar relatório com diálogo** conforme a especificação: mensagem "Deseja limpar os dados deste relatório e iniciar um novo? Verifique se suas alterações foram salvas antes de continuar." e botões **Cancelar** / **Limpar e iniciar novo** (`src/pages/Emissor.tsx`). Cancelar não altera nada; confirmar zera campos, fotos, legendas, observação e marca, mantém modelo/cabeçalho/logos e desvincula o rascunho anterior (autosave não sobrescreve o relatório salvo).
+- Mantido o que já havia sido entregue na fase 22 (resolução 2200 px, JPEG 0,90, captura do PDF em escala 3 ≈ 290 dpi, quadros maiores).
