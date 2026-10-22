@@ -132,18 +132,29 @@ export async function downloadReportPdf(fileName: string): Promise<void> {
   pdf.save(fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`);
 }
 
+/**
+ * Nome do arquivo gerado: modelo + OS + Nº FAC + endereço + data, para o
+ * relatório ficar identificável na pasta onde for salvo.
+ * Ex.: relatorio-pos-60-via-os-2626203004-fac-70172-rua-teste-100-31-07-2026.pdf
+ */
 export function buildReportFileName(templateId: string, values: ReportValues): string {
   const template = getTemplate(templateId);
   const parts = ["relatorio", slugify(template.shortTitle)];
+
   if (values.os?.trim()) {
-    parts.push(slugify(values.os));
+    parts.push(`os-${slugify(values.os)}`);
+  }
+  if (values.fac?.trim()) {
+    parts.push(`fac-${slugify(values.fac)}`);
   }
   if (values.endereco?.trim()) {
-    parts.push(slugify(values.endereco).slice(0, 40));
+    parts.push(slugify(values.endereco).slice(0, 45));
   }
+
   const dateValue = values.dataVistoria || values.data;
   if (dateValue) {
     parts.push(formatDateBR(dateValue).replace(/\//g, "-"));
   }
+
   return `${parts.filter(Boolean).join("-")}.pdf`;
 }

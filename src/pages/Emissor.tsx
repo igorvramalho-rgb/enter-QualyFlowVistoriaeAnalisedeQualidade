@@ -364,8 +364,9 @@ export default function Emissor() {
   const handleDownload = async () => {
     setExporting(true);
     try {
-      await downloadReportPdf(buildReportFileName(templateId, values));
-      toast.success("PDF gerado com sucesso");
+      const fileName = buildReportFileName(templateId, values);
+      await downloadReportPdf(fileName);
+      toast.success("PDF gerado com sucesso", { description: `Arquivo: ${fileName}` });
     } catch (error) {
       toast.error("Não foi possível gerar o PDF", {
         description:

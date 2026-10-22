@@ -779,3 +779,12 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - O bucket é **público**: quem tiver o link da imagem consegue vê-la (não é possível enumerar, mas o link é acessível). Para links privados com expiração seria necessário outro desenho de políticas/URLs assinadas.
 - Como não há política de exclusão, arquivos substituídos **não são apagados** pelo aplicativo (ficam como resíduo, hoje na casa de KB).
 - Dois arquivos de teste pequenos permaneceram no bucket (um JPEG inválido de 188 bytes e uma imagem de 13 KB) por não existir exclusão pelo app.
+
+---
+
+# Fase 25 — Nome do PDF com OS, FAC e endereço
+
+- `buildReportFileName()` passou a montar: `relatorio-{modelo}-os-{OS}-fac-{Nº FAC}-{endereço}-{data}.pdf`, na ordem pedida.
+- Exemplo gerado: `relatorio-pos-60-via-os-2626203004-fac-70172-rua-teste-100-31-07-2026.pdf`.
+- O aviso de sucesso mostra o nome do arquivo gerado, para conferência imediata.
+- Vale para os três modelos (SGZ-156 e Pós 60 Passeio/Via); o nome é sanitizado (sem acentos/espaços) para não dar problema em qualquer sistema operacional.
