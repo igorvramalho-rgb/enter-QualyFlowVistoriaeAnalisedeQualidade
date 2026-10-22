@@ -788,3 +788,19 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - Exemplo gerado: `relatorio-pos-60-via-os-2626203004-fac-70172-rua-teste-100-31-07-2026.pdf`.
 - O aviso de sucesso mostra o nome do arquivo gerado, para conferência imediata.
 - Vale para os três modelos (SGZ-156 e Pós 60 Passeio/Via); o nome é sanitizado (sem acentos/espaços) para não dar problema em qualquer sistema operacional.
+
+---
+
+# Fase 26 — Logos individuais por usuário
+
+- Nova tabela `qualyflow_user_settings` (`user_id` PK → auth.users, `header` jsonb, `logos` jsonb, `updated_at`), com RLS: **cada usuário lê e grava apenas a própria linha** (sem delete). Trigger de `updated_at` reaproveitado.
+- `src/lib/cloud.ts`: `fetchUserSettings(userId)` / `saveUserSettings(userId, settings)`; a configuração compartilhada (`qualyflow_settings`) continua existindo como **padrão** para quem nunca personalizou.
+- `useCloudSettings`: carrega a configuração do usuário; se não existir, usa a compartilhada. Toda alteração passa a gravar na linha do usuário (debounce de 700 ms), com o estado `personalizado` exposto.
+- Textos da tela ajustados: "Seus logotipos e cabeçalho institucional" — as logos valem para os relatórios daquele usuário.
+- Nada muda para relatórios já salvos: as folhas continuam usando o cabeçalho/logos no momento da impressão.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) com o gestor: sem configuração pessoal no início (cai na compartilhada), gravação da configuração pessoal e **leitura de volta com os valores gravados** — provando tabela, políticas de RLS e trigger.
+- Configuração pessoal do gestor deixada no **padrão do modelo** após o teste.

@@ -59,11 +59,11 @@ export function InstitutionalHeaderForm({ settings, onChange }: InstitutionalHea
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
-            3. Logotipos e cabeçalho institucional
+            3. Seus logotipos e cabeçalho institucional
           </h2>
           <p className="text-xs text-muted-foreground">
-            Troque, remova ou restaure as logos usadas nas folhas. Clique ou arraste uma imagem para
-            cada campo.
+            As logos ficam salvas no seu usuário e valem para os relatórios que você emite. Troque,
+            remova ou restaure clicando (ou arrastando uma imagem) em cada campo.
           </p>
         </div>
         <Button
@@ -72,7 +72,7 @@ export function InstitutionalHeaderForm({ settings, onChange }: InstitutionalHea
           size="sm"
           onClick={() => {
             onChange({ ...DEFAULT_SETTINGS, logos: { ...DEFAULT_SETTINGS.logos } });
-            toast.success("Logos e cabeçalho restaurados para o padrão do modelo");
+            toast.success("Suas logos e o cabeçalho voltaram ao padrão do modelo");
           }}
         >
           <RotateCcw className="h-4 w-4" />
@@ -233,7 +233,7 @@ function LogoField({ label, hint, value, onLogo }: LogoFieldProps) {
               className="text-muted-foreground hover:text-destructive"
               onClick={() => {
                 onLogo("");
-                toast.success("Logotipo removido da folha");
+                toast.success("Logotipo removido dos seus relatórios");
               }}
             >
               <Trash2 className="h-4 w-4" />

@@ -17,6 +17,7 @@ type Tables = Database["public"]["Tables"];
 type ReportRow = Tables["qualyflow_reports"]["Row"];
 type AnalysisRow = Tables["qualyflow_analyses"]["Row"];
 type SettingsRow = Tables["qualyflow_settings"]["Row"];
+type UserSettingsRow = Tables["qualyflow_user_settings"]["Row"];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -315,6 +316,52 @@ export async function saveSettings(settings: QualyflowSettings): Promise<void> {
       logos: normalized.logos,
     },
     { onConflict: "id" },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Configuração individual do usuário (logos e cabeçalho próprios). Quando não
+ * existe, vale a configuração compartilhada como padrão.
+ */
+export async function fetchUserSettings(userId: string): Promise<QualyflowSettings | null> {
+  const { data, error } = await supabase
+    .from("qualyflow_user_settings")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    return null;
+  }
+  return toUserSettings(data);
+}
+
+function toUserSettings(row: UserSettingsRow): QualyflowSettings {
+  return normalizeSettings({
+    header: asObject<Partial<QualyflowSettings["header"]>>(row.header, {}),
+    logos: asObject<Partial<QualyflowSettings["logos"]>>(row.logos, {}),
+  } as Partial<QualyflowSettings>);
+}
+
+export async function saveUserSettings(
+  userId: string,
+  settings: QualyflowSettings,
+): Promise<void> {
+  const normalized = normalizeSettings(settings);
+  const { error } = await supabase.from("qualyflow_user_settings").upsert(
+    {
+      user_id: userId,
+      header: normalized.header,
+      logos: normalized.logos,
+    },
+    { onConflict: "user_id" },
   );
 
   if (error) {

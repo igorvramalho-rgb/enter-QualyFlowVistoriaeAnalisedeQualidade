@@ -11,10 +11,12 @@ import {
   fetchAnalyses,
   fetchReports,
   fetchSettings,
+  fetchUserSettings,
   saveAnalyses,
   saveAnalysis,
   saveReport,
   saveSettings,
+  saveUserSettings,
 } from "@/lib/cloud";
 import {
   DEFAULT_SETTINGS,
@@ -180,13 +182,21 @@ export function useCloudAnalyses() {
 export function useCloudSettings() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<QualyflowSettings>(DEFAULT_SETTINGS);
+  const [personalizado, setPersonalizado] = useState(false);
   const [loading, setLoading] = useState(true);
   const timer = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const next = await fetchSettings();
-      setSettings(next);
+      const mine = user ? await fetchUserSettings(user.id) : null;
+      if (mine) {
+        setSettings(mine);
+        setPersonalizado(true);
+      } else {
+        const shared = await fetchSettings();
+        setSettings(shared);
+        setPersonalizado(false);
+      }
     } catch (error) {
       toast.error("Não foi possível carregar as logos da nuvem", {
         description: errorDescription(error),
@@ -194,7 +204,7 @@ export function useCloudSettings() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -221,15 +231,21 @@ export function useCloudSettings() {
       window.clearTimeout(timer.current);
     }
     timer.current = window.setTimeout(() => {
-      void saveSettings(normalized).catch((error: unknown) => {
-        toast.error("Não foi possível salvar as logos na nuvem", {
-          description: errorDescription(error),
-        });
-      });
-    }, 700);
-  }, []);
+      const request = user
+        ? saveUserSettings(user.id, normalized)
+        : saveSettings(normalized);
 
-  return { settings, loading, update, refresh };
+      void request
+        .then(() => setPersonalizado(true))
+        .catch((error: unknown) => {
+          toast.error("Não foi possível salvar as logos na nuvem", {
+            description: errorDescription(error),
+          });
+        });
+    }, 700);
+  }, [user]);
+
+  return { settings, loading, update, refresh, personalizado };
 }
 
 /* --------------------------------------------------------- migração da base local */

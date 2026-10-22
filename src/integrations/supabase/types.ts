@@ -3510,6 +3510,27 @@ export type Database = {
         }
         Relationships: []
       }
+      qualyflow_user_settings: {
+        Row: {
+          header: Json
+          logos: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          header?: Json
+          logos?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          header?: Json
+          logos?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
