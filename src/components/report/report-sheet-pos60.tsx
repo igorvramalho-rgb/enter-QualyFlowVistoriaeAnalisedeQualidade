@@ -35,7 +35,7 @@ export function ReportSheetPos60({
 
   return (
     <article className="print-sheet mx-auto flex flex-col px-[10mm] py-[8mm] font-sheet">
-      <div className="sheet-frame flex flex-1 flex-col p-[6mm]">
+      <div className="sheet-frame flex flex-1 flex-col p-[4mm]">
         <div className="flex items-start justify-between">
           <img
             src={settings.logos.sabesp}
@@ -51,11 +51,11 @@ export function ReportSheetPos60({
           )}
         </div>
 
-        <h1 className="mt-[7mm] text-center text-[13px] font-bold tracking-[0.02em]">
+        <h1 className="mt-[5mm] text-center text-[13px] font-bold tracking-[0.02em]">
           {template.documentTitle}
         </h1>
 
-        <p className="mt-[5mm] text-justify text-[10.5px] leading-snug">
+        <p className="mt-[4mm] text-justify text-[10.5px] leading-snug">
           <span className="font-bold">Objeto: </span>
           {objetoText}
         </p>
@@ -100,7 +100,7 @@ export function ReportSheetPos60({
           </div>
         ) : null}
 
-        <div className="mt-[5mm] grid min-h-[138mm] flex-1 grid-cols-2 grid-rows-3 gap-x-[5mm] gap-y-[4mm]">
+        <div className="mt-[4mm] grid min-h-[150mm] flex-1 grid-cols-2 grid-rows-3 gap-x-[4mm] gap-y-[3mm]">
           {slots.map((slot) => {
             const photo = photos[slot.id];
             const slotCaption = resolveCaption(photo?.caption, slot.caption);

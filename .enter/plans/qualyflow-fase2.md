@@ -726,3 +726,24 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 ## Verificação
 
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros (o TypeScript exige o novo status nos mapas de estilo e ordem, garantindo que nenhuma tela ficou sem o rótulo).
+
+---
+
+# Fase 22 — Qualidade das fotos e quadros maiores
+
+## Qualidade da imagem
+
+- Inserção de foto: lado maior de **1500 → 2200 px** e qualidade JPEG **0,80 → 0,90**, com reamostragem em alta qualidade (`imageSmoothingQuality = "high"`).
+- Recorte (Ajustar foto): saída **1500 → 2100 px** de largura e JPEG **0,92 → 0,95**.
+- PDF: captura do html2canvas em **escala 3** (≈290 dpi na folha A4), contra escala 2 (≈190 dpi) antes — ganho direto de nitidez em fotos e textos.
+
+## Quadros de foto maiores
+
+- Folha SGZ-156: margens da página 10/8 mm → **7/6 mm**, moldura da foto 3 mm → **2 mm**, área mínima 75 mm → **80 mm**.
+- Folha Pós 60: margens 10/8 → **7/6 mm**, moldura interna 6 mm → **4 mm**, grade com altura mínima 138 mm → **150 mm** e espaçamentos 5/4 mm → **4/3 mm**; título e Objeto com espaçamento menor.
+- Resultado medido: as cinco folhas continuam com **794 × 1121 px** (A4 = 794 × 1123), ou seja, **nada estourou a página** e as fotos ganharam área visível.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) medindo folhas e quadros: larguras 794 px e alturas 1121 px em todos os modelos, quadros de 333 × 221 px na grade do Pós 60 e caixa de foto do SGZ visivelmente maior.

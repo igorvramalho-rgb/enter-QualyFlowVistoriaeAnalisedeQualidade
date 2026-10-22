@@ -4,8 +4,8 @@
  */
 export async function fileToCompressedDataUrl(
   file: File,
-  maxSide = 1500,
-  quality = 0.8,
+  maxSide = 2200,
+  quality = 0.9,
 ): Promise<string> {
   const bitmap = await loadBitmap(file);
   const { width, height } = fitWithin(bitmap.width, bitmap.height, maxSide);
@@ -18,6 +18,8 @@ export async function fileToCompressedDataUrl(
     throw new Error("Não foi possível processar a imagem neste navegador.");
   }
 
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0, width, height);

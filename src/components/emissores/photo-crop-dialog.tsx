@@ -20,7 +20,7 @@ interface PhotoCropDialogProps {
 }
 
 const ASPECT = 3 / 2;
-const OUTPUT_WIDTH = 1500;
+const OUTPUT_WIDTH = 2100;
 
 /**
  * Ajuste de enquadramento da foto já inserida: arraste para mover e use o zoom
@@ -123,7 +123,7 @@ export function PhotoCropDialog({ open, image, caption, onClose, onApply }: Phot
         frame.height * ratio,
       );
 
-      onApply(canvas.toDataURL("image/jpeg", 0.92));
+      onApply(canvas.toDataURL("image/jpeg", 0.95));
       onClose();
     } finally {
       setApplying(false);

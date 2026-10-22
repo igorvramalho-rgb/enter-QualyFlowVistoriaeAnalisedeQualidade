@@ -67,7 +67,8 @@ export async function buildReportDocument(): Promise<{ pdf: JsPdfDocument; pages
 
     for (let index = 0; index < sheets.length; index += 1) {
       const canvas = await html2canvas(sheets[index], {
-        scale: 2,
+        // ≈290 dpi na folha A4: mantém a nitidez das fotos e do texto no PDF
+        scale: 3,
         backgroundColor: "#ffffff",
         useCORS: true,
         logging: false,

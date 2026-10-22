@@ -140,12 +140,12 @@ export function ReportSheetSgz({
           </div>
         ) : null}
 
-        <div className="sheet-photo-box relative m-[3mm] min-h-[75mm] flex-1 overflow-hidden">
+        <div className="sheet-photo-box relative m-[2mm] min-h-[80mm] flex-1 overflow-hidden">
           {photo?.dataUrl ? (
             <div
               role="img"
               aria-label={slotCaption}
-              className="sheet-photo-frame sheet-photo-frame--contain absolute inset-[3mm]"
+              className="sheet-photo-frame sheet-photo-frame--contain absolute inset-[1.5mm]"
               style={{ backgroundImage: `url(${photo.dataUrl})` }}
             >
               <img
@@ -156,7 +156,7 @@ export function ReportSheetSgz({
               {photo.showGeotag !== false && <GeotagStamp geotag={photo.geotag} />}
             </div>
           ) : (
-            <div className="absolute inset-[3mm]">
+            <div className="absolute inset-[1.5mm]">
               <EmptyPhoto />
             </div>
           )}
