@@ -24,6 +24,7 @@ function summarize(analyses: AnalysisRecord[]): {
   emAndamento: number;
   naoConforme: number;
   naoAvaliado: number;
+  respondido: number;
   pendente: number;
   polos: PoloRow[];
 } {
@@ -40,7 +41,15 @@ function summarize(analyses: AnalysisRecord[]): {
     }),
   );
 
-  const totals = { total: 0, conforme: 0, emAndamento: 0, naoConforme: 0, naoAvaliado: 0, pendente: 0 };
+  const totals = {
+    total: 0,
+    conforme: 0,
+    emAndamento: 0,
+    naoConforme: 0,
+    naoAvaliado: 0,
+    respondido: 0,
+    pendente: 0,
+  };
 
   analyses.forEach((record) => {
     const key = record.fields.polo?.trim() || "Não informado";
@@ -71,6 +80,8 @@ function summarize(analyses: AnalysisRecord[]): {
     } else if (record.status === "nao_avaliado") {
       totals.naoAvaliado += 1;
       row.naoAvaliado += 1;
+    } else if (record.status === "respondido_alphageos") {
+      totals.respondido += 1;
     } else {
       totals.pendente += 1;
       row.pendente += 1;
@@ -148,6 +159,7 @@ export function BiReportSheets({ analyses, generatedBy }: BiReportSheetsProps) {
     { label: "Em andamento", value: summary.emAndamento, color: "#F59E0B" },
     { label: "Não conforme", value: summary.naoConforme, color: "#DC2626" },
     { label: "Não avaliado", value: summary.naoAvaliado, color: "#7C3AED" },
+    { label: STATUS_LABELS.respondido_alphageos, value: summary.respondido, color: "#0EA5E9" },
     { label: STATUS_LABELS.pendente, value: summary.pendente, color: "#64748B" },
   ];
 

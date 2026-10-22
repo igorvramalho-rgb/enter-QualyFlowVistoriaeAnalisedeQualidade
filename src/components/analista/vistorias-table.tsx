@@ -46,6 +46,7 @@ const STATUS_STYLES: Record<QualityStatus, string> = {
   nao_conforme: "bg-destructive/12 text-destructive border-destructive/40",
   em_andamento: "bg-warning/15 text-warning border-warning/40",
   nao_avaliado: "bg-chart-5/15 text-chart-5 border-chart-5/40",
+  respondido_alphageos: "bg-chart-3/15 text-chart-3 border-chart-3/40",
   pendente: "bg-muted text-muted-foreground border-border",
 };
 
@@ -54,6 +55,7 @@ const STATUS_DOTS: Record<QualityStatus, string> = {
   nao_conforme: "bg-destructive",
   em_andamento: "bg-warning",
   nao_avaliado: "bg-chart-5",
+  respondido_alphageos: "bg-chart-3",
   pendente: "bg-muted-foreground",
 };
 

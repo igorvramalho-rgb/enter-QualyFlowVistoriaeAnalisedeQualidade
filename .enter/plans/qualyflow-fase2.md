@@ -713,3 +713,16 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - A lista "Relatórios salvos" passou a exibir **somente o último relatório editado** (ordenada por data de atualização), deixando a tela mais leve e direta na rotina.
 - Quando existe mais de um salvo, aparece o atalho **"Mostrar todos (N)"** / **"Mostrar só o último"** — nada é apagado, apenas oculto por padrão.
 - Cabeçalho informa o contexto ("Mostrando o último relatório editado (de N salvos)") e o contador acompanha o modo escolhido.
+
+---
+
+# Fase 21 — Status "Respondido para Alphageos"
+
+- Novo status `respondido_alphageos` (**Respondido para Alphageos**) no tipo `QualityStatus` e em `STATUS_LABELS`.
+- Disponível no campo **"Status da vistoria"** do diálogo de revisão (para marcação manual, já que é uma etapa de workflow, não um texto do PDF).
+- Aparece também no badge da tabela (azul `--chart-3`), no filtro de status, no gráfico "Concluídos x Pendentes" e na **Distribuição por status** do Relatório BI (contagem própria, sem cair em "pendente").
+- Exportação CSV/Excel herda o rótulo automaticamente.
+
+## Verificação
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros (o TypeScript exige o novo status nos mapas de estilo e ordem, garantindo que nenhuma tela ficou sem o rótulo).

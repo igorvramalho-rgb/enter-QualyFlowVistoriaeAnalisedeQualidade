@@ -41,16 +41,25 @@ const STATUS_COLORS: Record<string, string> = {
   nao_conforme: "hsl(var(--destructive))",
   em_andamento: "hsl(var(--warning))",
   nao_avaliado: "hsl(var(--chart-5))",
+  respondido_alphageos: "hsl(var(--chart-3))",
   pendente: "hsl(var(--muted-foreground))",
 };
 
-const STATUS_ORDER = ["conforme", "em_andamento", "nao_conforme", "nao_avaliado", "pendente"] as const;
+const STATUS_ORDER = [
+  "conforme",
+  "em_andamento",
+  "nao_conforme",
+  "nao_avaliado",
+  "respondido_alphageos",
+  "pendente",
+] as const;
 
 const STATUS_NAMES: Record<string, string> = {
   conforme: "Conforme",
   nao_conforme: "Não Conforme",
   em_andamento: "Em Andamento",
   nao_avaliado: "Não avaliado",
+  respondido_alphageos: "Respondido para Alphageos",
   pendente: "Pendente de revisão",
 };
 
