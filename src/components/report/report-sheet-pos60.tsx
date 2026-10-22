@@ -117,6 +117,7 @@ export function ReportSheetPos60({
                       <img
                         src={photo.dataUrl}
                         alt={slotCaption}
+                        crossOrigin="anonymous"
                         className="sheet-photo-img sheet-photo-img--cover"
                       />
                       {photo.showGeotag !== false && <GeotagStamp geotag={photo.geotag} />}

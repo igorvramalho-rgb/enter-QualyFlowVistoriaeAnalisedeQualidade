@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { PhotoCropDialog } from "@/components/emissores/photo-crop-dialog";
 import { estimateDataUrlSize, fileToCompressedDataUrl, isImageFile } from "@/lib/image";
 import { formatBytes } from "@/lib/fields";
+import { photoPublicUrl, uploadPhoto } from "@/lib/photo-storage";
 import { formatCoordinates, nowStamp, readPhotoGps, type GeotagData } from "@/lib/geotag";
 import type { GeotagSettings, PhotoEntry, PhotoMap } from "@/lib/report-document";
 import type { ReportPhotoSlot } from "@/lib/report-templates";
@@ -81,11 +82,12 @@ export function PhotoSlotGrid({
 
       setProcessingId(slotId);
       try {
-        const dataUrl = await fileToCompressedDataUrl(file);
+        const compressed = await fileToCompressedDataUrl(file);
+        const uploaded = await uploadPhoto(compressed);
         const stamp = await buildGeotag(file);
         onChange(slotId, {
-          dataUrl,
-          originalDataUrl: dataUrl,
+          dataUrl: uploaded.url,
+          path: uploaded.path,
           include: true,
           caption: photosRef.current[slotId]?.caption,
           geotag: stamp,
@@ -518,7 +520,9 @@ export function PhotoSlotGrid({
         open={Boolean(cropSlot)}
         image={
           cropSlot
-            ? photos[cropSlot]?.originalDataUrl ?? photos[cropSlot]?.dataUrl ?? null
+            ? photoPublicUrl(photos[cropSlot]?.originalPath) ??
+              photos[cropSlot]?.dataUrl ??
+              null
             : null
         }
         caption={slots.find((slot) => slot.id === cropSlot)?.caption ?? ""}
@@ -528,14 +532,26 @@ export function PhotoSlotGrid({
             return;
           }
           const entry = photos[cropSlot];
-          if (entry) {
-            onChange(cropSlot, {
-              ...entry,
-              originalDataUrl: entry.originalDataUrl ?? entry.dataUrl,
-              dataUrl: cropped,
-            });
-            toast.success("Enquadramento atualizado");
+          if (!entry) {
+            return;
           }
+
+          void uploadPhoto(cropped)
+            .then((uploaded) => {
+              onChange(cropSlot, {
+                ...entry,
+                // a imagem da inserção permanece no armazenamento como base do recorte
+                originalPath: entry.originalPath ?? entry.path,
+                path: uploaded.path,
+                dataUrl: uploaded.url,
+              });
+              toast.success("Enquadramento atualizado");
+            })
+            .catch((error: unknown) => {
+              toast.error("Não foi possível salvar o recorte", {
+                description: error instanceof Error ? error.message : undefined,
+              });
+            });
         }}
       />
     </div>

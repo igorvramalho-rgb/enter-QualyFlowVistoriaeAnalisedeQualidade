@@ -250,6 +250,8 @@ function usePhotoSize(image: string | null) {
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
+    // sem isso o canvas ficaria "sujo" e o recorte falharia em imagens remotas
+    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Não foi possível abrir a imagem."));
     image.src = source;

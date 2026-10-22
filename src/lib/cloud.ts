@@ -10,6 +10,7 @@ import type {
 } from "@/lib/report-document";
 import { normalizeSettings } from "@/lib/report-document";
 import { deriveNumbersFromFileName, sanitizeAddress } from "@/lib/fields";
+import { photoPublicUrl } from "@/lib/photo-storage";
 import type { ReportTemplateId } from "@/lib/report-templates";
 
 type Tables = Database["public"]["Tables"];
@@ -32,13 +33,33 @@ function asObject<T>(value: unknown, fallback: T): T {
 
 /* ------------------------------------------------------------------ relatórios */
 
+/** Mantém no relatório apenas o caminho da foto (nunca a imagem embutida). */
+function compactPhotos(photos: PhotoMap): PhotoMap {
+  return Object.fromEntries(
+    Object.entries(photos).map(([slot, entry]) => [
+      slot,
+      { ...entry, dataUrl: entry.path ? "" : entry.dataUrl },
+    ]),
+  );
+}
+
+/** Devolve o link de leitura das fotos guardadas no armazenamento. */
+function hydratePhotos(photos: PhotoMap): PhotoMap {
+  return Object.fromEntries(
+    Object.entries(photos).map(([slot, entry]) => [
+      slot,
+      { ...entry, dataUrl: photoPublicUrl(entry.path) ?? entry.dataUrl },
+    ]),
+  );
+}
+
 export function toReport(row: ReportRow): ReportDraft {
   return {
     id: row.id,
     name: row.name,
     templateId: row.template_id as ReportTemplateId,
     values: asObject<ReportValues>(row.values, {}),
-    photos: asObject<PhotoMap>(row.photos, {}),
+    photos: hydratePhotos(asObject<PhotoMap>(row.photos, {})),
     objeto: row.objeto,
     observacoes: row.observacoes,
     geotag: asObject<GeotagSettings>(row.geotag, { enabled: false, defaults: { dataHora: "", coordenadas: "", endereco: "", bairro: "", cidade: "" } }),
@@ -78,7 +99,7 @@ export async function saveReport(draft: ReportDraft): Promise<ReportDraft> {
     name: draft.name,
     template_id: draft.templateId,
     values: draft.values,
-    photos: draft.photos,
+    photos: compactPhotos(draft.photos),
     objeto: draft.objeto ?? "",
     observacoes: draft.observacoes ?? "",
     geotag: draft.geotag ?? {},

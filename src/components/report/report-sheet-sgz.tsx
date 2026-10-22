@@ -151,6 +151,7 @@ export function ReportSheetSgz({
               <img
                 src={photo.dataUrl}
                 alt={slotCaption}
+                crossOrigin="anonymous"
                 className="sheet-photo-img sheet-photo-img--contain"
               />
               {photo.showGeotag !== false && <GeotagStamp geotag={photo.geotag} />}

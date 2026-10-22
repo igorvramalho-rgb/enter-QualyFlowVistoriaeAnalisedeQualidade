@@ -9,8 +9,10 @@ export interface PhotoEntry {
   include: boolean;
   /** Legenda editada pelo usuário; vazio usa a legenda padrão do modelo. */
   caption?: string;
-  /** Imagem original da inserção, mantida para novos recortes sem perda. */
-  originalDataUrl?: string;
+  /** Caminho da imagem no armazenamento do projeto (o relatório guarda só o caminho). */
+  path?: string;
+  /** Caminho da imagem original da inserção, para novos recortes sem perda. */
+  originalPath?: string;
   /** Marca de data/local (GPS) impressa sobre a foto. */
   geotag?: GeotagData;
   /** Liga/desliga a marca só nesta foto. */

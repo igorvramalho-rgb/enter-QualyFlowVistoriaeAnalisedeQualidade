@@ -755,3 +755,27 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - **Recorte sem perda cumulativa**: `PhotoEntry.originalDataUrl` guarda a imagem da inserção; todo "Ajustar foto" parte do original, então recortes repetidos não degradam a imagem. (`src/lib/report-document.ts`, `src/components/emissores/photo-slot-grid.tsx`)
 - **Limpar relatório com diálogo** conforme a especificação: mensagem "Deseja limpar os dados deste relatório e iniciar um novo? Verifique se suas alterações foram salvas antes de continuar." e botões **Cancelar** / **Limpar e iniciar novo** (`src/pages/Emissor.tsx`). Cancelar não altera nada; confirmar zera campos, fotos, legendas, observação e marca, mantém modelo/cabeçalho/logos e desvincula o rascunho anterior (autosave não sobrescreve o relatório salvo).
 - Mantido o que já havia sido entregue na fase 22 (resolução 2200 px, JPEG 0,90, captura do PDF em escala 3 ≈ 290 dpi, quadros maiores).
+
+---
+
+# Fase 24 — Fotos no armazenamento do projeto (relatório leve)
+
+## O que foi feito
+
+- Bucket **`qualyflow-fotos`** (público, limite 10 MB, apenas imagens), com políticas de leitura pública e **upload restrito a usuários autenticados**, no prefixo `qualyflow/`. Nenhuma política de exclusão foi criada (arquivos não podem ser apagados pelo app, conforme a diretriz de segurança).
+- `src/lib/photo-storage.ts`: conversão dataURL→Blob, upload (`qualyflow/fotos/{uuid}.jpg`) e resolução do link público.
+- `PhotoEntry` agora guarda **`path`** (e `originalPath` para recortes); o relatório **não embute mais a imagem**.
+- `src/lib/cloud.ts`: ao salvar, `compactPhotos()` remove o conteúdo embutido quando existe caminho; ao carregar, `hydratePhotos()` devolve o link de leitura.
+- Grade de fotos: envia ao armazenamento ao **inserir** e ao **aplicar recorte** (a imagem da inserção permanece como base, evitando perda por recompressão sucessiva).
+- `crossOrigin="anonymous"` no carregamento do recorte e nas `<img>` das folhas — necessário para o canvas do recorte e para a captura do PDF (html2canvas com `useCORS`).
+
+## Verificação (executada)
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) com sessão de gestor: upload → `qualyflow/fotos/2a0f7ee5-…jpg`; leitura pública **HTTP 200, 13.457 bytes, image/jpeg**; **imagem carregada com CORS em 800×600**; folha Pós 60 renderizando a foto **vinda do armazenamento**.
+
+## Limitações conhecidas
+
+- O bucket é **público**: quem tiver o link da imagem consegue vê-la (não é possível enumerar, mas o link é acessível). Para links privados com expiração seria necessário outro desenho de políticas/URLs assinadas.
+- Como não há política de exclusão, arquivos substituídos **não são apagados** pelo aplicativo (ficam como resíduo, hoje na casa de KB).
+- Dois arquivos de teste pequenos permaneceram no bucket (um JPEG inválido de 188 bytes e uma imagem de 13 KB) por não existir exclusão pelo app.
