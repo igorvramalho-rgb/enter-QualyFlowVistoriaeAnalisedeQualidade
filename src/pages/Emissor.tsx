@@ -49,7 +49,7 @@ import {
   type ReportDraft,
   type ReportValues,
 } from "@/lib/report-document";
-import { buildReportFileName, downloadReportPdf, printReport } from "@/lib/report-export";
+import { buildReportFileName, printReport, saveReportPdfFile } from "@/lib/report-export";
 import {
   getDefaultValues,
   getTemplate,
@@ -89,7 +89,13 @@ function draftSignature(draft: {
 
 export default function Emissor() {
   const { settings, update: updateSettings } = useCloudSettings();
-  const { drafts, loading: draftsLoading, save: saveReport, remove: removeReport } = useCloudReports();
+  const {
+    drafts,
+    loading: draftsLoading,
+    save: saveReport,
+    remove: removeReport,
+    pruneExcess,
+  } = useCloudReports();
 
   const [templateId, setTemplateId] = useState<string>(FIRST_TEMPLATE.id);
   const [values, setValues] = useState<ReportValues>(() => getDefaultValues(FIRST_TEMPLATE));
@@ -361,18 +367,57 @@ export default function Emissor() {
     toast.success("Relatório excluído da nuvem");
   };
 
+  /**
+   * Fluxo protegido: salva o relatório, gera o PDF, grava o arquivo e só então
+   * aplica a retenção dos dois mais recentes. Qualquer falha preserva os antigos.
+   */
   const handleDownload = async () => {
     setExporting(true);
     try {
+      const draft = buildDraft(currentDraftId ?? undefined);
+      const saved = await saveReport(draft);
+
+      if (!saved) {
+        toast.error("Relatório não foi salvo", {
+          description: "O PDF não foi gerado e os relatórios anteriores foram mantidos.",
+        });
+        return;
+      }
+
+      setCurrentDraftId(saved.id);
+      window.localStorage.setItem(CURRENT_DRAFT_KEY, saved.id);
+      savedSignature.current = draftSignature(saved);
+
       const fileName = buildReportFileName(templateId, values);
-      await downloadReportPdf(fileName);
-      toast.success("PDF gerado com sucesso", { description: `Arquivo: ${fileName}` });
+      const result = await saveReportPdfFile(fileName);
+
+      if (result === "cancelled") {
+        toast.info("Download cancelado", {
+          description: "Os relatórios anteriores foram mantidos.",
+        });
+        return;
+      }
+
+      if (result === "unconfirmed") {
+        toast.info("PDF gerado", {
+          description: `${fileName} • este navegador não confirma a gravação do arquivo, então os relatórios anteriores foram preservados.`,
+        });
+        return;
+      }
+
+      const pruned = await pruneExcess(2);
+      toast.success("PDF salvo com sucesso", {
+        description:
+          pruned && pruned.deleted > 0
+            ? `${fileName} • ${pruned.deleted} relatório(s) antigo(s) removido(s), mantendo os 2 mais recentes.`
+            : `${fileName} • mantidos os 2 relatórios mais recentes.`,
+      });
     } catch (error) {
       toast.error("Não foi possível gerar o PDF", {
         description:
           error instanceof Error
-            ? `${error.message} Você também pode usar o botão Imprimir e escolher "Salvar como PDF".`
-            : "Use o botão Imprimir e escolha \"Salvar como PDF\".",
+            ? `${error.message} Os relatórios anteriores foram mantidos.`
+            : "Os relatórios anteriores foram mantidos.",
       });
     } finally {
       setExporting(false);

@@ -817,3 +817,30 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
   - `fac-nao-informado-os-2626203004-rua-teste-100-pos-60-via-31-07-2026.pdf`
   - `fac-70172-os-2626203004-nao-informado-pos-60-via-31-07-2026.pdf`
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+
+---
+
+# Fase 28 — Retenção dos dois relatórios mais recentes
+
+## Como funciona
+
+Sequência protegida ao clicar em **Baixar PDF** (`src/pages/Emissor.tsx`):
+1. **Salva** o relatório na nuvem (se falhar → nada é gerado e os antigos ficam intactos);
+2. **Gera** o PDF (falha → antigos preservados);
+3. **Grava o arquivo** com `saveReportPdfFile()` (`src/lib/report-export.ts`):
+   - `File System Access API` (Chrome/Edge): o arquivo é escrito no disco e a promessa só resolve depois da gravação — confirmação real → `"saved"`;
+   - usuário cancela o seletor → `"cancelled"` → **nada é excluído**;
+   - navegador sem a API (Firefox/Safari) → download disparado → `"unconfirmed"` → **nada é excluído** (não simulamos confirmação).
+4. **Somente em `"saved"`** chama `pruneExcess(2)` → `pruneMyReports()` (`src/lib/cloud.ts`), que mantém os **2 mais recentes do próprio usuário** (`updated_at desc`, `id asc` como desempate) e exclui os excedentes daquele usuário. Relatórios de outros usuários nunca entram na consulta (`created_by = auth.uid()`).
+
+O botão **Limpar relatório** continua apenas limpando o formulário — não exclui registros.
+
+## Verificação executada
+
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) com o gestor: 8 relatórios de teste + 1 de "outro usuário" → `pruneMyReports(uid, 2)` → **removidos=7, mantidos=2**, restaram exatamente `TESTE RETENCAO 4` e `TESTE RETENCAO 3` (os dois mais recentes) e o relatório de outro usuário **permaneceu**. Registros de teste apagados ao final.
+
+## Pendências e limitações declaradas
+
+- **Arquivos de foto não são apagados** na retenção: o bucket não possui política de exclusão (decisão de segurança do projeto). As fotos dos relatórios excluídos permanecem como arquivos órfãos (pequenos). Para cumprir a exclusão segura, é necessário um backend function com privilégio de serviço que verifique referências em todos os relatórios antes de remover o objeto.
+- **Caminhos de falha do download** (cancelar no seletor, falha de escrita, navegador sem a API) estão implementados com preservação dos antigos, mas **não foram exercitados** no ambiente de testes (exigem clique).

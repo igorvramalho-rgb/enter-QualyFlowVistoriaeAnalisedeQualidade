@@ -127,6 +127,56 @@ export async function buildReportDocument(): Promise<{ pdf: JsPdfDocument; pages
   }
 }
 
+export type PdfSaveResult = "saved" | "cancelled" | "unconfirmed";
+
+interface FilePickerWindow extends Window {
+  showSaveFilePicker?: (options: {
+    suggestedName?: string;
+    types?: { description: string; accept: Record<string, string[]> }[];
+  }) => Promise<{
+    createWritable: () => Promise<{
+      write: (data: Blob) => Promise<void>;
+      close: () => Promise<void>;
+    }>;
+  }>;
+}
+
+/**
+ * Grava o PDF e devolve o que o navegador conseguiu confirmar:
+ * - "saved": arquivo escrito no disco (File System Access API);
+ * - "cancelled": o usuário cancelou;
+ * - "unconfirmed": download disparado sem confirmação possível.
+ */
+export async function saveReportPdfFile(fileName: string): Promise<PdfSaveResult> {
+  const { pdf } = await buildReportDocument();
+  const blob = pdf.output("blob") as Blob;
+  const name = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+  const picker = (window as FilePickerWindow).showSaveFilePicker;
+
+  if (!picker) {
+    pdf.save(name);
+    return "unconfirmed";
+  }
+
+  let handle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>>;
+  try {
+    handle = await picker({
+      suggestedName: name,
+      types: [{ description: "Documento PDF", accept: { "application/pdf": [".pdf"] } }],
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return "cancelled";
+    }
+    throw error;
+  }
+
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+  return "saved";
+}
+
 export async function downloadReportPdf(fileName: string): Promise<void> {
   const { pdf } = await buildReportDocument();
   pdf.save(fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`);

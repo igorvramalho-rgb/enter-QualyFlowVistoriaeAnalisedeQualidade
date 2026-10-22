@@ -390,3 +390,38 @@ export async function countAnalyses(): Promise<number> {
   }
   return count ?? 0;
 }
+
+/**
+ * Retenção: mantém apenas os `keep` relatórios mais recentes **do próprio
+ * usuário** (updated_at desc, id asc como desempate). Relatórios de outros
+ * usuários nunca são tocados. Os arquivos de foto não são apagados aqui.
+ */
+export async function pruneMyReports(
+  userId: string,
+  keep = 2,
+): Promise<{ deleted: number; kept: number }> {
+  const { data, error } = await supabase
+    .from("qualyflow_reports")
+    .select("id, updated_at")
+    .eq("created_by", userId)
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = data ?? [];
+  if (rows.length <= keep) {
+    return { deleted: 0, kept: rows.length };
+  }
+
+  const excess = rows.slice(keep).map((row) => row.id);
+  const { error: deleteError } = await supabase.from("qualyflow_reports").delete().in("id", excess);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  return { deleted: excess.length, kept: keep };
+}

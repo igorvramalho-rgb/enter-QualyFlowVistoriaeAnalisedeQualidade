@@ -12,6 +12,7 @@ import {
   fetchReports,
   fetchSettings,
   fetchUserSettings,
+  pruneMyReports,
   saveAnalyses,
   saveAnalysis,
   saveReport,
@@ -95,7 +96,28 @@ export function useCloudReports() {
     }
   }, []);
 
-  return { drafts, loading, save, remove, refresh };
+  const pruneExcess = useCallback(
+    async (keep = 2) => {
+      if (!user) {
+        return null;
+      }
+      try {
+        const result = await pruneMyReports(user.id, keep);
+        if (result.deleted > 0) {
+          await refresh();
+        }
+        return result;
+      } catch (error) {
+        toast.error("Não foi possível limpar os relatórios antigos", {
+          description: errorDescription(error),
+        });
+        return null;
+      }
+    },
+    [user, refresh],
+  );
+
+  return { drafts, loading, save, remove, refresh, pruneExcess };
 }
 
 /* -------------------------------------------------------------------- vistorias */
