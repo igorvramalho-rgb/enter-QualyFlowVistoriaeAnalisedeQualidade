@@ -804,3 +804,16 @@ O campo usava `<input type="date">`, que segue o idioma do navegador: em máquin
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido) com o gestor: sem configuração pessoal no início (cai na compartilhada), gravação da configuração pessoal e **leitura de volta com os valores gravados** — provando tabela, políticas de RLS e trigger.
 - Configuração pessoal do gestor deixada no **padrão do modelo** após o teste.
+
+---
+
+# Fase 27 — Nome do PDF fixo: FAC → OS → endereço
+
+- `buildReportFileName()` passou a montar o nome **sempre nesta ordem**: `fac-{Nº FAC}-os-{OS}-{endereço}-{modelo}-{data}.pdf`.
+- **Nenhum dos três campos é omitido**: quando o dado não está preenchido, o segmento sai como `nao-informado`, mantendo a posição.
+- Modelo e data ficam no fim, para identificação e ordenação na pasta.
+- Nomes gerados (conferidos por script):
+  - `fac-70172-os-2626203004-rua-teste-100-pos-60-via-31-07-2026.pdf`
+  - `fac-nao-informado-os-2626203004-rua-teste-100-pos-60-via-31-07-2026.pdf`
+  - `fac-70172-os-2626203004-nao-informado-pos-60-via-31-07-2026.pdf`
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.

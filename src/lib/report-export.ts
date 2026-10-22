@@ -133,23 +133,27 @@ export async function downloadReportPdf(fileName: string): Promise<void> {
 }
 
 /**
- * Nome do arquivo gerado: modelo + OS + Nº FAC + endereço + data, para o
- * relatório ficar identificável na pasta onde for salvo.
- * Ex.: relatorio-pos-60-via-os-2626203004-fac-70172-rua-teste-100-31-07-2026.pdf
+ * Nome do arquivo gerado, sempre na ordem **FAC → OS → endereço**.
+ * Nenhum dos três é omitido: se o campo estiver vazio, entra "nao-informado".
+ * O modelo e a data vão no fim, para identificação e ordenação da pasta.
+ * Ex.: fac-70172-os-2626203004-rua-teste-100-pos-60-via-31-07-2026.pdf
  */
 export function buildReportFileName(templateId: string, values: ReportValues): string {
   const template = getTemplate(templateId);
-  const parts = ["relatorio", slugify(template.shortTitle)];
+  const semInformacao = "nao-informado";
 
-  if (values.os?.trim()) {
-    parts.push(`os-${slugify(values.os)}`);
-  }
-  if (values.fac?.trim()) {
-    parts.push(`fac-${slugify(values.fac)}`);
-  }
-  if (values.endereco?.trim()) {
-    parts.push(slugify(values.endereco).slice(0, 45));
-  }
+  const fac = values.fac?.trim() ? slugify(values.fac) : semInformacao;
+  const os = values.os?.trim() ? slugify(values.os) : semInformacao;
+  const endereco = values.endereco?.trim()
+    ? slugify(values.endereco).slice(0, 45).replace(/-+$/, "")
+    : semInformacao;
+
+  const parts = [
+    `fac-${fac}`,
+    `os-${os}`,
+    endereco,
+    slugify(template.shortTitle),
+  ];
 
   const dateValue = values.dataVistoria || values.data;
   if (dateValue) {
