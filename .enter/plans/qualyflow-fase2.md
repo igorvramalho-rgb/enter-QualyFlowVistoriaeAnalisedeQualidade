@@ -844,3 +844,21 @@ O botão **Limpar relatório** continua apenas limpando o formulário — não e
 
 - **Arquivos de foto não são apagados** na retenção: o bucket não possui política de exclusão (decisão de segurança do projeto). As fotos dos relatórios excluídos permanecem como arquivos órfãos (pequenos). Para cumprir a exclusão segura, é necessário um backend function com privilégio de serviço que verifique referências em todos os relatórios antes de remover o objeto.
 - **Caminhos de falha do download** (cancelar no seletor, falha de escrita, navegador sem a API) estão implementados com preservação dos antigos, mas **não foram exercitados** no ambiente de testes (exigem clique).
+
+---
+
+# Fase 29 — Recorte livre e realce (upscale) da imagem
+
+## Recorte sem limite prático
+- Zoom do ajuste de foto passou de **3× para 12×** (passo 0,05), permitindo aproximar em numeração de fachada, régua e trena.
+- **Formatos de recorte**: 3:2, 4:3, 16:9 e 1:1 — enquadramento livre conforme a evidência.
+- A saída do recorte agora é calculada a partir da **resolução real da área recortada** (mínimo 1200 px, máximo 4000 px), com reamostragem de alta qualidade: ampliar fundo não gera imagem borrada artificialmente.
+
+## Botão "Melhorar" (upscale + realce)
+- Novo `enhancePhotoDataUrl()` em `src/lib/image.ts`: amplia em 1,6× (limite 3200 px de lado maior) com reamostragem de alta qualidade e aplica `contrast(1.08) saturate(1.12) brightness(1.03)`.
+- Botão **Melhorar** em cada foto (ícone de brilho, com indicador de processamento), opcional, a ser usado quando o operador quiser.
+- O realce é aplicado **a partir da imagem original** guardada no armazenamento (`originalPath`), evitando perda cumulativa se for usado mais de uma vez; o resultado é enviado ao armazenamento e substitui a foto do relatório.
+
+## Verificação
+- `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
+- Harness temporário (removido) medindo o realce em uma foto de teste com texto (“Nº 176”, “RÉGUA 1,50 m”): **antes 800×600 • 12 KB → depois 1280×960 • 50 KB**, com o texto legível e levemente mais nítido/contrastado.

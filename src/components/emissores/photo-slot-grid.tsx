@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardPaste, Crop, ImagePlus, Loader2, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import {
+  ClipboardPaste,
+  Crop,
+  ImagePlus,
+  Loader2,
+  MapPin,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -7,7 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PhotoCropDialog } from "@/components/emissores/photo-crop-dialog";
-import { estimateDataUrlSize, fileToCompressedDataUrl, isImageFile } from "@/lib/image";
+import {
+  enhancePhotoDataUrl,
+  estimateDataUrlSize,
+  fileToCompressedDataUrl,
+  isImageFile,
+} from "@/lib/image";
 import { formatBytes } from "@/lib/fields";
 import { photoPublicUrl, uploadPhoto } from "@/lib/photo-storage";
 import { formatCoordinates, nowStamp, readPhotoGps, type GeotagData } from "@/lib/geotag";
@@ -48,6 +62,7 @@ export function PhotoSlotGrid({
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [cropSlot, setCropSlot] = useState<string | null>(null);
+  const [enhancingId, setEnhancingId] = useState<string | null>(null);
   const photosRef = useRef(photos);
   photosRef.current = photos;
 
@@ -493,6 +508,51 @@ export function PhotoSlotGrid({
                   >
                     <Crop className="h-4 w-4" />
                     Ajustar
+                  </Button>
+                )}
+                {photo?.dataUrl && (
+                  <Button
+                    type="button"
+                    variant="glass"
+                    size="sm"
+                    disabled={enhancingId === slot.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const entry = photo;
+                      if (!entry) {
+                        return;
+                      }
+
+                      setEnhancingId(slot.id);
+                      void enhancePhotoDataUrl(
+                        photoPublicUrl(entry.originalPath) ?? entry.dataUrl ?? "",
+                      )
+                        .then((enhanced) => uploadPhoto(enhanced))
+                        .then((uploaded) => {
+                          onChange(slot.id, {
+                            ...entry,
+                            originalPath: entry.originalPath ?? entry.path,
+                            path: uploaded.path,
+                            dataUrl: uploaded.url,
+                          });
+                          toast.success("Imagem realçada", {
+                            description: "Upscale com realce de nitidez aplicado na foto.",
+                          });
+                        })
+                        .catch((error: unknown) => {
+                          toast.error("Não foi possível realçar a imagem", {
+                            description: error instanceof Error ? error.message : undefined,
+                          });
+                        })
+                        .finally(() => setEnhancingId(null));
+                    }}
+                  >
+                    {enhancingId === slot.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Melhorar
                   </Button>
                 )}
                 {photo?.dataUrl && (

@@ -74,3 +74,45 @@ async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
     URL.revokeObjectURL(url);
   }
 }
+
+/**
+ * Realce opcional da foto: amplia com reamostragem de alta qualidade e aplica
+ * um ajuste leve de contraste/saturação — melhora a leitura de réguas, trenas,
+ * placas e numeração de fachada sem alterar o enquadramento.
+ */
+export async function enhancePhotoDataUrl(
+  dataUrl: string,
+  { scale = 1.6, maxSide = 3200, quality = 0.95 } = {},
+): Promise<string> {
+  const image = await loadImageElement(dataUrl);
+  const longest = Math.max(image.naturalWidth, image.naturalHeight);
+  const factor = longest > 0 ? Math.min(scale, maxSide / longest) : 1;
+  const width = Math.max(1, Math.round(image.naturalWidth * Math.max(1, factor)));
+  const height = Math.max(1, Math.round(image.naturalHeight * Math.max(1, factor)));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Não foi possível processar a imagem neste navegador.");
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.filter = "contrast(1.08) saturate(1.12) brightness(1.03)";
+  context.drawImage(image, 0, 0, width, height);
+  context.filter = "none";
+
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function loadImageElement(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Não foi possível abrir a imagem."));
+    image.src = source;
+  });
+}

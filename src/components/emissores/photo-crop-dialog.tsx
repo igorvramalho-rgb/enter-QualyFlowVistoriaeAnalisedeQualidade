@@ -19,8 +19,13 @@ interface PhotoCropDialogProps {
   onApply: (cropped: string) => void;
 }
 
-const ASPECT = 3 / 2;
-const OUTPUT_WIDTH = 2100;
+const ASPECTS: { label: string; value: number }[] = [
+  { label: "3:2", value: 3 / 2 },
+  { label: "4:3", value: 4 / 3 },
+  { label: "16:9", value: 16 / 9 },
+  { label: "1:1", value: 1 },
+];
+const MAX_OUTPUT = 4000;
 
 /**
  * Ajuste de enquadramento da foto já inserida: arraste para mover e use o zoom
@@ -29,6 +34,7 @@ const OUTPUT_WIDTH = 2100;
  */
 export function PhotoCropDialog({ open, image, caption, onClose, onApply }: PhotoCropDialogProps) {
   const [zoom, setZoom] = useState(1);
+  const [aspect, setAspect] = useState(ASPECTS[0].value);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [applying, setApplying] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -53,7 +59,7 @@ export function PhotoCropDialog({ open, image, caption, onClose, onApply }: Phot
     return () => window.removeEventListener("resize", update);
   }, [open]);
 
-  const boxHeight = Math.round(boxWidth / ASPECT);
+  const boxHeight = Math.round(boxWidth / aspect);
 
   const imageSize = usePhotoSize(image);
 
@@ -102,9 +108,13 @@ export function PhotoCropDialog({ open, image, caption, onClose, onApply }: Phot
     setApplying(true);
     try {
       const img = await loadImage(image);
-      const outputHeight = Math.round(OUTPUT_WIDTH / ASPECT);
+      // saída na resolução real do recorte (sem ampliar demais nem perder detalhe)
+      const ratio = boxWidth / boxWidth;
+      const nativeWidth = frame.width / zoom;
+      const outputWidth = Math.round(Math.min(MAX_OUTPUT, Math.max(1200, nativeWidth * ratio)));
+      const outputHeight = Math.round(outputWidth / aspect);
       const canvas = document.createElement("canvas");
-      canvas.width = OUTPUT_WIDTH;
+      canvas.width = outputWidth;
       canvas.height = outputHeight;
       const context = canvas.getContext("2d");
       if (!context) {
@@ -112,15 +122,17 @@ export function PhotoCropDialog({ open, image, caption, onClose, onApply }: Phot
       }
 
       // mesma matemática da pré-visualização, em pixels de saída
-      const ratio = OUTPUT_WIDTH / boxWidth;
+      const scaleRatio = outputWidth / boxWidth;
       context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, OUTPUT_WIDTH, outputHeight);
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
       context.drawImage(
         img,
-        frame.left * ratio,
-        frame.top * ratio,
-        frame.width * ratio,
-        frame.height * ratio,
+        frame.left * scaleRatio,
+        frame.top * scaleRatio,
+        frame.width * scaleRatio,
+        frame.height * scaleRatio,
       );
 
       onApply(canvas.toDataURL("image/jpeg", 0.95));
@@ -175,18 +187,34 @@ export function PhotoCropDialog({ open, image, caption, onClose, onApply }: Phot
             </span>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">Formato</span>
+            {ASPECTS.map((option) => (
+              <Button
+                key={option.label}
+                type="button"
+                variant={aspect === option.value ? "glass" : "ghost"}
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setAspect(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-3">
             <ZoomIn className="h-4 w-4 shrink-0 text-muted-foreground" />
             <Slider
               value={[zoom]}
               min={1}
-              max={3}
-              step={0.02}
+              max={12}
+              step={0.05}
               onValueChange={(value) => setZoom(value[0] ?? 1)}
               aria-label="Zoom do recorte"
             />
-            <span className="w-12 shrink-0 text-right font-mono text-xs text-muted-foreground">
-              {zoom.toFixed(1)}x
+            <span className="w-14 shrink-0 text-right font-mono text-xs text-muted-foreground">
+              {zoom.toFixed(2)}x
             </span>
           </div>
 
