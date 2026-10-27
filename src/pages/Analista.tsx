@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   BarChart3,
+  CheckCircle2,
   Database,
+  Download,
   FileBarChart,
   DatabaseZap,
   FileCheck2,
@@ -10,6 +12,7 @@ import {
   Loader2,
   ScanText,
   Tags,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import {
@@ -30,12 +33,23 @@ import { ReviewDialog } from "@/components/analista/review-dialog";
 import { VistoriasTable } from "@/components/analista/vistorias-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { useCloudAnalyses } from "@/hooks/use-cloud-data";
 import { useNavigate } from "react-router-dom";
 import { comparePolo, normalizeNcType, POLOS, type AnalysisRecord } from "@/lib/analysis";
 import { lastAnalysisLabel } from "@/lib/analysis-summary";
+import { buildAnalysisMatrix } from "@/lib/analysis-export";
+import { downloadCsv } from "@/lib/csv";
 import { countAnalyses } from "@/lib/cloud";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -76,7 +90,10 @@ export default function Analista() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [reviewing, setReviewing] = useState<AnalysisRecord | null>(null);
-  const [clearing, setClearing] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearExported, setClearExported] = useState(false);
+  const [clearAck, setClearAck] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
   const navigate = useNavigate();
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [useOcr, setUseOcr] = useState(false);
@@ -300,6 +317,41 @@ export default function Analista() {
     }
   };
 
+  /** Cópia obrigatória antes de qualquer limpeza da base analítica. */
+  const exportarAnalises = () => {
+    try {
+      const matriz = buildAnalysisMatrix(analyses);
+      downloadCsv(
+        `qualyflow-analises-${new Date().toISOString().slice(0, 10)}.csv`,
+        matriz.headers,
+        matriz.rows,
+      );
+      setClearExported(true);
+      toast.success("Cópia baixada", {
+        description: `${analyses.length} análise(s) no arquivo. Guarde antes de continuar.`,
+      });
+    } catch (error) {
+      toast.error("Não foi possível baixar a cópia", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
+
+  const confirmarLimpeza = async () => {
+    setClearBusy(true);
+    try {
+      const ok = await clearAnalyses();
+      if (ok) {
+        toast.success("Base de análise limpa");
+      }
+      setClearOpen(false);
+      setClearExported(false);
+      setClearAck(false);
+    } finally {
+      setClearBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -329,21 +381,9 @@ export default function Analista() {
                 <FileBarChart className="h-4 w-4" />
                 Relatório BI
               </Button>
-              <Button
-                type="button"
-                variant={clearing ? "destructive" : "glass"}
-                onClick={() => {
-                  if (!clearing) {
-                    setClearing(true);
-                    toast.warning("Clique novamente para limpar a base de análise");
-                    return;
-                  }
-                  void clearAnalyses();
-                  setClearing(false);
-                  toast.success("Base de análise limpa");
-                }}
-            >
-                {clearing ? "Confirmar limpeza" : "Limpar base"}
+              <Button type="button" variant="glass" onClick={() => setClearOpen(true)}>
+                <Trash2 className="h-4 w-4" />
+                Limpar base
               </Button>
             </>
           ) : undefined
@@ -448,6 +488,89 @@ export default function Analista() {
         }}
         onSave={(record) => void handleSaveReview(record)}
       />
+      <Dialog
+        open={clearOpen}
+        onOpenChange={(open) => {
+          setClearOpen(open);
+          if (!open) {
+            setClearExported(false);
+            setClearAck(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Limpar base de análise</DialogTitle>
+            <DialogDescription>
+              Esta ação apaga {analyses.length} análise(s) do histórico analítico e não pode ser
+              desfeita. Nenhuma fotografia do emissor ou relatório é afetada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-foreground">
+            <li>• O histórico alimenta os indicadores, as comparações e as consultas.</li>
+            <li>• Esta ação não gera backup automático: a cópia é sua responsabilidade.</li>
+            <li>• A retenção de dois relatórios não se aplica a este módulo.</li>
+          </ul>
+
+          <div className="space-y-3">
+            <div className="rounded-lg border border-glass-border/60 bg-glass/30 p-3">
+              <p className="text-xs font-medium text-foreground">
+                1. Baixe uma cópia da base antes de apagar
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                O download libera a confirmação do passo 2 nesta sessão.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant={clearExported ? "secondary" : "glow"}
+                className="mt-2"
+                onClick={exportarAnalises}
+              >
+                {clearExported ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {clearExported ? "Cópia baixada" : "Baixar CSV das análises"}
+              </Button>
+            </div>
+
+            <label className="flex items-start gap-2 text-[11px] text-foreground">
+              <Checkbox
+                checked={clearAck}
+                disabled={!clearExported}
+                onCheckedChange={(value) => setClearAck(value === true)}
+              />
+              <span>
+                Confirmo que guardei a cópia e entendo que {analyses.length} análise(s) serão
+                apagadas definitivamente.
+              </span>
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setClearOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!clearExported || !clearAck || clearBusy}
+              onClick={() => void confirmarLimpeza()}
+            >
+              {clearBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Apagar {analyses.length} análise(s)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

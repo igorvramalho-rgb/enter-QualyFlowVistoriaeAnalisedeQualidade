@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ClipboardPaste,
   Crop,
+  Gauge,
   ImagePlus,
   Loader2,
   History,
@@ -23,8 +24,12 @@ import {
   estimateDataUrlSize,
   fileToCompressedDataUrl,
   isImageFile,
+  DEFAULT_PHOTO_QUALITY,
+  PHOTO_QUALITY,
   type PhotoAdjustments,
+  type PhotoQualityMode,
 } from "@/lib/image";
+import { pushHistory } from "@/lib/photo-history";
 import { PhotoAdjustDialog } from "@/components/emissores/photo-adjust-dialog";
 import { formatBytes } from "@/lib/fields";
 import { signPhotoUrl, uploadPhoto } from "@/lib/photo-storage";
@@ -41,6 +46,29 @@ interface PhotoSlotGridProps {
   onGeotagChange: (next: GeotagSettings) => void;
   /** Endereço do relatório, usado como padrão da marca de local. */
   enderecoPadrao?: string;
+}
+
+const QUALITY_STORAGE_KEY = "qualyflow:photo-quality";
+
+/** Preferência local (não vai para a nuvem): só decide a compressão da próxima foto. */
+function readQualityPreference(): PhotoQualityMode {
+  try {
+    const stored = window.localStorage.getItem(QUALITY_STORAGE_KEY);
+    if (stored === "padrao" || stored === "alta") {
+      return stored;
+    }
+  } catch {
+    /* navegador sem armazenamento local */
+  }
+  return DEFAULT_PHOTO_QUALITY;
+}
+
+function saveQualityPreference(mode: PhotoQualityMode): void {
+  try {
+    window.localStorage.setItem(QUALITY_STORAGE_KEY, mode);
+  } catch {
+    /* ignora */
+  }
 }
 
 const GEOTAG_FIELDS: { key: keyof GeotagData; label: string; placeholder: string }[] = [
@@ -71,6 +99,7 @@ export function PhotoSlotGrid({
   const [adjustImage, setAdjustImage] = useState<string | null>(null);
   const [adjustSize, setAdjustSize] = useState<{ width: number; height: number } | undefined>(undefined);
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [quality, setQuality] = useState<PhotoQualityMode>(() => readQualityPreference());
   const photosRef = useRef(photos);
   photosRef.current = photos;
 
@@ -105,7 +134,8 @@ export function PhotoSlotGrid({
 
       setProcessingId(slotId);
       try {
-        const compressed = await fileToCompressedDataUrl(file);
+        const mode = PHOTO_QUALITY[quality];
+        const compressed = await fileToCompressedDataUrl(file, mode.maxSide, mode.quality);
         const uploaded = await uploadPhoto(compressed);
         const stamp = await buildGeotag(file);
         onChange(slotId, {
@@ -127,7 +157,7 @@ export function PhotoSlotGrid({
         setProcessingId(null);
       }
     },
-    [buildGeotag, geotag.enabled, onChange],
+    [buildGeotag, geotag.enabled, onChange, quality],
   );
 
   const handlePaste = useCallback(
@@ -227,6 +257,25 @@ export function PhotoSlotGrid({
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar legendas padrão
           </Button>
+          <label
+            className="chip-tech gap-1.5"
+            title={PHOTO_QUALITY[quality].hint}
+          >
+            <Gauge className="h-3.5 w-3.5 text-primary" />
+            <span>Qualidade</span>
+            <select
+              value={quality}
+              onChange={(event) => {
+                const next = event.target.value as PhotoQualityMode;
+                setQuality(next);
+                saveQualityPreference(next);
+              }}
+              className="bg-transparent font-medium text-foreground outline-none"
+            >
+              <option value="alta">{PHOTO_QUALITY.alta.label}</option>
+              <option value="padrao">{PHOTO_QUALITY.padrao.label}</option>
+            </select>
+          </label>
           <span className="chip-tech">
             <ClipboardPaste className="h-3.5 w-3.5 text-primary" />
             Ctrl+V
@@ -590,7 +639,7 @@ export function PhotoSlotGrid({
                       if (!original) {
                         return;
                       }
-                      const history = [...(photo.history ?? []), photo.path].filter(Boolean) as string[];
+                      const history = pushHistory(photo.history, photo.path);
                       onChange(slot.id, { ...photo, path: original, history, dataUrl: "" });
                       void signPhotoUrl(original).then((url) => {
                         if (url) {
@@ -646,7 +695,7 @@ export function PhotoSlotGrid({
           void applyPhotoAdjustments(source, adjustments)
             .then((result) => uploadPhoto(result.dataUrl))
             .then((uploaded) => {
-              const history = [...(entry.history ?? []), entry.path].filter(Boolean) as string[];
+              const history = pushHistory(entry.history, entry.path);
               onChange(slotId, {
                 ...entry,
                 originalPath: entry.originalPath ?? entry.path,
@@ -693,6 +742,8 @@ export function PhotoSlotGrid({
                 ...entry,
                 // a imagem da inserção permanece no armazenamento como base do recorte
                 originalPath: entry.originalPath ?? entry.path,
+                // a versão anterior continua referenciada (não vira órfã)
+                history: pushHistory(entry.history, entry.originalPath ? entry.path : undefined),
                 path: uploaded.path,
                 dataUrl: uploaded.url,
               });

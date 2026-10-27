@@ -32,6 +32,16 @@ export interface BackupPackage {
     userSettingsProprias: unknown;
   };
   manifestoFotos: PhotoManifestEntry[];
+  /**
+   * Limitações declaradas do pacote. Evita confundir o manifesto com uma cópia
+   * das fotografias: os arquivos **não** estão dentro do JSON.
+   */
+  limitacoes: {
+    fotosIncluidas: false;
+    fotosApenasManifesto: true;
+    linksValidadeHoras: number;
+    restauracaoTestada: boolean;
+  };
 }
 
 /** Hash simples (FNV-1a) para conferir a integridade do pacote. */
@@ -45,7 +55,10 @@ function checksum(value: string): string {
 }
 
 export async function buildBackup(usuario: string): Promise<BackupPackage> {
-  const avisos: string[] = [];
+  const avisos: string[] = [
+    "As fotografias NÃO estão dentro deste JSON: o manifesto traz caminho e link assinado de 12 h (temporário).",
+    "A restauração do backup ainda não foi testada em ambiente isolado.",
+  ];
 
   const [profiles, reports, analyses, settingsCompartilhadas] = await Promise.all([
     fetchProfiles().catch(() => {
@@ -111,6 +124,12 @@ export async function buildBackup(usuario: string): Promise<BackupPackage> {
       },
     },
     avisos,
+    limitacoes: {
+      fotosIncluidas: false,
+      fotosApenasManifesto: true,
+      linksValidadeHoras: 12,
+      restauracaoTestada: false,
+    },
     tabelas: {
       profiles,
       reports,

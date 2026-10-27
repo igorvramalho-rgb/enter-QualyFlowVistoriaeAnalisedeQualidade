@@ -174,3 +174,22 @@ Tela nova `Inventário de fotos` (`/inventario`, exclusiva do gestor), com CSV c
 - O inventário não enxerga rascunho aberto no navegador de outro usuário (autosave é de 700 ms) — janela residual.
 - Prancha sintética **não é foto real** (declarado); a foto real foi usada só para medir tamanho.
 - A tela `/inventario` passou em lint/tipos/build e o caminho de dados foi validado por chamada autenticada real, mas **não foi vista em captura com sessão de gestor**.
+
+---
+
+# Rodada consolidada (27/10/2026) — melhorias seguras aplicadas
+
+Nenhuma exclusão, migração ou alteração de permissão. Dados idênticos antes/depois (5 relatórios, 1.115 análises, 541 arquivos, 294.137.360 bytes, 2 perfis).
+
+| Melhoria | Arquivo |
+|---|---|
+| Seletor de qualidade por inserção (**Alta** = padrão atual 2200/0,90; **Padrão** = 1600/0,85), preferência local | `src/lib/image.ts`, `photo-slot-grid.tsx` |
+| Limite de 3 versões no histórico **apenas em novas gravações**; leitura antiga intacta | `src/lib/photo-history.ts` (novo) |
+| Recorte passa a manter a versão anterior no histórico (deixa de gerar órfão) | `photo-slot-grid.tsx` |
+| "Limpar base" do Analista exige **exportação prévia + confirmação** explícita | `src/pages/Analista.tsx` |
+| Backup declara que fotos **não** estão no JSON, links de 12 h e restauração não testada | `src/lib/backup.ts` |
+| Bloco de proposta de limpeza segura (simulação, sem execução) | `src/pages/InventarioFotos.tsx` |
+
+Testes executados: lint, `tsc -p tsconfig.app.json`, build (limpos); 7/7 asserções de `photo-history` compiladas do código real; simulação de retenção por SQL (1 usuário com 3 relatórios → 1 seria podado no próximo salvamento confirmado); retenção não cita análises; nenhuma chamada de exclusão de foto no código; integridade de caminhos 26/26.
+
+Pendentes manuais: cliques no diálogo do Analista, seletor de qualidade com foto real até o PDF, desfazer/restaurar após o limite, PDF após ajustes, restauração do backup.

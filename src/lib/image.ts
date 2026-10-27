@@ -30,8 +30,34 @@ export async function fileToCompressedDataUrl(
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-export function isImageFile(file: File): boolean {
-  if (file.type.startsWith("image/")) {
+/**
+ * Modos de qualidade por foto. **Alta é o padrão de produção** e mantém o
+ * comportamento atual; "Padrão" existe para reduzir ~50% do arquivo em fotos em
+ * que a legibilidade de detalhe fino não é decisiva (medição em bancada).
+ */
+export type PhotoQualityMode = "alta" | "padrao";
+
+export const PHOTO_QUALITY: Record<
+  PhotoQualityMode,
+  { maxSide: number; quality: number; label: string; hint: string }
+> = {
+  alta: {
+    maxSide: 2200,
+    quality: 0.9,
+    label: "Alta",
+    hint: "2200 px — padrão atual, melhor detalhe",
+  },
+  padrao: {
+    maxSide: 1600,
+    quality: 0.85,
+    label: "Padrão",
+    hint: "1600 px — cerca de 50% menor",
+  },
+};
+
+export const DEFAULT_PHOTO_QUALITY: PhotoQualityMode = "alta";
+
+export function isImageFile(file: File): boolean {  if (file.type.startsWith("image/")) {
     return true;
   }
   return /\.(png|jpe?g|webp|bmp|gif|heic|heif)$/i.test(file.name);

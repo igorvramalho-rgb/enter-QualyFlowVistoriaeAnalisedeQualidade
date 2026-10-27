@@ -282,6 +282,32 @@ export default function InventarioFotos() {
               </p>
             )}
           </Card>
+
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold text-foreground">
+              Proposta de limpeza segura — não executada
+            </h2>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <li>
+                • <strong className="text-foreground">Simulação:</strong> com carência de{" "}
+                {inventory.graceDays} dia(s), {summary.orphanCandidateFiles} arquivo(s) (
+                {formatBytes(summary.recoverableBytes)}) estariam elegíveis; {summary.orphanGraceFiles}{" "}
+                seguiriam apenas monitorados e {summary.referencedFiles} seriam sempre preservados.
+              </li>
+              <li>
+                • <strong className="text-foreground">Pré-condições:</strong> autorização explícita,
+                backup com restauração comprovada e pacote dos candidatos baixado antes de excluir.
+              </li>
+              <li>
+                • <strong className="text-foreground">Execução futura:</strong> função de backend
+                restrita ao gestor, verificação de referências a cada lote, limite por lote e registro
+                de cada arquivo removido para auditoria.
+              </li>
+              <li>
+                • Esta tela apenas classifica e exporta: nenhuma exclusão é disparada por aqui.
+              </li>
+            </ul>
+          </Card>
         </>
       )}
 
