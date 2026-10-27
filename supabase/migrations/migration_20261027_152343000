@@ -1,0 +1,16 @@
+-- Classificação pelas etapas avaliadas (autorizado pelo usuário).
+-- 1) "Conforme" sem nenhuma etapa marcada como Conforme -> Não avaliado.
+update qualyflow_analyses
+   set status = 'nao_avaliado', updated_at = now()
+ where status = 'conforme'
+   and reviewed = false
+   and snippet ~* 'itens\s*avaliados'
+   and regexp_count(snippet, '(?i)\mconforme\M') <= regexp_count(snippet, '(?i)n[ãa]o\s*conforme');
+
+-- 2) "Em Andamento" (vinha da palavra "pendente") e "Informativo" sem etapa Conforme
+--    -> Não avaliado, mantendo "Em Andamento" apenas quando há situação de obra.
+update qualyflow_analyses
+   set status = 'nao_avaliado', updated_at = now()
+ where status in ('em_andamento', 'informativo')
+   and reviewed = false
+   and regexp_count(snippet, '(?i)\mconforme\M') <= regexp_count(snippet, '(?i)n[ãa]o\s*conforme');
