@@ -6,6 +6,7 @@ import { RouteFallback } from "./components/common/route-fallback";
 const Analista = lazy(() => import("./pages/Analista"));
 const Login = lazy(() => import("./pages/Login"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
+const Backup = lazy(() => import("./pages/Backup"));
 const RelatorioBi = lazy(() => import("./pages/RelatorioBi"));
 const Emissor = lazy(() => import("./pages/Emissor"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -40,6 +41,15 @@ export const routers = [
         element: (
           <Suspense fallback={<RouteFallback />}>
             <RelatorioBi />
+          </Suspense>
+        ),
+      },
+      {
+        path: "backup",
+        name: "backup",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <Backup />
           </Suspense>
         ),
       },

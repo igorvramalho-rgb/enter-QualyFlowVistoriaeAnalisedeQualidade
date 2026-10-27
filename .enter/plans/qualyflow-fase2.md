@@ -887,3 +887,31 @@ O botão **Limpar relatório** continua apenas limpando o formulário — não e
 ## Rollback
 - SQL: `update storage.buckets set public = true` e recriar a política de leitura `to public`.
 - Código: reverter `photo-storage.ts`, `cloud.ts` e `photo-slot-grid.tsx` do commit desta entrega. Os links assinados continuam funcionando mesmo com bucket público, então o código atual é compatível com o rollback parcial do banco.
+
+---
+
+# Fase 31 — Etapa 2 (P0): backup e recuperação integral
+
+## Alterações
+- `src/lib/backup.ts`: `buildBackup()` lê as tabelas (profiles, reports, analyses, settings compartilhadas e configurações próprias), monta o **manifesto de fotos** (relatório, campo, caminho, original e link assinado de 12 h), calcula **checksum FNV-1a** e emite avisos; `validateBackup()` confere assinatura e contagens; `backupInstructions()` gera as instruções de recuperação embutidas no JSON.
+- `src/pages/Backup.tsx` (rota `/backup`, **somente gestor**): botão gerar, contadores por tabela, avisos, e downloads **JSON**, **Excel das vistorias** (matriz já existente) e **CSV dos relatórios**.
+- `src/components/layout/nav-items.ts`: item **Backup** (gestor).
+
+## Testes executados (reais)
+| Verificação | Resultado |
+|---|---|
+| Login do gestor e geração do pacote | OK |
+| Contagens | profiles 2 · reports 5 · analyses 1115 · fotos referenciadas 13 |
+| Manifesto de fotos | 13 referências, 13 com caminho, **13 com link assinado** |
+| Integridade | assinatura `83f78651` · validação **OK** |
+| Tamanho do JSON | 2,54 MB |
+| Credenciais no pacote | **nenhuma** (teste por expressão regular) |
+| Avisos | nenhum |
+| `tsc -p tsconfig.app.json --noEmit` · lint · build | limpos |
+
+## Observação relevante
+O bucket tem **541 arquivos** e apenas **13 estão referenciados** pelos relatórios atuais: a retenção de dois relatórios (e os testes) deixaram ~528 arquivos sem referência. **Não foram apagados** (regra do projeto). Isso reforça a pendência já declarada de uma função de limpeza com verificação de referências.
+
+## Pendências da etapa
+- Teste de restauração em ambiente separado: **não executado** (depende de um ambiente de teste; não sobrescrevi produção).
+- Configurações individuais de outros usuários não entram no backup (política de leitura restrita) — declarado nos avisos do pacote.
