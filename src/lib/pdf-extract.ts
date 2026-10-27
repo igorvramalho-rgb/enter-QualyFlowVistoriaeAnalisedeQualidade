@@ -10,6 +10,7 @@ import {
   type DocumentType,
   type QualityStatus,
 } from "@/lib/analysis";
+import { classifyFromEvaluations } from "@/lib/quality-status";
 import {
   deriveNumbersFromFileName,
   normalizeText,
@@ -757,6 +758,14 @@ function detectStatus(
   // conformidade: entra como "Não avaliado" antes de qualquer atalho de conforme.
   if (NOT_EVALUATED_PHRASE.test(normalized)) {
     return "nao_avaliado";
+  }
+
+  // Classificação pelas ETAPAS AVALIADAS: se o FV traz o bloco "ITENS AVALIADOS",
+  // são as etapas que decidem o resultado geral. Sem nenhuma etapa "Conforme",
+  // o serviço nunca é classificado como Conforme.
+  const porEtapas = classifyFromEvaluations(normalized);
+  if (porEtapas) {
+    return porEtapas;
   }
   if (/aprovad|finalizad|regularizad|concluid/.test(normalized)) {
     return "conforme";
