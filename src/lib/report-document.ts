@@ -13,6 +13,8 @@ export interface PhotoEntry {
   path?: string;
   /** Caminho da imagem original da inserção, para novos recortes sem perda. */
   originalPath?: string;
+  /** Versões anteriores (mais antiga primeiro), para desfazer ajustes. */
+  history?: string[];
   /** Marca de data/local (GPS) impressa sobre a foto. */
   geotag?: GeotagData;
   /** Liga/desliga a marca só nesta foto. */

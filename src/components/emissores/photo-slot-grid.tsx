@@ -4,10 +4,12 @@ import {
   Crop,
   ImagePlus,
   Loader2,
+  History,
   MapPin,
   RotateCcw,
   Sparkles,
   Trash2,
+  Undo2,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "@/components/ui/sonner";
@@ -17,11 +19,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PhotoCropDialog } from "@/components/emissores/photo-crop-dialog";
 import {
-  enhancePhotoDataUrl,
+  applyPhotoAdjustments,
   estimateDataUrlSize,
   fileToCompressedDataUrl,
   isImageFile,
+  type PhotoAdjustments,
 } from "@/lib/image";
+import { PhotoAdjustDialog } from "@/components/emissores/photo-adjust-dialog";
 import { formatBytes } from "@/lib/fields";
 import { signPhotoUrl, uploadPhoto } from "@/lib/photo-storage";
 import { formatCoordinates, nowStamp, readPhotoGps, type GeotagData } from "@/lib/geotag";
@@ -63,7 +67,10 @@ export function PhotoSlotGrid({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [cropSlot, setCropSlot] = useState<string | null>(null);
   const [cropImage, setCropImage] = useState<string | null>(null);
-  const [enhancingId, setEnhancingId] = useState<string | null>(null);
+  const [adjustSlot, setAdjustSlot] = useState<string | null>(null);
+  const [adjustImage, setAdjustImage] = useState<string | null>(null);
+  const [adjustSize, setAdjustSize] = useState<{ width: number; height: number } | undefined>(undefined);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
   const photosRef = useRef(photos);
   photosRef.current = photos;
 
@@ -523,43 +530,76 @@ export function PhotoSlotGrid({
                     type="button"
                     variant="glass"
                     size="sm"
-                    disabled={enhancingId === slot.id}
                     onClick={(event) => {
                       event.stopPropagation();
                       const entry = photo;
-                      if (!entry) {
-                        return;
-                      }
-
-                      setEnhancingId(slot.id);
-                      void signPhotoUrl(entry.originalPath)
-                        .then((base) => enhancePhotoDataUrl(base ?? entry.dataUrl ?? ""))
-                        .then((enhanced) => uploadPhoto(enhanced))
-                        .then((uploaded) => {
-                          onChange(slot.id, {
-                            ...entry,
-                            originalPath: entry.originalPath ?? entry.path,
-                            path: uploaded.path,
-                            dataUrl: uploaded.url,
-                          });
-                          toast.success("Imagem realçada", {
-                            description: "Upscale com realce de nitidez aplicado na foto.",
-                          });
-                        })
-                        .catch((error: unknown) => {
-                          toast.error("Não foi possível realçar a imagem", {
-                            description: error instanceof Error ? error.message : undefined,
-                          });
-                        })
-                        .finally(() => setEnhancingId(null));
+                      setAdjustSlot(slot.id);
+                      setAdjustImage(entry?.dataUrl ?? null);
+                      void signPhotoUrl(entry?.originalPath).then((base) => {
+                        const source = base ?? entry?.dataUrl ?? null;
+                        setAdjustImage(source);
+                        if (source) {
+                          const probe = new Image();
+                          probe.crossOrigin = "anonymous";
+                          probe.onload = () =>
+                            setAdjustSize({ width: probe.naturalWidth, height: probe.naturalHeight });
+                          probe.src = source;
+                        }
+                      });
                     }}
                   >
-                    {enhancingId === slot.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
+                    <Sparkles className="h-4 w-4" />
                     Melhorar
+                  </Button>
+                )}
+
+                {photo?.dataUrl && (photo.history?.length ?? 0) > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    title="Desfazer último ajuste"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const history = photo.history ?? [];
+                      const anterior = history[history.length - 1];
+                      if (!anterior) {
+                        return;
+                      }
+                      onChange(slot.id, { ...photo, path: anterior, history: history.slice(0, -1), dataUrl: "" });
+                      void signPhotoUrl(anterior).then((url) => {
+                        if (url) {
+                          onChange(slot.id, { ...photo, path: anterior, history: history.slice(0, -1), dataUrl: url });
+                        }
+                      });
+                    }}
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {photo?.dataUrl && photo.originalPath && photo.path && photo.path !== photo.originalPath && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    title="Restaurar foto original"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const original = photo.originalPath;
+                      if (!original) {
+                        return;
+                      }
+                      const history = [...(photo.history ?? []), photo.path].filter(Boolean) as string[];
+                      onChange(slot.id, { ...photo, path: original, history, dataUrl: "" });
+                      void signPhotoUrl(original).then((url) => {
+                        if (url) {
+                          onChange(slot.id, { ...photo, path: original, history, dataUrl: url });
+                        }
+                      });
+                    }}
+                  >
+                    <History className="h-4 w-4" />
                   </Button>
                 )}
                 {photo?.dataUrl && (
@@ -582,6 +622,53 @@ export function PhotoSlotGrid({
           );
         })}
       </div>
+
+      <PhotoAdjustDialog
+        open={Boolean(adjustSlot)}
+        image={adjustImage}
+        originalSize={adjustSize}
+        caption={slots.find((slot) => slot.id === adjustSlot)?.caption ?? ""}
+        applying={Boolean(applyingId)}
+        onClose={() => {
+          setAdjustSlot(null);
+          setAdjustImage(null);
+          setAdjustSize(undefined);
+        }}
+        onApply={(adjustments: PhotoAdjustments) => {
+          const slotId = adjustSlot;
+          const entry = slotId ? photos[slotId] : undefined;
+          const source = adjustImage;
+          if (!slotId || !entry || !source) {
+            return;
+          }
+
+          setApplyingId(slotId);
+          void applyPhotoAdjustments(source, adjustments)
+            .then((result) => uploadPhoto(result.dataUrl))
+            .then((uploaded) => {
+              const history = [...(entry.history ?? []), entry.path].filter(Boolean) as string[];
+              onChange(slotId, {
+                ...entry,
+                originalPath: entry.originalPath ?? entry.path,
+                path: uploaded.path,
+                dataUrl: uploaded.url,
+                history,
+              });
+              toast.success("Ajustes aplicados", {
+                description: "O original foi preservado e pode ser restaurado.",
+              });
+              setAdjustSlot(null);
+              setAdjustImage(null);
+              setAdjustSize(undefined);
+            })
+            .catch((error: unknown) => {
+              toast.error("Não foi possível aplicar os ajustes", {
+                description: error instanceof Error ? error.message : undefined,
+              });
+            })
+            .finally(() => setApplyingId(null));
+        }}
+      />
 
       <PhotoCropDialog
         open={Boolean(cropSlot)}

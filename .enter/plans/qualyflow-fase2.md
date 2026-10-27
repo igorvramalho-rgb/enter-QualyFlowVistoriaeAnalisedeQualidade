@@ -946,3 +946,45 @@ O bucket tem **541 arquivos** e apenas **13 estão referenciados** pelos relató
 - O `tesseract.js` baixa o **worker WASM e o modelo de português** de CDN pública na primeira execução (≈15 MB), que fica em cache. **Nenhum documento é enviado para fora** — o reconhecimento é local. Alternativa futura: hospedar o `por.traineddata` no próprio projeto (aumenta o repositório).
 - Custo por página alto em CPU (esperado de 2 a 8 s/página em máquina comum) — por isso o OCR é **opcional e desligado por padrão**.
 - Páginas reconhecidas entram como **não revisadas** e o trecho indica a confiança média; o operador deve conferir.
+
+---
+
+# Fase 33 — Etapa 5: Filtros PRO e upscale
+
+## Reutilização (sem duplicar)
+- O botão **Melhorar** foi **evoluído**: antes aplicava um realce fixo; agora abre o painel **Filtros PRO**. Nenhum botão novo foi criado.
+- `enhancePhotoDataUrl()` foi mantida como atalho e passou a usar a predefinição **Profissional** do novo motor (sem código duplicado).
+
+## Motor de imagem (`src/lib/image.ts`)
+- `PhotoAdjustments` com **exposição, brilho, contraste, saturação, temperatura de cor, sombras, realces, nitidez e upscale**.
+- Predefinições **Leve**, **Profissional (padrão)** e **Forte**.
+- Tom e cor em uma passada por pixel; **nitidez por máscara de contraste 3×3** proporcional à intensidade; **ampliação** com reamostragem de alta qualidade e **limite de 6000 px** no lado maior.
+- Processamento **100% local** (Canvas API). Nenhuma IA, nenhuma API externa, nenhuma foto sai do navegador.
+
+## Painel (`src/components/emissores/photo-adjust-dialog.tsx`)
+- Oito controles deslizantes com valor numérico, três predefinições, "Zerar ajustes", escolha de resolução com **prévia das dimensões** e aviso de que ampliar não recupera detalhes inexistentes.
+- **Comparação antes/depois** lado a lado (prévia por CSS: aproximada para sombras/realces/nitidez; exata ao aplicar).
+- Rodapé com **Cancelar** e **Aplicar ajustes**.
+
+## Edição segura (`photo-slot-grid.tsx`)
+- `PhotoEntry.history` guarda as versões anteriores; o **original permanece no armazenamento** (`originalPath`).
+- Botões **Desfazer** (volta a versão anterior) e **Restaurar original** aparecem só quando fazem sentido.
+- Nada é sobrescrito: cada versão é um novo arquivo no armazenamento.
+
+## Testes executados (medidos)
+| Teste | Resultado |
+|---|---|
+| Foto 1200×800 • 19 KB | referência |
+| Predefinição **Leve** | 1200×800 • 22 KB • **63 ms** |
+| Predefinição **Profissional** (padrão) | 1800×1200 • 79 KB • **119 ms** |
+| Predefinição **Forte** | 2400×1600 • 108 KB • **208 ms** |
+| **Original intacto após os ajustes** | **sim** (comparação do dataURL antes/depois) |
+| Ampliação 2× | 2400×1600 • 101 KB • 317 ms |
+| Ampliação 4× (limite 6000 px) | 4800×3200 • 271 KB • 1.197 ms |
+| Legibilidade | "Nº 176" e "RÉGUA 1,50 m" nítidos; nada adicionado ou removido da cena |
+| `tsc -p tsconfig.app.json --noEmit` · lint · build | limpos |
+
+## Testes NÃO executados (declarados)
+- Cliques reais no painel (sliders, desfazer, restaurar) e geração de PDF **após** a edição: exigem interação — **pendentes**.
+- Compatibilidade com relatórios antigos após edição: o fluxo usa o mesmo `path`/`history`, mas **não testado em relatório real**.
+- Tempo de geração de PDF com foto ampliada 4×: **não medido** (só o tempo do ajuste).
