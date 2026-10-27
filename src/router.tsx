@@ -7,6 +7,7 @@ const Analista = lazy(() => import("./pages/Analista"));
 const Login = lazy(() => import("./pages/Login"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Backup = lazy(() => import("./pages/Backup"));
+const InventarioFotos = lazy(() => import("./pages/InventarioFotos"));
 const RelatorioBi = lazy(() => import("./pages/RelatorioBi"));
 const Emissor = lazy(() => import("./pages/Emissor"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -50,6 +51,15 @@ export const routers = [
         element: (
           <Suspense fallback={<RouteFallback />}>
             <Backup />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventario",
+        name: "inventario",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <InventarioFotos />
           </Suspense>
         ),
       },

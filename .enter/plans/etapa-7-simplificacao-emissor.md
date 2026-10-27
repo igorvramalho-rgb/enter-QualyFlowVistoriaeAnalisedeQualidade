@@ -119,3 +119,58 @@ Regras obrigatórias:
 | **E6** | (Opcional, depende de D1) foto de rascunho local até salvar | fluxo completo de relatório + PDF | volta ao upload imediato |
 
 Ordem sugerida: **E1 → E2 → E3 → E4 → E5**, com E6 apenas se você aprovar D1. Cada etapa para em validação, como nas fases anteriores.
+
+---
+
+# Resultados — E1 (inventário), preparação da P2 e teste da P3
+
+Data: 27/10/2026. **Nada foi excluído, movido ou alterado.** Contagens antes e depois idênticas: 5 relatórios, 1.115 análises, 541 arquivos, 294.137.360 bytes, 2 perfis.
+
+## E1 — Inventário (somente leitura)
+
+Tela nova `Inventário de fotos` (`/inventario`, exclusiva do gestor), com CSV completo. O código só executa `select` em `qualyflow_reports` e `list` no bucket — **nenhuma escrita ou exclusão** (verificado por busca textual: 0 ocorrências de `remove/upload/update/delete/upsert/insert`).
+
+| Categoria | Arquivos | Espaço |
+|---|---|---|
+| Referenciado — foto atual | 13 | 14.498.162 B (13,8 MiB) |
+| Referenciado — original | 13 | (já contabilizado acima) |
+| Referenciado — histórico | **0** | — |
+| Sem referência · em carência (30 d) | **515** | 279.639.198 B (266,7 MiB) |
+| Sem referência · candidato | **0** | 0 B |
+| Referência sem arquivo | **0** | — |
+| **Total no bucket** | **541** | **294.137.360 B** |
+
+- Todos os 541 arquivos foram criados entre **22/10/2026 e 27/10/2026** (5 dias). Por isso, com carência de 30 dias, **nenhum candidato está elegível hoje**; o espaço potencialmente recuperável é **279,6 MB e só se a carência for reduzida a zero**.
+- Nenhum arquivo é compartilhado por dois relatórios (duplicações = 0).
+- Nenhuma referência aponta para arquivo ausente (integridade 26/26).
+
+## P2 — Testes exigidos antes de implementar
+
+1. Desfazer com 1 versão: `history=[v1]`, atual `v2` → desfazer → `v1`, `history=[]`.
+2. Relatório antigo com 3 versões: desfazer 3 vezes em sequência (o limite vale para **novas** gravações, não para leitura).
+3. Restaurar original: empurra a atual para `history` (respeitando o limite) e define `path = originalPath`; desfazer depois volta corretamente.
+4. Recorte a partir do original: nova versão entra no `history` sem perder a referência exibida.
+5. Salvar, recarregar e reabrir: `history` persistido, fotos assinadas, botões Desfazer/Restaurar aparecendo só quando fazem sentido.
+6. PDF após desfazer/restaurar: folha idêntica à versão restaurada.
+7. Garantir que **descartar uma versão do histórico não apaga arquivo** — ela apenas deixa de ser referenciada (e apareceria como órfã num inventário futuro).
+
+## P3 — Teste de qualidade (função real de produção, `fileToCompressedDataUrl`)
+
+| Fonte | Variante | Dimensões | Tamanho | Tempo |
+|---|---|---|---|---|
+| Prancha sintética 3509×2480 | A · 2200 px / 0,90 (atual) | 2200×1555 | 129.198 B (126 KB) | 136 ms |
+| Prancha sintética | B · 1600 px / 0,85 | 1600×1131 | **65.883 B (64 KB)** | 87 ms |
+| Foto real já referenciada (origem 1.207.103 B) | A · 2200 px / 0,90 | 2100×1400 | 955.503 B (933 KB) | 75 ms |
+| Foto real já referenciada | B · 1600 px / 0,85 | 1600×1067 | **447.546 B (437 KB)** | 64 ms |
+
+- Redução: **-49%** na prancha sintética e **-53%** na foto real (‑62% frente ao arquivo já armazenado).
+- Legibilidade (recortes 1:1 ampliados): número de fachada **idêntico**; traços de 1 mm da régua **preservados** nas duas variantes (B levemente mais suave); **texto impresso de 6 pt dentro da imagem perde definição em B**. Legendas do relatório são texto HTML, não fazem parte da foto, e não são afetadas.
+- 1600 px em quadro impresso de 90 mm ≈ 451 dpi (acima dos 300 dpi usuais).
+- **Não alterado o padrão de produção.**
+
+## Casos inconclusivos declarados
+
+- Nenhum relatório em produção usa `history` hoje (0 referências), então o comportamento do histórico **não pôde ser validado com dados reais**, só com teste a construir na E2.
+- O inventário não enxerga rascunho aberto no navegador de outro usuário (autosave é de 700 ms) — janela residual.
+- Prancha sintética **não é foto real** (declarado); a foto real foi usada só para medir tamanho.
+- A tela `/inventario` passou em lint/tipos/build e o caminho de dados foi validado por chamada autenticada real, mas **não foi vista em captura com sessão de gestor**.

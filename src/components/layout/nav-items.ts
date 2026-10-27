@@ -1,4 +1,4 @@
-import { Archive, BarChart3, FileText, Users, type LucideIcon } from "lucide-react";
+import { Archive, BarChart3, FileText, Images, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -34,6 +34,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Backup",
     description: "Exportar e recuperar dados",
     icon: Archive,
+    gestorOnly: true,
+  },
+  {
+    to: "/inventario",
+    label: "Inventário de fotos",
+    description: "Conferir arquivos e órfãos",
+    icon: Images,
     gestorOnly: true,
   },
 ];
