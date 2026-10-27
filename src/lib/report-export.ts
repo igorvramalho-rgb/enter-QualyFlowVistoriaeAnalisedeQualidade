@@ -142,6 +142,28 @@ interface FilePickerWindow extends Window {
 }
 
 /**
+ * O seletor de arquivos do navegador **não funciona dentro de iframe de outra
+ * origem** (caso da pré-visualização): o Chrome lança SecurityError. Também não
+ * existe em contexto inseguro. Nesses casos caímos no download tradicional.
+ */
+export function isFilePickerAvailable(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const picker = (window as FilePickerWindow).showSaveFilePicker;
+  if (!picker || !window.isSecureContext) {
+    return false;
+  }
+  try {
+    // Em iframe (inclusive de mesma origem, como a pré-visualização) o seletor
+    // é bloqueado; o download por link continua permitido.
+    return window.self === window.top;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Grava o PDF e devolve o que o navegador conseguiu confirmar:
  * - "saved": arquivo escrito no disco (File System Access API);
  * - "cancelled": o usuário cancelou;
@@ -151,11 +173,19 @@ export async function saveReportPdfFile(fileName: string): Promise<PdfSaveResult
   const { pdf } = await buildReportDocument();
   const blob = pdf.output("blob") as Blob;
   const name = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
-  const picker = (window as FilePickerWindow).showSaveFilePicker;
 
-  if (!picker) {
+  const baixarSemConfirmacao = (): PdfSaveResult => {
     pdf.save(name);
     return "unconfirmed";
+  };
+
+  if (!isFilePickerAvailable()) {
+    return baixarSemConfirmacao();
+  }
+
+  const picker = (window as FilePickerWindow).showSaveFilePicker;
+  if (!picker) {
+    return baixarSemConfirmacao();
   }
 
   let handle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>>;
@@ -168,13 +198,26 @@ export async function saveReportPdfFile(fileName: string): Promise<PdfSaveResult
     if (error instanceof DOMException && error.name === "AbortError") {
       return "cancelled";
     }
+    // Bloqueio por origem/iframe ou permissão: entrega o arquivo pelo download
+    // tradicional em vez de falhar. Sem confirmação, a retenção não roda.
+    if (
+      error instanceof DOMException &&
+      (error.name === "SecurityError" || error.name === "NotAllowedError")
+    ) {
+      return baixarSemConfirmacao();
+    }
     throw error;
   }
 
-  const writable = await handle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-  return "saved";
+  try {
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return "saved";
+  } catch {
+    // Falha ao gravar no destino escolhido: garante uma cópia por download.
+    return baixarSemConfirmacao();
+  }
 }
 
 export async function downloadReportPdf(fileName: string): Promise<void> {

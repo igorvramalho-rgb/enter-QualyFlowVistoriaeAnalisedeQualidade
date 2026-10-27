@@ -49,7 +49,12 @@ import {
   type ReportDraft,
   type ReportValues,
 } from "@/lib/report-document";
-import { buildReportFileName, printReport, saveReportPdfFile } from "@/lib/report-export";
+import {
+  buildReportFileName,
+  isFilePickerAvailable,
+  printReport,
+  saveReportPdfFile,
+} from "@/lib/report-export";
 import {
   getDefaultValues,
   getTemplate,
@@ -400,8 +405,11 @@ export default function Emissor() {
       }
 
       if (result === "unconfirmed") {
+        const dentroDoPreview = !isFilePickerAvailable() && window.self !== window.top;
         toast.info("PDF gerado", {
-          description: `${fileName} • este navegador não confirma a gravação do arquivo, então os relatórios anteriores foram preservados.`,
+          description: dentroDoPreview
+            ? `${fileName} • a pré-visualização não permite escolher onde salvar. Se o arquivo não aparecer, abra o sistema em uma aba própria do navegador e gere novamente.`
+            : `${fileName} • este navegador não confirma a gravação do arquivo, então os relatórios anteriores foram preservados.`,
         });
         return;
       }
