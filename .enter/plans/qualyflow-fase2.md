@@ -988,3 +988,6 @@ O bucket tem **541 arquivos** e apenas **13 estão referenciados** pelos relató
 - Cliques reais no painel (sliders, desfazer, restaurar) e geração de PDF **após** a edição: exigem interação — **pendentes**.
 - Compatibilidade com relatórios antigos após edição: o fluxo usa o mesmo `path`/`history`, mas **não testado em relatório real**.
 - Tempo de geração de PDF com foto ampliada 4×: **não medido** (só o tempo do ajuste).
+
+## Situação da Etapa 5 (registro solicitado pelo usuário)
+**Implementada, porém NÃO integralmente aprovada.** Os resultados técnicos medidos são positivos, mas os testes funcionais (cliques reais nos controles, desfazer/restaurar, geração de PDF após a edição e compatibilidade com relatórios antigos) continuam **pendentes de validação manual completa**. A Etapa 6 foi iniciada em modo exclusivamente de diagnóstico.
