@@ -748,6 +748,16 @@ function detectStatus(
   if (/aprovad|finalizad|regularizad|concluid/.test(normalized)) {
     return "conforme";
   }
+  // Pós 60 com parecer apenas INFORMATIVO não é conformidade: sai do "Conforme".
+  // Restrito ao Pós 60 (onde havia o atalho que forçava "conforme") para não
+  // afetar SGZ/indefinidos já classificados como Em Andamento.
+  if (
+    (documentType === "pos_60_passeio" || documentType === "pos_60_via") &&
+    /\binformativo\b/.test(normalized) &&
+    !/em\s*obra|em\s*andamento|provisorio|falta\s*repor/.test(normalized)
+  ) {
+    return "informativo";
+  }
   if (documentType === "pos_60_passeio" || documentType === "pos_60_via") {
     return "conforme";
   }

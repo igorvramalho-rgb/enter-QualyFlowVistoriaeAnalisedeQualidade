@@ -42,6 +42,7 @@ export type QualityStatus =
   | "nao_conforme"
   | "em_andamento"
   | "nao_avaliado"
+  | "informativo"
   | "respondido_alphageos"
   | "pendente";
 
@@ -118,6 +119,7 @@ export const STATUS_LABELS: Record<QualityStatus, string> = {
   nao_conforme: "Não Conforme",
   em_andamento: "Em Andamento",
   nao_avaliado: "Não avaliado",
+  informativo: "Informativo",
   respondido_alphageos: "Respondido para Alphageos",
   pendente: "Pendente de revisão",
 };

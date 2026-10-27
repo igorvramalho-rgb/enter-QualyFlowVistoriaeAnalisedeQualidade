@@ -1,0 +1,8 @@
+-- Correção pontual pedida pelo usuário: duas FVs com parecer apenas INFORMATIVO
+-- estavam contadas como Conforme. Ambas com reviewed = false (classificação automática).
+update qualyflow_analyses
+   set status = 'informativo', updated_at = now()
+ where id in ('af3aee42-e2a6-48db-8a6c-57d50c1971d4',
+             '3c9e7aff-d814-4440-a7bb-af6f1af3f644')
+   and status = 'conforme'
+   and reviewed = false;

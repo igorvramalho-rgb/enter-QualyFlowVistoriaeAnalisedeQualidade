@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import { ArrowDownUp, FileSpreadsheet, Filter, Pencil, Sheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ const STATUS_STYLES: Record<QualityStatus, string> = {
   nao_conforme: "bg-destructive/12 text-destructive border-destructive/40",
   em_andamento: "bg-warning/15 text-warning border-warning/40",
   nao_avaliado: "bg-chart-5/15 text-chart-5 border-chart-5/40",
+  informativo: "bg-chart-1/15 text-chart-1 border-chart-1/40",
   respondido_alphageos: "bg-chart-3/15 text-chart-3 border-chart-3/40",
   pendente: "bg-muted text-muted-foreground border-border",
 };
@@ -55,6 +57,7 @@ const STATUS_DOTS: Record<QualityStatus, string> = {
   nao_conforme: "bg-destructive",
   em_andamento: "bg-warning",
   nao_avaliado: "bg-chart-5",
+  informativo: "bg-chart-1",
   respondido_alphageos: "bg-chart-3",
   pendente: "bg-muted-foreground",
 };
@@ -62,16 +65,18 @@ const STATUS_DOTS: Record<QualityStatus, string> = {
 const ALL = "todos";
 
 export function VistoriasTable({ analyses, onReview, onDelete }: VistoriasTableProps) {
-  const [query, setQuery] = useState("");
-  const [polo, setPolo] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
-  const [tipo, setTipo] = useState(ALL);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("data");
-  const [sortAsc, setSortAsc] = useState(false);
+  // Filtros persistentes: não é preciso reaplicá-los a cada entrada na tela.
+  const PREF = "qualyflow:bi-filtros:";
+  const [query, setQuery] = usePersistedState(PREF + "busca", "");
+  const [polo, setPolo] = usePersistedState(PREF + "polo", ALL);
+  const [status, setStatus] = usePersistedState(PREF + "status", ALL);
+  const [tipo, setTipo] = usePersistedState(PREF + "tipo", ALL);
+  const [from, setFrom] = usePersistedState(PREF + "de", "");
+  const [to, setTo] = usePersistedState(PREF + "ate", "");
+  const [sortKey, setSortKey] = usePersistedState<SortKey>(PREF + "ordem", "data");
+  const [sortAsc, setSortAsc] = usePersistedState(PREF + "crescente", false);
   const [exporting, setExporting] = useState(false);
-  const [pageSize, setPageSize] = useState("50");
+  const [pageSize, setPageSize] = usePersistedState(PREF + "tamanho", "50");
   const [page, setPage] = useState(1);
 
   const polos = useMemo(() => {

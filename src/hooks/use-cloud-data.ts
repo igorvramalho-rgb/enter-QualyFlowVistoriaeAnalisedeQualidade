@@ -29,6 +29,19 @@ import {
 import { readStorage, STORAGE_KEYS } from "@/lib/storage";
 
 const REFRESH_EVENT = "qualyflow:refresh";
+
+/**
+ * Cache em memória das vistorias: ao voltar para a tela os dados aparecem na
+ * hora e a busca em segundo plano só confirma. Sem isso, cada entrada zerava a
+ * lista e mostrava o carregamento de novo.
+ */
+interface AnalysesCache {
+  userId: string;
+  rows: AnalysisRecord[];
+  at: number;
+}
+
+let analysesCache: AnalysesCache | null = null;
 const MIGRATION_FLAG = "qualyflow:cloud-migrated:v1";
 
 function errorDescription(error: unknown): string | undefined {
@@ -131,6 +144,9 @@ export function useCloudAnalyses() {
     try {
       const rows = await fetchAnalyses();
       setAnalyses(rows);
+      if (user) {
+        analysesCache = { userId: user.id, rows, at: Date.now() };
+      }
     } catch (error) {
       toast.error("Não foi possível carregar as vistorias da nuvem", {
         description: errorDescription(error),
@@ -138,11 +154,16 @@ export function useCloudAnalyses() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
       return;
+    }
+    // Mostra o que já foi carregado nesta sessão e atualiza em segundo plano.
+    if (analysesCache && analysesCache.userId === user.id) {
+      setAnalyses(analysesCache.rows);
+      setLoading(false);
     }
     void refresh();
     return subscribeRefresh(() => void refresh());
