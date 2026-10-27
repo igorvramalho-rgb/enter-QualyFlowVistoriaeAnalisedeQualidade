@@ -10,10 +10,11 @@ import type {
 } from "@/lib/report-document";
 import { normalizeSettings } from "@/lib/report-document";
 import { deriveNumbersFromFileName, sanitizeAddress } from "@/lib/fields";
-import { photoPublicUrl } from "@/lib/photo-storage";
+import { signPhotoUrls } from "@/lib/photo-storage";
 import type { ReportTemplateId } from "@/lib/report-templates";
 
 type Tables = Database["public"]["Tables"];
+type ReportInsert = Tables["qualyflow_reports"]["Insert"];
 type ReportRow = Tables["qualyflow_reports"]["Row"];
 type AnalysisRow = Tables["qualyflow_analyses"]["Row"];
 type SettingsRow = Tables["qualyflow_settings"]["Row"];
@@ -44,14 +45,27 @@ function compactPhotos(photos: PhotoMap): PhotoMap {
   );
 }
 
-/** Devolve o link de leitura das fotos guardadas no armazenamento. */
-function hydratePhotos(photos: PhotoMap): PhotoMap {
-  return Object.fromEntries(
-    Object.entries(photos).map(([slot, entry]) => [
-      slot,
-      { ...entry, dataUrl: photoPublicUrl(entry.path) ?? entry.dataUrl },
-    ]),
+/** Libera os links assinados das fotos e devolve o relatório pronto para uso. */
+async function hydrateReports(drafts: ReportDraft[]): Promise<ReportDraft[]> {
+  const paths = drafts.flatMap((draft) =>
+    Object.values(draft.photos).flatMap((entry) => [entry.path, entry.originalPath]),
   );
+
+  const signed = await signPhotoUrls(paths);
+
+  return drafts.map((draft) => ({
+    ...draft,
+    photos: Object.fromEntries(
+      Object.entries(draft.photos).map(([slot, entry]) => [
+        slot,
+        {
+          ...entry,
+          dataUrl: (entry.path ? signed[entry.path] : undefined) ?? entry.dataUrl,
+          originalPath: entry.originalPath,
+        },
+      ]),
+    ),
+  }));
 }
 
 export function toReport(row: ReportRow): ReportDraft {
@@ -60,7 +74,7 @@ export function toReport(row: ReportRow): ReportDraft {
     name: row.name,
     templateId: row.template_id as ReportTemplateId,
     values: asObject<ReportValues>(row.values, {}),
-    photos: hydratePhotos(asObject<PhotoMap>(row.photos, {})),
+    photos: asObject<PhotoMap>(row.photos, {}),
     objeto: row.objeto,
     observacoes: row.observacoes,
     geotag: asObject<GeotagSettings>(row.geotag, { enabled: false, defaults: { dataHora: "", coordenadas: "", endereco: "", bairro: "", cidade: "" } }),
@@ -92,18 +106,18 @@ export async function fetchReports(): Promise<ReportDraft[]> {
     }
   }
 
-  return rows.map(toReport);
+  return hydrateReports(rows.map(toReport));
 }
 
 export async function saveReport(draft: ReportDraft): Promise<ReportDraft> {
-  const payload = {
+  const payload: ReportInsert = {
     name: draft.name,
     template_id: draft.templateId,
     values: draft.values,
-    photos: compactPhotos(draft.photos),
+    photos: compactPhotos(draft.photos) as unknown as ReportInsert["photos"],
     objeto: draft.objeto ?? "",
     observacoes: draft.observacoes ?? "",
-    geotag: draft.geotag ?? {},
+    geotag: (draft.geotag ?? {}) as ReportInsert["geotag"],
   };
 
   if (isUuid(draft.id)) {
@@ -309,14 +323,14 @@ function toSettings(row: SettingsRow): QualyflowSettings {
 
 export async function saveSettings(settings: QualyflowSettings): Promise<void> {
   const normalized = normalizeSettings(settings);
-  const { error } = await supabase.from("qualyflow_settings").upsert(
-    {
-      id: "default",
-      header: normalized.header,
-      logos: normalized.logos,
-    },
-    { onConflict: "id" },
-  );
+  const payload: Tables["qualyflow_settings"]["Insert"] = {
+    id: "default",
+    header: normalized.header as unknown as Tables["qualyflow_settings"]["Insert"]["header"],
+    logos: normalized.logos as unknown as Tables["qualyflow_settings"]["Insert"]["logos"],
+  };
+  const { error } = await supabase.from("qualyflow_settings").upsert(payload, {
+    onConflict: "id",
+  });
 
   if (error) {
     throw error;
@@ -355,14 +369,14 @@ export async function saveUserSettings(
   settings: QualyflowSettings,
 ): Promise<void> {
   const normalized = normalizeSettings(settings);
-  const { error } = await supabase.from("qualyflow_user_settings").upsert(
-    {
-      user_id: userId,
-      header: normalized.header,
-      logos: normalized.logos,
-    },
-    { onConflict: "user_id" },
-  );
+  const payload: Tables["qualyflow_user_settings"]["Insert"] = {
+    user_id: userId,
+    header: normalized.header as unknown as Tables["qualyflow_user_settings"]["Insert"]["header"],
+    logos: normalized.logos as unknown as Tables["qualyflow_user_settings"]["Insert"]["logos"],
+  };
+  const { error } = await supabase.from("qualyflow_user_settings").upsert(payload, {
+    onConflict: "user_id",
+  });
 
   if (error) {
     throw error;

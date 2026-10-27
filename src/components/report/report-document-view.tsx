@@ -49,7 +49,6 @@ export function ReportDocumentView({
           <ReportSheetSgz
             key={slot.id}
             values={values}
-            photos={photos}
             slot={slot}
             photo={photos[slot.id]}
             photoNumber={slotIndex + 1}

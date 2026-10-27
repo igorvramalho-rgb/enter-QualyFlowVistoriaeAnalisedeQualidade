@@ -26,6 +26,12 @@ const CONTENT: Record<
     icon: ShieldX,
     tone: "bg-destructive/12 text-destructive",
   },
+  ativo: {
+    title: "Acesso liberado",
+    description: "Seu acesso está ativo.",
+    icon: ShieldX,
+    tone: "bg-success/15 text-success",
+  },
   "sem-perfil": {
     title: "Usuário sem perfil de acesso",
     description:

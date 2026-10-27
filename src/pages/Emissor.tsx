@@ -53,6 +53,7 @@ import { buildReportFileName, printReport, saveReportPdfFile } from "@/lib/repor
 import {
   getDefaultValues,
   getTemplate,
+  type ReportTemplateId,
   mergeValuesForTemplate,
   REPORT_TEMPLATES,
 } from "@/lib/report-templates";
@@ -97,7 +98,7 @@ export default function Emissor() {
     pruneExcess,
   } = useCloudReports();
 
-  const [templateId, setTemplateId] = useState<string>(FIRST_TEMPLATE.id);
+  const [templateId, setTemplateId] = useState<ReportTemplateId>(FIRST_TEMPLATE.id);
   const [values, setValues] = useState<ReportValues>(() => getDefaultValues(FIRST_TEMPLATE));
   const [photos, setPhotos] = useState<PhotoMap>({});
   const [objeto, setObjeto] = useState<string>(FIRST_TEMPLATE.objeto ?? "");
@@ -251,7 +252,7 @@ export default function Emissor() {
       ),
     );
     setObjeto(nextTemplate.objeto ?? "");
-    setTemplateId(nextId);
+    setTemplateId(nextId as ReportTemplateId);
   };
 
   const handleValueChange = (fieldId: string, value: string) => {

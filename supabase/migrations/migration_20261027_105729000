@@ -1,0 +1,9 @@
+update storage.buckets set public = false where id = 'qualyflow-fotos';
+
+drop policy qualyflow_fotos_read on storage.objects;
+
+create policy qualyflow_fotos_read_auth
+on storage.objects
+for select
+to authenticated
+using (bucket_id = 'qualyflow-fotos' and name like 'qualyflow/%');

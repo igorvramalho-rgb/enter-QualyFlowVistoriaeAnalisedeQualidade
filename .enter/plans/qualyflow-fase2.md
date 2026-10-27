@@ -862,3 +862,28 @@ O botão **Limpar relatório** continua apenas limpando o formulário — não e
 ## Verificação
 - `pnpm lint`, `pnpm exec tsc --noEmit` e `pnpm run build` sem erros.
 - Harness temporário (removido) medindo o realce em uma foto de teste com texto (“Nº 176”, “RÉGUA 1,50 m”): **antes 800×600 • 12 KB → depois 1280×960 • 50 KB**, com o texto legível e levemente mais nítido/contrastado.
+
+---
+
+# Fase 30 — Etapa 1 (P0): fotos privadas com links assinados
+
+## Alterações
+- **Banco/storage** (migração): bucket `qualyflow-fotos` passou a **privado** (`public = false`); a política de leitura `qualyflow_fotos_read` (pública) foi substituída por `qualyflow_fotos_read_auth` restrita a **authenticated** no prefixo `qualyflow/%`. Nenhum objeto ou registro foi apagado.
+- `src/lib/photo-storage.ts`: `signPhotoUrls()` / `signPhotoUrl()` com validade de **12 h** (`createSignedUrls`); `uploadPhoto()` devolve caminho + link **assinado**.
+- `src/lib/cloud.ts`: `hydrateReports()` assina em uma única chamada os caminhos de todas as fotos (incluindo `originalPath`) ao carregar a lista de relatórios.
+- `src/components/emissores/photo-slot-grid.tsx`: recorte e realce passaram a usar a **fonte original assinada** (nova função não depende mais de URL pública).
+- **Correção de ferramenta**: o comando usado até aqui (`tsc --noEmit`) lia um tsconfig de referências vazias e **não checava tipos**. Adotado `tsc -p tsconfig.app.json --noEmit`, que revelou e permitiu corrigir erros reais: `type` opcional em `ReportField`, chave `ativo` no `AccessGate`, prop inexistente na folha SGZ, `WriteResult` não estreitado, uso de `Array.at` (ES2020), payloads do Cloud tipados e remoção do parâmetro não suportado `isEvalSupported` no pdfjs v6.
+
+## Testes executados
+| Teste | Resultado |
+|---|---|
+| `pnpm exec tsc -p tsconfig.app.json --noEmit` | **limpo** |
+| `pnpm lint` / `pnpm run build` | limpos |
+| Upload autenticado | OK (`qualyflow/fotos/97da68b0-…jpg`) |
+| Link assinado | **HTTP 200** |
+| Link público direto (por caminho) | **HTTP 400 — bloqueado** |
+| Relatório antigo (só com caminho) | link **renovado** no carregamento e **HTTP 200** |
+
+## Rollback
+- SQL: `update storage.buckets set public = true` e recriar a política de leitura `to public`.
+- Código: reverter `photo-storage.ts`, `cloud.ts` e `photo-slot-grid.tsx` do commit desta entrega. Os links assinados continuam funcionando mesmo com bucket público, então o código atual é compatível com o rollback parcial do banco.

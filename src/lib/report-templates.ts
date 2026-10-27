@@ -5,7 +5,7 @@ export type ReportFieldType = "text" | "date" | "textarea" | "select";
 export interface ReportField {
   id: string;
   label: string;
-  type: ReportFieldType;
+  type?: ReportFieldType;
   options?: string[];
   placeholder?: string;
   defaultValue?: string;

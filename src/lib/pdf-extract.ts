@@ -124,7 +124,7 @@ export async function analyzePdfFile(
   }
 
   const buffer = new Uint8Array(await file.arrayBuffer());
-  const loadingTask = pdfjs.getDocument({ data: buffer, isEvalSupported: false });
+  const loadingTask = pdfjs.getDocument({ data: buffer });
   let document: pdfjs.PDFDocumentProxy;
   try {
     document = await loadingTask.promise;

@@ -23,7 +23,7 @@ import {
   isImageFile,
 } from "@/lib/image";
 import { formatBytes } from "@/lib/fields";
-import { photoPublicUrl, uploadPhoto } from "@/lib/photo-storage";
+import { signPhotoUrl, uploadPhoto } from "@/lib/photo-storage";
 import { formatCoordinates, nowStamp, readPhotoGps, type GeotagData } from "@/lib/geotag";
 import type { GeotagSettings, PhotoEntry, PhotoMap } from "@/lib/report-document";
 import type { ReportPhotoSlot } from "@/lib/report-templates";
@@ -62,6 +62,7 @@ export function PhotoSlotGrid({
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [cropSlot, setCropSlot] = useState<string | null>(null);
+  const [cropImage, setCropImage] = useState<string | null>(null);
   const [enhancingId, setEnhancingId] = useState<string | null>(null);
   const photosRef = useRef(photos);
   photosRef.current = photos;
@@ -503,7 +504,14 @@ export function PhotoSlotGrid({
                     size="sm"
                     onClick={(event) => {
                       event.stopPropagation();
+                      const entry = photo;
                       setCropSlot(slot.id);
+                      setCropImage(entry?.dataUrl ?? null);
+                      void signPhotoUrl(entry?.originalPath).then((base) => {
+                        if (base) {
+                          setCropImage(base);
+                        }
+                      });
                     }}
                   >
                     <Crop className="h-4 w-4" />
@@ -524,9 +532,8 @@ export function PhotoSlotGrid({
                       }
 
                       setEnhancingId(slot.id);
-                      void enhancePhotoDataUrl(
-                        photoPublicUrl(entry.originalPath) ?? entry.dataUrl ?? "",
-                      )
+                      void signPhotoUrl(entry.originalPath)
+                        .then((base) => enhancePhotoDataUrl(base ?? entry.dataUrl ?? ""))
                         .then((enhanced) => uploadPhoto(enhanced))
                         .then((uploaded) => {
                           onChange(slot.id, {
@@ -578,15 +585,12 @@ export function PhotoSlotGrid({
 
       <PhotoCropDialog
         open={Boolean(cropSlot)}
-        image={
-          cropSlot
-            ? photoPublicUrl(photos[cropSlot]?.originalPath) ??
-              photos[cropSlot]?.dataUrl ??
-              null
-            : null
-        }
+        image={cropImage}
         caption={slots.find((slot) => slot.id === cropSlot)?.caption ?? ""}
-        onClose={() => setCropSlot(null)}
+        onClose={() => {
+          setCropSlot(null);
+          setCropImage(null);
+        }}
         onApply={(cropped) => {
           if (!cropSlot) {
             return;

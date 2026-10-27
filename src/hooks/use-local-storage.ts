@@ -22,7 +22,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       setValue((previous) => {
         const next = typeof updater === "function" ? (updater as (prev: T) => T)(previous) : updater;
         const result = writeStorage(key, next);
-        if (!result.ok && result.reason === "quota") {
+        if (result.ok === false && result.reason === "quota") {
           toast.error("Armazenamento local cheio", {
             description:
               "Remova fotos ou registros antigos para continuar salvando os dados deste navegador.",
