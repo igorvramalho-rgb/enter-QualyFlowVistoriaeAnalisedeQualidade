@@ -665,6 +665,14 @@ function detectDocumentType(normalized: string, fileName: string): DocumentType 
 const NOT_EVALUATED_TOKEN =
   /\bn\s*[./]\s*a\b|\bnao\s*avaliad|\bsem\s*avaliacao\b|\bnao\s*se\s*aplica\b|inspecao\s*impossibilitad|\bnao\s*executad|\bnao\s*localizad|\bnao\s*realizad/;
 
+/**
+ * Frases que indicam avaliação não realizada **em texto corrido** — como
+ * "Serviço executado: Pós 60 - Serviço não executado". Diferente de
+ * `hasNotEvaluatedSignal`, que exige linha isolada ou campo rotulado.
+ */
+const NOT_EVALUATED_PHRASE =
+  /\bnao\s*executad|\bnao\s*localizad|inspecao\s*impossibilitad|\bnao\s*realizad|\bnao\s*se\s*aplica/;
+
 function hasNotEvaluatedSignal(normalized: string, tipoNc: string): boolean {
   const token = NOT_EVALUATED_TOKEN;
 
@@ -744,6 +752,11 @@ function detectStatus(
 
   if (/nao\s*conforme(?!idade)|reprovad|irregular|nao\s*atende/.test(normalized)) {
     return "nao_conforme";
+  }
+  // Serviço não executado / não localizado / inspeção impossibilitada não é
+  // conformidade: entra como "Não avaliado" antes de qualquer atalho de conforme.
+  if (NOT_EVALUATED_PHRASE.test(normalized)) {
+    return "nao_avaliado";
   }
   if (/aprovad|finalizad|regularizad|concluid/.test(normalized)) {
     return "conforme";

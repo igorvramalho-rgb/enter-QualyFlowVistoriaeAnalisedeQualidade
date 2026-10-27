@@ -1,0 +1,8 @@
+-- N/A em texto corrido (ex.: "Serviço executado: Pós 60 - Serviço não executado")
+-- estava caindo no atalho que forçava "Conforme". Reclassifica como "Não avaliado".
+-- Apenas registros com revisão manual desmarcada (classificação automática).
+update qualyflow_analyses
+   set status = 'nao_avaliado', updated_at = now()
+ where status in ('conforme', 'informativo')
+   and reviewed = false
+   and snippet ~* '(nao|n[ãa]o)\s+(executad|localizad|realizad|se\s+aplica)|inspe[çc][ãa]o\s+impossibilitad';
