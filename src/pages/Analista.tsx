@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -8,6 +8,7 @@ import {
   FileCheck2,
   Info,
   Loader2,
+  ScanText,
   Tags,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -29,6 +30,7 @@ import { ReviewDialog } from "@/components/analista/review-dialog";
 import { VistoriasTable } from "@/components/analista/vistorias-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { useCloudAnalyses } from "@/hooks/use-cloud-data";
 import { useNavigate } from "react-router-dom";
@@ -77,6 +79,8 @@ export default function Analista() {
   const [clearing, setClearing] = useState(false);
   const navigate = useNavigate();
   const [serverTotal, setServerTotal] = useState<number | null>(null);
+  const [useOcr, setUseOcr] = useState(false);
+  const cancelRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -181,6 +185,7 @@ export default function Analista() {
 
   const handleFiles = async (files: File[], polo?: string) => {
     setBusy(true);
+    cancelRef.current = false;
     const added: AnalysisRecord[] = [];
     const updates: AnalysisRecord[] = [];
     let duplicates = 0;
@@ -203,8 +208,13 @@ export default function Analista() {
         });
 
         try {
-          const extracted = await analyzePdfFile(file, (page, total) => {
-            setProgress((previous) => (previous ? { ...previous, page, total } : previous));
+          const extracted = await analyzePdfFile(file, {
+            ocr: useOcr,
+            onProgress: (page, total) =>
+              setProgress((previous) => (previous ? { ...previous, page, total } : previous)),
+            onOcrProgress: (_stage, page, total) =>
+              setProgress((previous) => (previous ? { ...previous, page, total } : previous)),
+            shouldCancel: () => cancelRef.current,
           });
 
           // O bloco define o polo: ele prevalece sobre o texto do PDF
@@ -347,6 +357,40 @@ export default function Analista() {
           equipe. PDFs digitalizados entram como "Pendente de revisão" para conferência manual.
         </p>
       </div>
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <ScanText className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-foreground">OCR local nas páginas digitalizadas</p>
+            <p className="max-w-xl text-[11px] text-muted-foreground">
+              Desligado por padrão. Quando ligado, o reconhecimento roda no seu navegador (nada é enviado
+              para fora) e só nas páginas sem texto aproveitável. Páginas reconhecidas entram marcadas
+              para revisão.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {busy && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                cancelRef.current = true;
+                toast.warning("Cancelando o processamento após a página atual...");
+              }}
+            >
+              Cancelar
+            </Button>
+          )}
+          <span className="text-[11px] text-muted-foreground">{useOcr ? "OCR ligado" : "OCR desligado"}</span>
+          <Switch checked={useOcr} onCheckedChange={setUseOcr} aria-label="Usar OCR local" />
+        </div>
+      </Card>
 
       <PoloUploadGrid
         summaries={poloSummaries}

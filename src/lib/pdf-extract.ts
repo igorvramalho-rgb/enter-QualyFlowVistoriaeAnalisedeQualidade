@@ -115,10 +115,23 @@ const ADDRESS_FALLBACK = [
   /\b((?:r\.|rua|av\.?|avenida|alameda|estrada|travessa|tv\.?)\s+[^\n|,]{3,50}(?:,\s*\d{1,6})?)/,
 ];
 
+export interface AnalyzeOptions {
+  onProgress?: (page: number, total: number) => void;
+  /** Liga o OCR local nas páginas sem camada de texto aproveitável. */
+  ocr?: boolean;
+  onOcrProgress?: (stage: string, page: number, total: number) => void;
+  shouldCancel?: () => boolean;
+}
+
 export async function analyzePdfFile(
   file: File,
-  onProgress?: (page: number, total: number) => void,
+  onProgressOrOptions?: ((page: number, total: number) => void) | AnalyzeOptions,
 ): Promise<AnalysisRecord> {
+  const options: AnalyzeOptions =
+    typeof onProgressOrOptions === "function"
+      ? { onProgress: onProgressOrOptions }
+      : onProgressOrOptions ?? {};
+  const onProgress = options.onProgress;
   if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
     throw new PdfExtractionError("Selecione um arquivo PDF de vistoria.");
   }
@@ -141,15 +154,60 @@ export async function analyzePdfFile(
     }
 
     const lines: TextLine[] = [];
+    const pageTexts: string[] = [];
+
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       onProgress?.(pageNumber, document.numPages);
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
-      lines.push(...pageLines(content.items));
+      const pageLinesText = pageLines(content.items);
+      const pageText = normalizeText(pageLinesText.map((line) => line.text).join("\n"));
+      pageTexts.push(pageText);
+      lines.push(...pageLinesText);
       page.cleanup();
     }
 
-    return buildRecord(file, document.numPages, lines);
+    const record = buildRecord(file, document.numPages, lines);
+
+    // OCR local apenas nas páginas sem texto aproveitável (opcional)
+    if (options.ocr) {
+      const { ocrPdfPages, pageNeedsOcr } = await import("@/lib/pdf-ocr");
+      const paginasSemTexto = pageTexts.filter((text) => pageNeedsOcr(text)).length;
+
+      if (paginasSemTexto > 0) {
+        const resultados = await ocrPdfPages(file, pageTexts, {
+          onProgress: options.onOcrProgress,
+          shouldCancel: options.shouldCancel,
+        });
+
+        if (resultados.length > 0) {
+          const ocrLines: TextLine[] = [];
+          resultados.forEach((resultado) => {
+            resultado.text
+              .split("\n")
+              .map((line) => line.trim())
+              .filter((line) => line.length > 0)
+              .forEach((line, index) =>
+                ocrLines.push({ text: line, y: 1000 - index * 10, parts: [{ x: 0, text: line }] }),
+              );
+          });
+
+          const comOcr = buildRecord(file, document.numPages, [...lines, ...ocrLines]);
+          const mediaConfianca =
+            resultados.reduce((soma, item) => soma + item.confidence, 0) / resultados.length;
+
+          return {
+            ...comOcr,
+            snippet: `${comOcr.snippet}\n\n[OCR local] páginas reconhecidas: ${resultados
+              .map((item) => item.page)
+              .join(", ")} • confiança média ${mediaConfianca.toFixed(0)}%`,
+            reviewed: false,
+          };
+        }
+      }
+    }
+
+    return record;
   } finally {
     try {
       await loadingTask.destroy();

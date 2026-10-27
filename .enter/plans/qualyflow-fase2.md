@@ -915,3 +915,34 @@ O bucket tem **541 arquivos** e apenas **13 estão referenciados** pelos relató
 ## Pendências da etapa
 - Teste de restauração em ambiente separado: **não executado** (depende de um ambiente de teste; não sobrescrevi produção).
 - Configurações individuais de outros usuários não entram no backup (política de leitura restrita) — declarado nos avisos do pacote.
+
+---
+
+# Fase 32 — Etapa 4: OCR local e desempenho
+
+## Dependências verificadas antes de começar
+- Etapa 1 (fotos privadas + links assinados): funcional e testada.
+- Etapa 2 (backup): exportador implementado; **restauração integral não comprovada** — por isso nenhuma ação desta etapa toca dados de produção (a importação com OCR apenas grava registros novos em `qualyflow_analyses`, como já fazia).
+- Sem IA paga, sem serviços externos de IA, sem migração de infraestrutura.
+
+## Implementação
+- Dependência: `tesseract.js@5` (WASM, roda no navegador).
+- `src/lib/pdf-ocr.ts`: `pageNeedsOcr()` (menos de 40 caracteres úteis), `ocrPdfPages()` com render da página em canvas, reconhecimento em português, **progresso por página**, **cancelamento** verificado entre páginas e liberação do worker ao final.
+- `src/lib/pdf-extract.ts`: `analyzePdfFile(file, { ocr, onProgress, onOcrProgress, shouldCancel })`. O OCR roda **somente** nas páginas sem texto, e o texto reconhecido é somado ao texto nativo antes das heurísticas; o resultado recebe marcação `[OCR local] páginas reconhecidas ... confiança média X%` no trecho e fica como não revisado.
+- `src/pages/Analista.tsx`: cartão **"OCR local nas páginas digitalizadas"** com interruptor (desligado por padrão) e botão **Cancelar** durante o processamento.
+
+## Testes executados
+| Teste | Resultado |
+|---|---|
+| PDF digitalizado real (SGZ-156, 4 páginas, 1,96 MB) **sem** OCR | `texto=false`, `status=pendente`, 0 campos, 1.182 ms — comportamento esperado e observado |
+| `tsc -p tsconfig.app.json --noEmit` · `pnpm lint` · `pnpm run build` | limpos |
+
+## Testes NÃO executados (declarados)
+- **Reconhecimento OCR propriamente dito**: o processamento não concluiu dentro da janela de observação do ambiente (download do modelo + 4 páginas). Portanto **não afirmo** que o OCR produziu texto, campos ou confiança. Precisa ser validado por você, com o interruptor ligado.
+- PDF misto, arquivo corrompido, documento de 30 páginas, memória, tempo por página e cancelamento em uso real: **pendentes**.
+- **Checkpoints e retomada**: **não implementados** (o cancelamento existe; a retomada exigiria persistir o estado por arquivo).
+
+## Limitações e riscos
+- O `tesseract.js` baixa o **worker WASM e o modelo de português** de CDN pública na primeira execução (≈15 MB), que fica em cache. **Nenhum documento é enviado para fora** — o reconhecimento é local. Alternativa futura: hospedar o `por.traineddata` no próprio projeto (aumenta o repositório).
+- Custo por página alto em CPU (esperado de 2 a 8 s/página em máquina comum) — por isso o OCR é **opcional e desligado por padrão**.
+- Páginas reconhecidas entram como **não revisadas** e o trecho indica a confiança média; o operador deve conferir.
