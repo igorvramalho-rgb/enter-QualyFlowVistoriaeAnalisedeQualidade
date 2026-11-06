@@ -21,6 +21,7 @@ import {
 import {
   confirmAuditorDocument,
   findDocumentByFingerprint,
+  retryPendingUpload,
   type ExistingDocument,
 } from "@/lib/auditor-save";
 
@@ -112,6 +113,25 @@ export function AuditorImport({ onSaved }: { onSaved: () => void }) {
     [ocr],
   );
 
+  const concluirEnvio = async () => {
+    if (!file || !duplicate) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await retryPendingUpload(duplicate.id, duplicate.fingerprint, file);
+      if (result.ok) {
+        toast.success("PDF enviado", { description: "Importação concluída." });
+        reset();
+        onSaved();
+      } else {
+        toast.error("Envio ainda pendente", { description: result.message });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const confirm = async () => {
     if (!file || !extraction) {
       return;
@@ -120,11 +140,17 @@ export function AuditorImport({ onSaved }: { onSaved: () => void }) {
     setStep("Gravando documento...");
     try {
       const result = await confirmAuditorDocument({ extraction, file, fields, items });
-      toast.success("Documento recebido", {
-        description: result.caseId
-          ? "FV/OS registrada e aguardando análise."
-          : "Documento registrado sem FV/OS identificada.",
-      });
+      if (!result.uploadOk) {
+        toast.warning("Documento registrado, mas o PDF não foi enviado", {
+          description: `${result.uploadError} A importação ficou identificada como pendente e pode ser retomada.`,
+        });
+      } else {
+        toast.success("Documento recebido", {
+          description: result.caseId
+            ? "FV/OS registrada e aguardando análise."
+            : "Documento registrado sem FV/OS identificada.",
+        });
+      }
       reset();
       onSaved();
     } catch (problem) {
@@ -211,7 +237,7 @@ export function AuditorImport({ onSaved }: { onSaved: () => void }) {
                 </Button>
               </div>
 
-              {duplicate && (
+              {duplicate && duplicate.uploadStatus === "concluido" && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-[11px] text-foreground">
                   <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <p>
@@ -220,6 +246,25 @@ export function AuditorImport({ onSaved }: { onSaved: () => void }) {
                     <strong>{duplicate.fileName}</strong>. O cadastro está bloqueado para evitar
                     duplicidade.
                   </p>
+                </div>
+              )}
+
+              {duplicate && duplicate.uploadStatus !== "concluido" && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2 text-[11px] text-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1">
+                    Importação incompleta encontrada ({duplicate.fileName}): o registro existe, mas o
+                    PDF não foi enviado. Conclua o envio sem criar duplicata.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="glow"
+                    onClick={() => void concluirEnvio()}
+                    disabled={busy}
+                  >
+                    Concluir envio
+                  </Button>
                 </div>
               )}
 

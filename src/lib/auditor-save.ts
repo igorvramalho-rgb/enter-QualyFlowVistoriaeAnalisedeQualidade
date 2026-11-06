@@ -3,11 +3,11 @@ import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
 
 /**
- * Persistência do Qualy Auditor: PDF original em área privada, documento,
- * etapas e a tratativa (uma por FV/OS).
+ * Persistência do Qualy Auditor.
  *
- * Nada é apagado. Reimportar o mesmo arquivo é bloqueado pelo fingerprint e
- * uma nova devolutiva reaproveita a mesma tratativa.
+ * Ordem segura: o documento é registrado **antes** do upload do PDF. Assim,
+ * qualquer falha deixa uma linha identificável (`upload_status = "pendente"`)
+ * com nome do arquivo e fingerprint — nunca um arquivo anônimo no bucket.
  */
 
 const AUDITOR_PREFIX = "qualyflow/auditor";
@@ -17,19 +17,24 @@ export interface ExistingDocument {
   id: string;
   fileName: string;
   importedAt: string;
+  uploadStatus: string;
+  fingerprint: string;
 }
 
 function fail(error: unknown): never {
   throw error instanceof Error ? error : new Error(String(error));
 }
 
-/** Já existe documento com este fingerprint? */
+export function originalPdfPath(documentId: string): string {
+  return `${AUDITOR_PREFIX}/${documentId}/original.pdf`;
+}
+
 export async function findDocumentByFingerprint(
   fingerprint: string,
 ): Promise<ExistingDocument | null> {
   const { data, error } = await supabase
     .from("qa_documents")
-    .select("id, file_name, imported_at")
+    .select("id, file_name, imported_at, upload_status, fingerprint")
     .eq("fingerprint", fingerprint)
     .maybeSingle();
 
@@ -37,25 +42,29 @@ export async function findDocumentByFingerprint(
     fail(error);
   }
 
-  return data ? { id: data.id, fileName: data.file_name, importedAt: data.imported_at } : null;
+  return data
+    ? {
+        id: data.id,
+        fileName: data.file_name,
+        importedAt: data.imported_at,
+        uploadStatus: data.upload_status ?? "concluido",
+        fingerprint: data.fingerprint,
+      }
+    : null;
 }
 
-/** Envia o PDF original para o armazenamento privado e devolve o caminho. */
-export async function uploadOriginalPdf(documentId: string, file: File): Promise<string> {
-  const path = `${AUDITOR_PREFIX}/${documentId}/original.pdf`;
+async function upload(documentId: string, file: File): Promise<string> {
+  const path = originalPdfPath(documentId);
   const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
     contentType: "application/pdf",
-    upsert: false,
+    upsert: true,
   });
-
   if (error) {
     fail(error);
   }
-
   return path;
 }
 
-/** Link temporário para abrir o PDF guardado. */
 export async function signedPdfUrl(path: string): Promise<string | null> {
   if (!path) {
     return null;
@@ -63,11 +72,9 @@ export async function signedPdfUrl(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage
     .from(PHOTO_BUCKET)
     .createSignedUrl(path, SIGNED_TTL_SECONDS);
-
   if (error) {
     return null;
   }
-
   return data?.signedUrl ?? null;
 }
 
@@ -81,35 +88,53 @@ export interface ConfirmInput {
 export interface ConfirmResult {
   documentId: string;
   caseId: string | null;
+  uploadOk: boolean;
+  uploadError: string;
 }
 
-/**
- * Grava o documento, as etapas e a tratativa. A classificação original vem da
- * extração e não é alterada por esta função.
- */
 export async function confirmAuditorDocument(input: ConfirmInput): Promise<ConfirmResult> {
   const { extraction, file, fields, items } = input;
   const documentId = crypto.randomUUID();
 
-  const pdfPath = await uploadOriginalPdf(documentId, file);
-
+  // 1) Registro primeiro (identificável mesmo se o upload falhar).
   const { error: documentError } = await supabase.from("qa_documents").insert({
     id: documentId,
     fingerprint: extraction.fingerprint,
     file_name: extraction.fileName,
-    pdf_path: pdfPath,
+    pdf_path: "",
     pages: extraction.pages,
     fields,
     confidence: {},
     snippet: "",
     source: extraction.usedOcr ? "texto+ocr" : extraction.textAvailable ? "texto" : "sem-texto",
     text_available: extraction.textAvailable,
+    upload_status: "pendente",
+    upload_error: "",
   });
 
   if (documentError) {
     fail(documentError);
   }
 
+  // 2) Upload do PDF original.
+  let uploadOk = true;
+  let uploadError = "";
+  try {
+    const path = await upload(documentId, file);
+    await supabase
+      .from("qa_documents")
+      .update({ pdf_path: path, upload_status: "concluido", upload_error: "" })
+      .eq("id", documentId);
+  } catch (problem) {
+    uploadOk = false;
+    uploadError = problem instanceof Error ? problem.message : "Falha no envio do PDF";
+    await supabase
+      .from("qa_documents")
+      .update({ upload_status: "pendente", upload_error: uploadError })
+      .eq("id", documentId);
+  }
+
+  // 3) Etapas avaliadas (classificação original intocada).
   if (items.length > 0) {
     const { error: itemsError } = await supabase.from("qa_document_items").insert(
       items.map((item) => ({
@@ -121,13 +146,12 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
         page_number: item.page,
       })),
     );
-
     if (itemsError) {
       fail(itemsError);
     }
   }
 
-  // Uma tratativa por FV/OS: reaproveita a existente em caso de devolutiva.
+  // 4) Tratativa única por FV/OS.
   let caseId: string | null = null;
   const fac = (fields.fac ?? "").trim();
   const os = (fields.os ?? "").trim();
@@ -179,9 +203,40 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
     await supabase.from("qa_case_events").insert({
       case_id: caseId,
       event_type: "recebimento",
-      payload: { documentId, fileName: extraction.fileName, pages: extraction.pages },
+      payload: {
+        documentId,
+        fileName: extraction.fileName,
+        pages: extraction.pages,
+        uploadOk,
+      } as never,
     });
   }
 
-  return { documentId, caseId };
+  return { documentId, caseId, uploadOk, uploadError };
+}
+
+/** Retoma o upload de um documento registrado que ficou pendente. */
+export async function retryPendingUpload(
+  documentId: string,
+  fingerprint: string,
+  file: File,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const path = await upload(documentId, file);
+    const { error } = await supabase
+      .from("qa_documents")
+      .update({ pdf_path: path, upload_status: "concluido", upload_error: "", fingerprint })
+      .eq("id", documentId);
+    if (error) {
+      fail(error);
+    }
+    return { ok: true, message: "PDF enviado e vínculo concluído." };
+  } catch (problem) {
+    const message = problem instanceof Error ? problem.message : "Falha no envio";
+    await supabase
+      .from("qa_documents")
+      .update({ upload_status: "pendente", upload_error: message })
+      .eq("id", documentId);
+    return { ok: false, message };
+  }
 }

@@ -3401,14 +3401,19 @@ export type Database = {
           contractor: string
           created_at: string
           created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
           document_id: string | null
           fac: string
           id: string
+          internal_notes: string
+          internal_opinion: string
           locality: string
           municipality: string
           os: string
           outcome: string
           reopen_count: number
+          returned_count: number
           service_type: string
           updated_at: string
         }
@@ -3418,14 +3423,19 @@ export type Database = {
           contractor?: string
           created_at?: string
           created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
           document_id?: string | null
           fac?: string
           id?: string
+          internal_notes?: string
+          internal_opinion?: string
           locality?: string
           municipality?: string
           os?: string
           outcome?: string
           reopen_count?: number
+          returned_count?: number
           service_type?: string
           updated_at?: string
         }
@@ -3435,14 +3445,19 @@ export type Database = {
           contractor?: string
           created_at?: string
           created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
           document_id?: string | null
           fac?: string
           id?: string
+          internal_notes?: string
+          internal_opinion?: string
           locality?: string
           municipality?: string
           os?: string
           outcome?: string
           reopen_count?: number
+          returned_count?: number
           service_type?: string
           updated_at?: string
         }
@@ -3517,6 +3532,8 @@ export type Database = {
           source: string
           text_available: boolean
           updated_at: string
+          upload_error: string
+          upload_status: string
         }
         Insert: {
           confidence?: Json
@@ -3533,6 +3550,8 @@ export type Database = {
           source?: string
           text_available?: boolean
           updated_at?: string
+          upload_error?: string
+          upload_status?: string
         }
         Update: {
           confidence?: Json
@@ -3549,6 +3568,8 @@ export type Database = {
           source?: string
           text_available?: boolean
           updated_at?: string
+          upload_error?: string
+          upload_status?: string
         }
         Relationships: []
       }
@@ -3561,6 +3582,8 @@ export type Database = {
           id: string
           item_code: string
           notes: string
+          photos_after: Json
+          photos_before: Json
           problem: string
           reason: string
           redo_status: string
@@ -3577,6 +3600,8 @@ export type Database = {
           id?: string
           item_code?: string
           notes?: string
+          photos_after?: Json
+          photos_before?: Json
           problem?: string
           reason?: string
           redo_status?: string
@@ -3593,6 +3618,8 @@ export type Database = {
           id?: string
           item_code?: string
           notes?: string
+          photos_after?: Json
+          photos_before?: Json
           problem?: string
           reason?: string
           redo_status?: string
@@ -3620,8 +3647,10 @@ export type Database = {
           observations: string
           photos: Json
           sent_at: string | null
+          sent_by: string | null
           status: string
           template_id: string
+          update_note: string
           updated_at: string
           values: Json
         }
@@ -3634,8 +3663,10 @@ export type Database = {
           observations?: string
           photos?: Json
           sent_at?: string | null
+          sent_by?: string | null
           status?: string
           template_id?: string
+          update_note?: string
           updated_at?: string
           values?: Json
         }
@@ -3648,8 +3679,10 @@ export type Database = {
           observations?: string
           photos?: Json
           sent_at?: string | null
+          sent_by?: string | null
           status?: string
           template_id?: string
+          update_note?: string
           updated_at?: string
           values?: Json
         }

@@ -34,6 +34,7 @@ import { VistoriasTable } from "@/components/analista/vistorias-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -96,6 +97,7 @@ export default function Analista() {
   const [clearOpen, setClearOpen] = useState(false);
   const [clearExported, setClearExported] = useState(false);
   const [clearAck, setClearAck] = useState(false);
+  const [clearWord, setClearWord] = useState("");
   const [clearBusy, setClearBusy] = useState(false);
   const navigate = useNavigate();
   const [serverTotal, setServerTotal] = useState<number | null>(null);
@@ -498,6 +500,7 @@ export default function Analista() {
           if (!open) {
             setClearExported(false);
             setClearAck(false);
+            setClearWord("");
           }
         }}
       >
@@ -553,6 +556,17 @@ export default function Analista() {
             </label>
           </div>
 
+          <label className="block text-[11px] text-muted-foreground">
+            2. Digite <strong className="text-foreground">APAGAR</strong> para liberar a exclusão
+            <Input
+              value={clearWord}
+              onChange={(event) => setClearWord(event.target.value)}
+              placeholder="APAGAR"
+              className="mt-0.5 h-8 text-xs"
+              disabled={!clearExported}
+            />
+          </label>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setClearOpen(false)}>
               Cancelar
@@ -560,7 +574,7 @@ export default function Analista() {
             <Button
               type="button"
               variant="destructive"
-              disabled={!clearExported || !clearAck || clearBusy}
+              disabled={!clearExported || !clearAck || clearWord.trim().toUpperCase() !== "APAGAR" || clearBusy}
               onClick={() => void confirmarLimpeza()}
             >
               {clearBusy ? (

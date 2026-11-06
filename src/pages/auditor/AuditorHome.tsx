@@ -13,6 +13,8 @@ import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
+import { fetchCases, type CaseRow } from "@/lib/auditor";
+import { useEffect, useState } from "react";
 import { ANALYSIS_STATUS, type AnalysisStatus } from "@/lib/auditor";
 
 const TILES = [
@@ -26,6 +28,13 @@ const TILES = [
 
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
+  const [casos, setCasos] = useState<CaseRow[]>([]);
+
+  useEffect(() => {
+    void fetchCases()
+      .then(setCasos)
+      .catch(() => setCasos([]));
+  }, [counts]);
 
   const valores: Record<(typeof TILES)[number]["key"], number> = {
     documents: counts?.documents ?? 0,
@@ -89,6 +98,42 @@ export default function AuditorHome() {
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-foreground">Tratativas</h3>
+        {casos.length === 0 ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Nenhuma FV/OS recebida. Use “Recebimento” para importar o primeiro PDF.
+          </p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[11px]">
+              <thead>
+                <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-1.5 pr-2 font-medium">FV / OS</th>
+                  <th className="py-1.5 pr-2 font-medium">Endereço</th>
+                  <th className="py-1.5 pr-2 font-medium">Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {casos.slice(0, 12).map((caso) => (
+                  <tr key={caso.id} className="border-b border-border/30">
+                    <td className="py-1.5 pr-2">
+                      <Link to={`/auditor/caso/${caso.id}`} className="text-primary underline-offset-2 hover:underline">
+                        {caso.fac || "—"} / {caso.os || "—"}
+                      </Link>
+                    </td>
+                    <td className="max-w-[320px] truncate py-1.5 pr-2 text-muted-foreground">
+                      {caso.address || "—"}
+                    </td>
+                    <td className="py-1.5 pr-2 text-foreground">{ANALYSIS_STATUS[caso.status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Card className="p-4">

@@ -13,6 +13,8 @@ const AuditorRecebimento = lazy(() => import("./pages/auditor/AuditorRecebimento
 const AuditorRefazer = lazy(() => import("./pages/auditor/AuditorRefazer"));
 const AuditorRelatorios = lazy(() => import("./pages/auditor/AuditorRelatorios"));
 const AuditorBi = lazy(() => import("./pages/auditor/AuditorBi"));
+const AuditorCaso = lazy(() => import("./pages/auditor/AuditorCaso"));
+const AuditorRelatorioEditor = lazy(() => import("./pages/auditor/AuditorRelatorioEditor"));
 const RelatorioBi = lazy(() => import("./pages/RelatorioBi"));
 const Emissor = lazy(() => import("./pages/Emissor"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -92,6 +94,24 @@ export const routers = [
         element: (
           <Suspense fallback={<RouteFallback />}>
             <AuditorRefazer />
+          </Suspense>
+        ),
+      },
+      {
+        path: "auditor/caso/:caseId",
+        name: "auditor-caso",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <AuditorCaso />
+          </Suspense>
+        ),
+      },
+      {
+        path: "auditor/relatorio/:caseId",
+        name: "auditor-relatorio",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <AuditorRelatorioEditor />
           </Suspense>
         ),
       },

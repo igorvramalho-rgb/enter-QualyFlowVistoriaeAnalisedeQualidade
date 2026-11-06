@@ -1,0 +1,29 @@
+-- Qualy Auditor: campos que faltavam para o fluxo completo.
+alter table public.qa_cases
+  add column if not exists internal_opinion text not null default '',
+  add column if not exists internal_notes text not null default '',
+  add column if not exists decided_at timestamptz,
+  add column if not exists decided_by uuid,
+  add column if not exists returned_count integer not null default 0;
+
+alter table public.qa_documents
+  add column if not exists upload_status text not null default 'concluido',
+  add column if not exists upload_error text not null default '';
+
+alter table public.qa_redo
+  add column if not exists photos_before jsonb not null default '[]'::jsonb,
+  add column if not exists photos_after jsonb not null default '[]'::jsonb;
+
+alter table public.qa_reports
+  add column if not exists sent_by uuid,
+  add column if not exists update_note text not null default '';
+
+create index if not exists qa_documents_upload_idx on public.qa_documents (upload_status);
+
+-- Exclusão do histórico analítico restrita ao gestor (o caso de 06/11 não se repete).
+drop policy if exists qualyflow_analyses_delete on public.qualyflow_analyses;
+create policy qualyflow_analyses_delete on public.qualyflow_analyses
+  for delete to authenticated using (public.qualyflow_is_manager());
+
+-- Bucket com margem para PDFs maiores.
+update storage.buckets set file_size_limit = 52428800 where id = 'qualyflow-fotos';

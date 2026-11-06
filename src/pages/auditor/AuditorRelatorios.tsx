@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { FileText, Loader2, RefreshCw } from "lucide-react";
 import { AuditorEmpty } from "@/components/auditor/auditor-empty";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { fetchReportsQueue, type AuditorReportRow } from "@/lib/auditor";
+import {
+  fetchCases,
+  fetchReportsQueue,
+  type AuditorReport,
+  type CaseRow,
+} from "@/lib/auditor";
 import { formatDateTimeBR } from "@/lib/fields";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -13,17 +19,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function AuditorRelatorios() {
-  const [rows, setRows] = useState<AuditorReportRow[]>([]);
+  const [reports, setReports] = useState<AuditorReport[]>([]);
+  const [cases, setCases] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await fetchReportsQueue());
-      setError(null);
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : "Falha ao carregar os relatórios");
+      const [listaRelatorios, listaCasos] = await Promise.all([fetchReportsQueue(), fetchCases()]);
+      setReports(listaRelatorios);
+      setCases(listaCasos);
     } finally {
       setLoading(false);
     }
@@ -32,6 +37,8 @@ export default function AuditorRelatorios() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const porCaso = useMemo(() => new Map(cases.map((row) => [row.id, row])), [cases]);
 
   return (
     <AuditorShell>
@@ -49,19 +56,12 @@ export default function AuditorRelatorios() {
           </Button>
         </div>
 
-        {error && (
-          <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-foreground">
-            {error}
-          </p>
-        )}
-
-        {rows.length === 0 && !loading ? (
+        {reports.length === 0 && !loading ? (
           <div className="mt-3">
             <AuditorEmpty
               icon={FileText}
               title="Nenhum relatório emitido"
-              description="Cada resposta usa o mesmo padrão fotográfico do módulo de Relatórios, com as fotos do fiscal organizadas por item."
-              nextStage="Relatório individual por FV/OS — Etapa 5"
+              description="Abra a tratativa de uma FV/OS para montar a resposta com as fotos do fiscal."
             />
           </div>
         ) : (
@@ -69,31 +69,39 @@ export default function AuditorRelatorios() {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">FV / OS</th>
                   <th className="py-2 pr-3 font-medium">Modelo</th>
                   <th className="py-2 pr-3 font-medium">Situação</th>
-                  <th className="py-2 pr-3 font-medium">Justificativa</th>
                   <th className="py-2 pr-3 font-medium">Enviado</th>
                   <th className="py-2 pr-3 font-medium">Atualizado</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border/30 align-top">
-                    <td className="py-2 pr-3 text-muted-foreground">{row.templateId || "—"}</td>
-                    <td className="py-2 pr-3 text-foreground">
-                      {STATUS_LABELS[row.status] ?? row.status}
-                    </td>
-                    <td className="max-w-[320px] truncate py-2 pr-3 text-muted-foreground">
-                      {row.justification || "—"}
-                    </td>
-                    <td className="py-2 pr-3 text-muted-foreground">
-                      {row.sentAt ? formatDateTimeBR(row.sentAt) : "—"}
-                    </td>
-                    <td className="py-2 pr-3 text-muted-foreground">
-                      {formatDateTimeBR(row.updatedAt)}
-                    </td>
-                  </tr>
-                ))}
+                {reports.map((row) => {
+                  const caso = porCaso.get(row.caseId);
+                  return (
+                    <tr key={row.id} className="border-b border-border/30 align-top">
+                      <td className="py-2 pr-3">
+                        <Link
+                          to={`/auditor/relatorio/${row.caseId}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {caso?.fac || "—"} / {caso?.os || "—"}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-3 text-muted-foreground">{row.templateId || "—"}</td>
+                      <td className="py-2 pr-3 text-foreground">
+                        {STATUS_LABELS[row.status] ?? row.status}
+                      </td>
+                      <td className="py-2 pr-3 text-muted-foreground">
+                        {row.sentAt ? formatDateTimeBR(row.sentAt) : "—"}
+                      </td>
+                      <td className="py-2 pr-3 text-muted-foreground">
+                        {formatDateTimeBR(row.updatedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
