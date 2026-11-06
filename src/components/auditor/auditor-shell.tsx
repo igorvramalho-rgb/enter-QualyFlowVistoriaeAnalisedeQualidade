@@ -11,6 +11,7 @@ const TABS = [
   { to: "/auditor/celula/respondidos", label: "Respondidos" },
   { to: "/auditor/celula/rpa", label: "RPA" },
   { to: "/auditor/celula/nao_avaliado", label: "N/A" },
+  { to: "/auditor/analises", label: "Análises" },
   { to: "/auditor/bi", label: "Painel BI" },
 ];
 

@@ -3,7 +3,6 @@ import { Navigate } from "react-router-dom";
 import AppShell from "./components/layout/app-shell";
 import { RouteFallback } from "./components/common/route-fallback";
 
-const Analista = lazy(() => import("./pages/Analista"));
 const Login = lazy(() => import("./pages/Login"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Backup = lazy(() => import("./pages/Backup"));
@@ -13,6 +12,7 @@ const AuditorCelula = lazy(() => import("./pages/auditor/AuditorCelula"));
 const AuditorRefazer = lazy(() => import("./pages/auditor/AuditorRefazer"));
 const AuditorRelatorios = lazy(() => import("./pages/auditor/AuditorRelatorios"));
 const AuditorBi = lazy(() => import("./pages/auditor/AuditorBi"));
+const AuditorAnalises = lazy(() => import("./pages/auditor/AuditorAnalises"));
 const AuditorCaso = lazy(() => import("./pages/auditor/AuditorCaso"));
 const AuditorRelatorioEditor = lazy(() => import("./pages/auditor/AuditorRelatorioEditor"));
 const RelatorioBi = lazy(() => import("./pages/RelatorioBi"));
@@ -143,11 +143,11 @@ export const routers = [
         ),
       },
       {
-        path: "analista",
-        name: "analista",
+        path: "auditor/analises",
+        name: "auditor-analises",
         element: (
           <Suspense fallback={<RouteFallback />}>
-            <Analista />
+            <AuditorAnalises />
           </Suspense>
         ),
       },

@@ -50,7 +50,7 @@ export default function RelatorioBi() {
           chips={[{ icon: FileBarChart, label: `${analyses.length} vistoria(s) na base` }]}
           actions={
             <>
-              <Button type="button" variant="glass" onClick={() => navigate("/analista")}>
+              <Button type="button" variant="glass" onClick={() => navigate("/auditor/analises")}>
                 <ArrowLeft className="h-4 w-4" />
                 Voltar ao analista
               </Button>

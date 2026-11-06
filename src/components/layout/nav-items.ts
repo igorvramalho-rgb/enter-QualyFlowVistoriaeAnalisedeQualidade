@@ -1,4 +1,4 @@
-import { Archive, BarChart3, FileText, Images, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { Archive, FileText, Images, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -15,12 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Emissor de Relatórios",
     description: "Relatórios fotográficos",
     icon: FileText,
-  },
-  {
-    to: "/analista",
-    label: "Analista BI",
-    description: "Análise de PDFs e indicadores",
-    icon: BarChart3,
   },
   {
     to: "/auditor",

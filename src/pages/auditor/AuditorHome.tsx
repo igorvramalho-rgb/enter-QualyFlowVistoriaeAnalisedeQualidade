@@ -85,6 +85,22 @@ export default function AuditorHome() {
         ))}
       </div>
 
+      <Link
+        to="/auditor/analises"
+        className="auditor-tile group flex items-center justify-between gap-3 rounded-xl px-4 py-3 transition-colors hover:border-primary/40"
+      >
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Área de trabalho
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-foreground">Análises (Analista BI)</p>
+          <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
+            Importação de PDFs e planilhas, extração, indicadores e base de vistorias.
+          </p>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      </Link>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["FV/OS únicas", counts?.cases ?? 0],
