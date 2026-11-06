@@ -18,6 +18,10 @@ import { toast } from "@/components/ui/sonner";
 import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
+  CELLS,
+  CELL_KEYS,
+  moveCaseToCell,
+  saveCellData,
   EVENT_LABELS,
   REDO_ORDER,
   REDO_STATUS,
@@ -32,6 +36,7 @@ import {
   updateCase,
   type AnalysisStatus,
   type AuditorCase,
+  type CellKey,
   type AuditorCaseItem,
   type AuditorEvent,
   type AuditorRedo,
@@ -66,6 +71,7 @@ export default function AuditorCaso() {
   const [opinion, setOpinion] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cellData, setCellData] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +81,7 @@ export default function AuditorCaso() {
       if (found) {
         setOpinion(found.opinion);
         setNotes(found.notes);
+        setCellData(found.cellData ?? {});
         const [listaItens, historico, refazer] = await Promise.all([
           fetchCaseItems(found.documentId),
           fetchCaseEvents(caseId),
@@ -175,6 +182,29 @@ export default function AuditorCaso() {
     }
   };
 
+  const moverCelula = async (cell: CellKey) => {
+    setBusy(true);
+    try {
+      await moveCaseToCell(caseId, cell);
+      toast.success("Célula atualizada", { description: CELLS[cell].label });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const salvarCelula = async () => {
+    if (!caso) return;
+    setBusy(true);
+    try {
+      await saveCellData(caseId, cellData, caso.cellData);
+      toast.success("Dados da célula salvos");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <AuditorShell>
@@ -251,6 +281,34 @@ export default function AuditorCaso() {
           </div>
         </div>
       </Card>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Célula de trabalho</h2>
+            <p className="text-[11px] text-muted-foreground">
+              A movimentação é sempre manual. O sistema não encaminha documentos sozinho.
+            </p>
+          </div>
+          <select
+            value={caso.cell}
+            onChange={(event) => void moverCelula(event.target.value as CellKey)}
+            className="h-9 rounded-md border border-input bg-background/70 px-2 text-xs"
+          >
+            {CELL_KEYS.map((key) => (
+              <option key={key} value={key}>{CELLS[key].label}</option>
+            ))}
+          </select>
+        </div>
+      </Card>
+
+      <CellPanel
+        caso={caso}
+        cellData={cellData}
+        onChange={(key, value) => setCellData((previous) => ({ ...previous, [key]: value }))}
+        onSave={() => void salvarCelula()}
+        busy={busy}
+      />
 
       <Card className="p-4">
         <h2 className="text-sm font-semibold text-foreground">Etapas do FV</h2>
@@ -378,6 +436,91 @@ export default function AuditorCaso() {
         )}
       </Card>
     </AuditorShell>
+  );
+}
+
+const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string }[]> = {
+  fiscalizacao: [
+    { key: "dataEnvioFiscal", label: "Data de encaminhamento ao fiscal", type: "date" },
+    { key: "itensVerificar", label: "Itens a verificar" },
+    { key: "situacaoFiscal", label: "Situação da fiscalização" },
+    { key: "dataRetorno", label: "Data do retorno do fiscal", type: "date" },
+    { key: "observacoes", label: "Observações da análise" },
+  ],
+  refazer: [
+    { key: "observacoes", label: "Observações do fiscal" },
+  ],
+  enviados: [
+    { key: "dataElaboracao", label: "Data de elaboração do relatório", type: "date" },
+    { key: "dataEnvio", label: "Data de envio (se houver)", type: "date" },
+    { key: "observacoes", label: "Observações" },
+  ],
+  respondidos: [
+    { key: "dataEnvio", label: "Data de envio à AlphaGeos", type: "date" },
+    { key: "protocolo", label: "Protocolo / referência" },
+    { key: "observacoes", label: "Observações e devoluções" },
+  ],
+  rpa: [
+    { key: "itemQuestionado", label: "Item questionado" },
+    { key: "justificativa", label: "Justificativa técnica" },
+    { key: "fundamentacao", label: "Fundamentação da defesa" },
+    { key: "documento", label: "Documento RPA (referência)" },
+    { key: "dataElaboracao", label: "Data de elaboração", type: "date" },
+    { key: "dataEnvio", label: "Data de envio", type: "date" },
+    { key: "situacao", label: "Situação atual" },
+  ],
+  nao_avaliado: [
+    { key: "item", label: "Item não avaliado" },
+    { key: "motivo", label: "Motivo da não avaliação" },
+    { key: "dataFiscalizacao", label: "Data da fiscalização", type: "date" },
+    { key: "observacoes", label: "Observação do fiscal" },
+  ],
+};
+
+function CellPanel({
+  caso,
+  cellData,
+  onChange,
+  onSave,
+  busy,
+}: {
+  caso: AuditorCase;
+  cellData: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+  onSave: () => void;
+  busy: boolean;
+}) {
+  const campos = CELL_FIELDS[caso.cell] ?? [];
+  return (
+    <Card className="p-4">
+      <h2 className="text-sm font-semibold text-foreground">
+        Dados de {CELLS[caso.cell]?.label ?? caso.cell}
+      </h2>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {campos.map((campo) => (
+          <label
+            key={campo.key}
+            className={`text-[11px] text-muted-foreground ${
+              campo.key === "justificativa" || campo.key === "fundamentacao" || campo.key === "observacoes"
+                ? "sm:col-span-2"
+                : ""
+            }`}
+          >
+            {campo.label}
+            <Input
+              type={campo.type ?? "text"}
+              value={cellData[campo.key] ?? ""}
+              onChange={(event) => onChange(campo.key, event.target.value)}
+              className="mt-0.5 h-8 text-xs"
+            />
+          </label>
+        ))}
+      </div>
+      <Button type="button" variant="glass" size="sm" className="mt-2" onClick={onSave} disabled={busy}>
+        <Save className="h-3.5 w-3.5" />
+        Salvar dados da célula
+      </Button>
+    </Card>
   );
 }
 

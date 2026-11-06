@@ -9,7 +9,7 @@ const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Backup = lazy(() => import("./pages/Backup"));
 const InventarioFotos = lazy(() => import("./pages/InventarioFotos"));
 const AuditorHome = lazy(() => import("./pages/auditor/AuditorHome"));
-const AuditorRecebimento = lazy(() => import("./pages/auditor/AuditorRecebimento"));
+const AuditorCelula = lazy(() => import("./pages/auditor/AuditorCelula"));
 const AuditorRefazer = lazy(() => import("./pages/auditor/AuditorRefazer"));
 const AuditorRelatorios = lazy(() => import("./pages/auditor/AuditorRelatorios"));
 const AuditorBi = lazy(() => import("./pages/auditor/AuditorBi"));
@@ -80,11 +80,11 @@ export const routers = [
         ),
       },
       {
-        path: "auditor/recebimento",
-        name: "auditor-recebimento",
+        path: "auditor/celula/:cell",
+        name: "auditor-celula",
         element: (
           <Suspense fallback={<RouteFallback />}>
-            <AuditorRecebimento />
+            <AuditorCelula />
           </Suspense>
         ),
       },

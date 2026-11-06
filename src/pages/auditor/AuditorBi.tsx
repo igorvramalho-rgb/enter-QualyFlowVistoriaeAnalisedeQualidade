@@ -22,7 +22,11 @@ import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
   AUDITOR_SIGNATURE,
+  CELLS,
+  CELL_KEYS,
   REDO_STATUS,
+  fetchAuditorCounts,
+  type AuditorCounts,
   fetchCases,
   fetchRedoQueue,
   fetchReportsQueue,
@@ -32,6 +36,7 @@ import {
   type CaseRow,
 } from "@/lib/auditor";
 import { saveReportPdfFile } from "@/lib/report-export";
+import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
 
 interface Filters {
@@ -57,18 +62,21 @@ export default function AuditorBi() {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [totais, setTotais] = useState<AuditorCounts | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [listaCasos, listaRedo, listaRelatorios] = await Promise.all([
+      const [listaCasos, listaRedo, listaRelatorios, contagens] = await Promise.all([
         fetchCases(),
         fetchRedoQueue(),
         fetchReportsQueue(),
+        fetchAuditorCounts(),
       ]);
       setCases(listaCasos);
       setRedo(listaRedo);
       setReports(listaRelatorios);
+      setTotais(contagens);
     } catch (problem) {
       toast.error("Falha ao carregar o painel", {
         description: problem instanceof Error ? problem.message : undefined,
@@ -157,7 +165,32 @@ export default function AuditorBi() {
       .slice(0, 6);
   }, [filtrados]);
 
+  const porCelula = CELL_KEYS.map((key) => ({
+    nome: CELLS[key].short,
+    total: filtrados.filter((row) => row.cell === key).length,
+  }));
+
+  const unicas = new Set(filtrados.map((row) => `${row.fac}|${row.os}`)).size;
   const temDados = filtrados.length > 0;
+
+  const exportarCsv = () => {
+    downloadCsv(
+      `qualy-auditor-bi-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["FV", "OS", "Endereço", "Município", "Localidade", "Serviço", "Célula", "Situação", "Resultado", "Devoluções"],
+      filtrados.map((row) => [
+        row.fac,
+        row.os,
+        row.address,
+        row.municipality,
+        row.locality,
+        row.serviceType,
+        CELLS[row.cell]?.label ?? row.cell,
+        ANALYSIS_STATUS[row.status],
+        row.outcome,
+        String(row.returnedCount),
+      ]),
+    );
+  };
 
   const exportarExcel = async () => {
     setBusy(true);
@@ -267,6 +300,10 @@ export default function AuditorBi() {
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Atualizar
           </Button>
+          <Button type="button" variant="glass" size="sm" onClick={exportarCsv} disabled={busy || filtrados.length === 0}>
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </Button>
           <Button type="button" variant="glass" size="sm" onClick={() => void exportarExcel()} disabled={busy}>
             <FileSpreadsheet className="h-3.5 w-3.5" />
             Excel
@@ -328,6 +365,9 @@ export default function AuditorBi() {
           ["Não conforme", kpis.naoConforme],
           ["Relatórios enviados", kpis.relatorios],
           ["Devoluções", kpis.devolucoes],
+          ["FV/OS únicas", unicas],
+          ["Documentos", totais?.documents ?? 0],
+          ["Movimentações", totais?.events ?? 0],
         ].map(([label, valor]) => (
           <div key={String(label)} className="auditor-tile rounded-xl px-3 py-2">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -343,6 +383,21 @@ export default function AuditorBi() {
         </Card>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
+          <Card className="p-3">
+            <h3 className="text-xs font-semibold text-foreground">Distribuição por célula</h3>
+            <div className="mt-2 h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={porCelula}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="nome" tick={{ fontSize: 9 }} />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="total" fill="hsl(var(--auditor-navy-mid))" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
           <Card className="p-3">
             <h3 className="text-xs font-semibold text-foreground">Evolução mensal</h3>
             <div className="mt-2 h-48">

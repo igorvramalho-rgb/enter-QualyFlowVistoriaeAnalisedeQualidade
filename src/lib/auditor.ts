@@ -4,6 +4,53 @@ export const AUDITOR_NAME = "QUALY AUDITOR";
 export const AUDITOR_SUBTITLE = "INTELIGÊNCIA DE FISCALIZAÇÃO";
 export const AUDITOR_SIGNATURE = "Criado por Igor Ramalho";
 
+/** Seis células operacionais — destino definido manualmente pelo usuário. */
+export const CELLS = {
+  fiscalizacao: {
+    key: "fiscalizacao",
+    label: "Em fiscalização",
+    short: "Fiscalização",
+    description: "FV/OS analisadas e encaminhadas ao fiscal para verificação em campo.",
+  },
+  refazer: {
+    key: "refazer",
+    label: "Refazer",
+    short: "Refazer",
+    description: "Serviço confirmado como não conforme e encaminhado para correção.",
+  },
+  enviados: {
+    key: "enviados",
+    label: "Enviados para AlphaGeos",
+    short: "Enviados",
+    description: "Relatório individual elaborado para envio à AlphaGeos.",
+  },
+  respondidos: {
+    key: "respondidos",
+    label: "Respondidos à AlphaGeos",
+    short: "Respondidos",
+    description: "Resposta efetivamente encaminhada à AlphaGeos.",
+  },
+  rpa: {
+    key: "rpa",
+    label: "RPA / Defesas Técnicas",
+    short: "RPA",
+    description: "Contestação técnica do apontamento, com fundamentação preservada.",
+  },
+  nao_avaliado: {
+    key: "nao_avaliado",
+    label: "N/A / Serviços não avaliados",
+    short: "N/A",
+    description: "Serviço não avaliado, não localizado ou com interferência.",
+  },
+} as const;
+
+export type CellKey = keyof typeof CELLS;
+export const CELL_KEYS = Object.keys(CELLS) as CellKey[];
+
+export function cellLabel(key: string): string {
+  return CELLS[key as CellKey]?.label ?? key;
+}
+
 /** Situação da tratativa (uma por FV/OS). */
 export const ANALYSIS_STATUS = {
   aguardando_analise: "Aguardando análise",
@@ -84,6 +131,8 @@ export interface AuditorCase {
   contractor: string;
   status: AnalysisStatus;
   outcome: CaseOutcome;
+  cell: CellKey;
+  cellData: Record<string, string>;
   reopenCount: number;
   returnedCount: number;
   opinion: string;
@@ -151,6 +200,7 @@ export interface CaseRow {
   serviceType: string;
   status: AnalysisStatus;
   outcome: CaseOutcome;
+  cell: CellKey;
   updatedAt: string;
   returnedCount: number;
 }
@@ -172,6 +222,8 @@ function toCase(row: Record<string, unknown>): AuditorCase {
     contractor: String(row.contractor ?? ""),
     status: (row.analysis_status as AnalysisStatus) ?? "aguardando_analise",
     outcome: (row.outcome as CaseOutcome) ?? "pendente",
+    cell: ((row.cell as CellKey) ?? "fiscalizacao"),
+    cellData: (row.cell_data as Record<string, string>) ?? {},
     reopenCount: Number(row.reopen_count ?? 0),
     returnedCount: Number(row.returned_count ?? 0),
     opinion: String(row.internal_opinion ?? ""),
@@ -188,7 +240,7 @@ export async function fetchCases(): Promise<CaseRow[]> {
   const { data, error } = await supabase
     .from("qa_cases")
     .select(
-      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count",
+      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell",
     )
     .order("updated_at", { ascending: false })
     .limit(500);
@@ -207,6 +259,7 @@ export async function fetchCases(): Promise<CaseRow[]> {
     serviceType: row.service_type,
     status: row.analysis_status as AnalysisStatus,
     outcome: row.outcome as CaseOutcome,
+    cell: (row.cell as CellKey) ?? "fiscalizacao",
     updatedAt: row.updated_at,
     returnedCount: row.returned_count,
   }));
@@ -258,6 +311,34 @@ export async function fetchCaseEvents(caseId: string): Promise<AuditorEvent[]> {
     payload: (row.payload ?? {}) as Record<string, unknown>,
     createdAt: row.created_at,
   }));
+}
+
+/** Move a tratativa de célula (decisão sempre humana) e registra o evento. */
+export async function moveCaseToCell(caseId: string, cell: CellKey): Promise<void> {
+  const { error } = await supabase
+    .from("qa_cases")
+    .update({ cell, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+  if (error) fail(error);
+
+  await supabase.from("qa_case_events").insert({
+    case_id: caseId,
+    event_type: "movimentacao_celula",
+    payload: { cell } as never,
+  });
+}
+
+/** Grava dados próprios da célula (merge raso, sem apagar o que já existe). */
+export async function saveCellData(
+  caseId: string,
+  patch: Record<string, string>,
+  current: Record<string, string>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("qa_cases")
+    .update({ cell_data: { ...current, ...patch } as never, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+  if (error) fail(error);
 }
 
 export interface CaseUpdate {
@@ -457,7 +538,9 @@ export async function fetchDocuments(limit = 60): Promise<AuditorDocument[]> {
 export interface AuditorCounts {
   documents: number;
   cases: number;
+  events: number;
   byStatus: Record<string, number>;
+  byCell: Record<string, number>;
   conforme: number;
   naoConforme: number;
   redoOpen: number;
@@ -468,25 +551,29 @@ export interface AuditorCounts {
 
 /** Contagens reais do módulo (etapas nunca somadas entre si). */
 export async function fetchAuditorCounts(): Promise<AuditorCounts> {
-  const [documents, cases, redo, reports] = await Promise.all([
+  const [documents, cases, redo, reports, events] = await Promise.all([
     supabase.from("qa_documents").select("*", { count: "exact", head: true }),
-    supabase.from("qa_cases").select("analysis_status, outcome, returned_count"),
+    supabase.from("qa_cases").select("analysis_status, outcome, returned_count, cell"),
     supabase.from("qa_redo").select("redo_status"),
     supabase.from("qa_reports").select("status"),
+    supabase.from("qa_case_events").select("*", { count: "exact", head: true }),
   ]);
 
   if (documents.error) fail(documents.error);
   if (cases.error) fail(cases.error);
   if (redo.error) fail(redo.error);
   if (reports.error) fail(reports.error);
+  if (events.error) fail(events.error);
 
   const byStatus: Record<string, number> = {};
+  const byCell: Record<string, number> = {};
   let conforme = 0;
   let naoConforme = 0;
   let returns = 0;
 
   for (const row of cases.data ?? []) {
     byStatus[row.analysis_status] = (byStatus[row.analysis_status] ?? 0) + 1;
+    byCell[row.cell ?? "fiscalizacao"] = (byCell[row.cell ?? "fiscalizacao"] ?? 0) + 1;
     if (row.outcome === "conforme") conforme += 1;
     if (row.outcome === "nao_conforme") naoConforme += 1;
     returns += row.returned_count ?? 0;
@@ -498,7 +585,9 @@ export async function fetchAuditorCounts(): Promise<AuditorCounts> {
   return {
     documents: documents.count ?? 0,
     cases: cases.data?.length ?? 0,
+    events: events.count ?? 0,
     byStatus,
+    byCell,
     conforme,
     naoConforme,
     redoOpen: redoRows.length - redoDone,

@@ -3398,6 +3398,8 @@ export type Database = {
         Row: {
           address: string
           analysis_status: string
+          cell: string
+          cell_data: Json
           contractor: string
           created_at: string
           created_by: string | null
@@ -3420,6 +3422,8 @@ export type Database = {
         Insert: {
           address?: string
           analysis_status?: string
+          cell?: string
+          cell_data?: Json
           contractor?: string
           created_at?: string
           created_by?: string | null
@@ -3442,6 +3446,8 @@ export type Database = {
         Update: {
           address?: string
           analysis_status?: string
+          cell?: string
+          cell_data?: Json
           contractor?: string
           created_at?: string
           created_by?: string | null

@@ -1,6 +1,27 @@
 import { supabase } from "@/integrations/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
+import type { AnalysisStatus, CaseOutcome, CellKey } from "@/lib/auditor";
+
+/** Situação inicial sugerida por célula (o usuário pode mudar depois). */
+const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
+  fiscalizacao: "encaminhado_fiscalizacao",
+  refazer: "encaminhado_refazer",
+  enviados: "aguardando_relatorio",
+  respondidos: "resposta_enviada",
+  rpa: "em_analise",
+  nao_avaliado: "necessita_esclarecimento",
+};
+
+/** N/A nunca vira conformidade nem não conformidade confirmada. */
+const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
+  fiscalizacao: "pendente",
+  refazer: "nao_conforme",
+  enviados: "conforme",
+  respondidos: "conforme",
+  rpa: "pendente",
+  nao_avaliado: "pendente",
+};
 
 /**
  * Persistência do Qualy Auditor.
@@ -83,6 +104,8 @@ export interface ConfirmInput {
   file: File;
   fields: Record<string, string>;
   items: AuditorItem[];
+  /** Célula escolhida manualmente no momento da importação. */
+  cell: CellKey;
 }
 
 export interface ConfirmResult {
@@ -93,7 +116,7 @@ export interface ConfirmResult {
 }
 
 export async function confirmAuditorDocument(input: ConfirmInput): Promise<ConfirmResult> {
-  const { extraction, file, fields, items } = input;
+  const { extraction, file, fields, items, cell } = input;
   const documentId = crypto.randomUUID();
 
   // 1) Registro primeiro (identificável mesmo se o upload falhar).
@@ -172,7 +195,12 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
       caseId = existing.id;
       await supabase
         .from("qa_cases")
-        .update({ document_id: documentId, updated_at: new Date().toISOString() })
+        .update({
+          document_id: documentId,
+          cell,
+          analysis_status: STATUS_BY_CELL[cell],
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", caseId);
     } else {
       const { data: created, error: caseError } = await supabase
@@ -186,8 +214,9 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
           locality: (fields.localidade ?? "").trim(),
           service_type: (fields.servico ?? "").trim(),
           contractor: (fields.contratada ?? "").trim(),
-          analysis_status: "aguardando_analise",
-          outcome: "pendente",
+          analysis_status: STATUS_BY_CELL[cell],
+          outcome: OUTCOME_BY_CELL[cell],
+          cell,
         })
         .select("id")
         .single();

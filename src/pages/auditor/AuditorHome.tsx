@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
 import { fetchCases, type CaseRow } from "@/lib/auditor";
 import { useEffect, useState } from "react";
-import { ANALYSIS_STATUS, type AnalysisStatus } from "@/lib/auditor";
+import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
 const TILES = [
   { key: "documents", label: "FV/OS recebidas", icon: FileStack },
@@ -45,12 +45,6 @@ export default function AuditorHome() {
     redoOpen: counts?.redoOpen ?? 0,
   };
 
-  const fila = (Object.keys(ANALYSIS_STATUS) as AnalysisStatus[]).map((status) => ({
-    status,
-    label: ANALYSIS_STATUS[status],
-    total: counts?.byStatus[status] ?? 0,
-  }));
-
   return (
     <AuditorShell>
       <div className="flex items-center justify-between gap-2">
@@ -68,37 +62,42 @@ export default function AuditorHome() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {TILES.map((tile) => (
-          <div key={tile.key} className="auditor-tile rounded-xl px-4 py-3">
+        {CELL_KEYS.map((key, index) => (
+          <Link
+            key={key}
+            to={`/auditor/celula/${key}`}
+            className="auditor-tile group rounded-xl px-4 py-3 transition-colors hover:border-primary/40"
+          >
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {tile.label}
+                Célula {String(index + 1).padStart(2, "0")}
               </p>
-              <tile.icon className="h-3.5 w-3.5 text-[hsl(var(--auditor-steel))]" />
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </div>
-            <p className="auditor-num mt-1 text-2xl font-semibold text-foreground">{valores[tile.key]}</p>
-          </div>
+            <p className="mt-0.5 text-sm font-semibold text-foreground">{CELLS[key].label}</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground auditor-num">
+              {counts?.byCell[key] ?? 0}
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+              {CELLS[key].description}
+            </p>
+          </Link>
         ))}
       </div>
 
-      <Card className="p-4">
-        <h3 className="text-sm font-semibold text-foreground">Fila de trabalho</h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          A situação da análise é independente da classificação original da AlphaGeos.
-        </p>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {fila.map((item) => (
-            <div
-              key={item.status}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-3 py-2"
-            >
-              <span className="text-xs text-foreground">{item.label}</span>
-              <span className="auditor-num text-sm font-semibold text-foreground">{item.total}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["FV/OS únicas", counts?.cases ?? 0],
+          ["Documentos importados", counts?.documents ?? 0],
+          ["Devoluções", counts?.returns ?? 0],
+          ["Movimentações", counts?.events ?? 0],
+        ].map(([label, valor]) => (
+          <div key={String(label)} className="auditor-tile rounded-xl px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="auditor-num text-xl font-semibold text-foreground">{valor}</p>
+          </div>
+        ))}
+      </div>
 
       <Card className="p-4">
         <h3 className="text-sm font-semibold text-foreground">Tratativas</h3>
@@ -113,7 +112,7 @@ export default function AuditorHome() {
                 <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                   <th className="py-1.5 pr-2 font-medium">FV / OS</th>
                   <th className="py-1.5 pr-2 font-medium">Endereço</th>
-                  <th className="py-1.5 pr-2 font-medium">Situação</th>
+                  <th className="py-1.5 pr-2 font-medium">Célula</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,7 +126,7 @@ export default function AuditorHome() {
                     <td className="max-w-[320px] truncate py-1.5 pr-2 text-muted-foreground">
                       {caso.address || "—"}
                     </td>
-                    <td className="py-1.5 pr-2 text-foreground">{ANALYSIS_STATUS[caso.status]}</td>
+                    <td className="py-1.5 pr-2 text-foreground">{cellLabel(caso.cell)}</td>
                   </tr>
                 ))}
               </tbody>

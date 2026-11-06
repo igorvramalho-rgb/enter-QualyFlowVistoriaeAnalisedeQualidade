@@ -1,0 +1,9 @@
+-- Qualy Auditor: seis células de trabalho + dados próprios de cada célula.
+alter table public.qa_cases
+  add column if not exists cell text not null default 'fiscalizacao',
+  add column if not exists cell_data jsonb not null default '{}'::jsonb;
+
+create index if not exists qa_cases_cell_idx on public.qa_cases (cell);
+
+-- A tratativa já existente passa a viver em "Em fiscalização" (destino definido manualmente).
+update public.qa_cases set cell = 'fiscalizacao' where cell is null or cell = '';

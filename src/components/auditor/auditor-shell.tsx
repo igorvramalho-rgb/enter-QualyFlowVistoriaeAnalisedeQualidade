@@ -6,9 +6,12 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { to: "/auditor", label: "Visão geral", end: true },
-  { to: "/auditor/recebimento", label: "Recebimento" },
-  { to: "/auditor/refazer", label: "Refazer" },
-  { to: "/auditor/relatorios", label: "Relatórios" },
+  { to: "/auditor/celula/fiscalizacao", label: "Em fiscalização" },
+  { to: "/auditor/celula/refazer", label: "Refazer" },
+  { to: "/auditor/celula/enviados", label: "Enviados" },
+  { to: "/auditor/celula/respondidos", label: "Respondidos" },
+  { to: "/auditor/celula/rpa", label: "RPA" },
+  { to: "/auditor/celula/nao_avaliado", label: "N/A" },
   { to: "/auditor/bi", label: "Painel BI" },
 ];
 
