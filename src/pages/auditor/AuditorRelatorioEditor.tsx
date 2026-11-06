@@ -3,48 +3,53 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Download, ImagePlus, Loader2, Save, Send, Trash2 } from "lucide-react";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { PrintPortal } from "@/components/report/print-portal";
+import { ReportDocumentView } from "@/components/report/report-document-view";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
+import { useCloudSettings } from "@/hooks/use-cloud-data";
+import { useScaledContainer } from "@/hooks/use-scaled-container";
 import {
   fetchCase,
-  fetchCaseItems,
   fetchReportForCase,
   markReportSent,
   saveReport,
   type AuditorCase,
-  type AuditorCaseItem,
 } from "@/lib/auditor";
 import { fileToCompressedDataUrl } from "@/lib/image";
 import { signPhotoUrls, uploadPhoto } from "@/lib/photo-storage";
 import { saveReportPdfFile } from "@/lib/report-export";
+import { getTemplate, type ReportTemplateId } from "@/lib/report-templates";
+import type { PhotoEntry, PhotoMap, ReportValues } from "@/lib/report-document";
 import { formatDateBR } from "@/lib/fields";
 
-interface GalleryItem {
-  path: string;
-  caption: string;
-  code: string;
-}
-
-const TEMPLATES = [
+const MODELS: { id: ReportTemplateId; label: string }[] = [
   { id: "pos_60_passeio", label: "Devolutiva Pós 60 — Passeio" },
   { id: "pos_60_via", label: "Devolutiva Pós 60 — Via" },
   { id: "sgz_156", label: "Demanda SGZ-156" },
 ];
 
+function sugestao(caso: AuditorCase | null): ReportTemplateId {
+  const servico = (caso?.serviceType ?? "").toLowerCase();
+  if (servico.includes("passeio")) return "pos_60_passeio";
+  if (servico.includes("via") || servico.includes("asfal")) return "pos_60_via";
+  return "pos_60_passeio";
+}
+
 export default function AuditorRelatorioEditor() {
   const { caseId = "" } = useParams();
+  const { settings } = useCloudSettings();
+  const { outerRef, innerRef, scale, height } = useScaledContainer(794);
   const [caso, setCaso] = useState<AuditorCase | null>(null);
-  const [items, setItems] = useState<AuditorCaseItem[]>([]);
-  const [templateId, setTemplateId] = useState("pos_60_passeio");
+  const [templateId, setTemplateId] = useState<ReportTemplateId>("pos_60_passeio");
+  const [values, setValues] = useState<ReportValues>({});
+  const [photos, setPhotos] = useState<PhotoMap>({});
   const [justification, setJustification] = useState("");
   const [observations, setObservations] = useState("");
-  const [gallery, setGallery] = useState<GalleryItem[]>([]);
-  const [urls, setUrls] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [sentAt, setSentAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,20 +58,42 @@ export default function AuditorRelatorioEditor() {
       setCaso(found);
       if (!found) return;
 
-      const listaItens = await fetchCaseItems(found.documentId);
-      setItems(listaItens);
-
       const report = await fetchReportForCase(caseId);
-      if (report) {
-        setTemplateId(report.templateId || "pos_60_passeio");
-        setJustification(report.justification);
-        setObservations(report.observations);
-        setSentAt(report.sentAt);
-        const fotos = (report.photos as { gallery?: GalleryItem[] })?.gallery ?? [];
-        setGallery(fotos);
-        const signed = await signPhotoUrls(fotos.map((foto) => foto.path));
-        setUrls(signed);
-      }
+      const model = (report?.templateId as ReportTemplateId) || sugestao(found);
+      setTemplateId(model);
+      setJustification(report?.justification ?? "");
+      setObservations(report?.observations ?? "");
+      setSentAt(report?.sentAt ?? null);
+
+      const base: ReportValues = {
+        fac: found.fac,
+        os: found.os,
+        endereco: found.address,
+        polo: found.locality,
+        contratada: found.contractor,
+        servicoExda: found.serviceType,
+        ...((report?.values ?? {}) as ReportValues),
+      };
+      setValues(base);
+
+      const salvos = (report?.photos ?? {}) as PhotoMap;
+      const caminhos = Object.values(salvos)
+        .map((entry) => entry?.path)
+        .filter((path): path is string => Boolean(path));
+      const assinados = caminhos.length > 0 ? await signPhotoUrls(caminhos) : {};
+
+      setPhotos(
+        Object.fromEntries(
+          Object.entries(salvos).map(([slot, entry]) => [
+            slot,
+            {
+              ...entry,
+              dataUrl: entry.path ? assinados[entry.path] ?? "" : entry.dataUrl ?? "",
+              include: entry.include !== false,
+            } as PhotoEntry,
+          ]),
+        ),
+      );
     } catch (problem) {
       toast.error("Não foi possível carregar o relatório", {
         description: problem instanceof Error ? problem.message : undefined,
@@ -80,21 +107,27 @@ export default function AuditorRelatorioEditor() {
     void load();
   }, [load]);
 
-  const addPhotos = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const template = useMemo(() => getTemplate(templateId), [templateId]);
+  const slots = template.photoSlots;
+
+  const anexar = async (slotId: string, file: File | null) => {
+    if (!file) return;
     setBusy(true);
     try {
-      const novas: GalleryItem[] = [];
-      for (const file of Array.from(files)) {
-        const dataUrl = await fileToCompressedDataUrl(file);
-        const uploaded = await uploadPhoto(dataUrl);
-        novas.push({ path: uploaded.path, caption: "", code: "" });
-        setUrls((previous) => ({ ...previous, [uploaded.path]: uploaded.url }));
-      }
-      setGallery((previous) => [...previous, ...novas]);
-      toast.success(`${novas.length} foto(s) anexada(s)`);
+      const dataUrl = await fileToCompressedDataUrl(file);
+      const uploaded = await uploadPhoto(dataUrl);
+      setPhotos((previous) => ({
+        ...previous,
+        [slotId]: {
+          dataUrl: uploaded.url,
+          path: uploaded.path,
+          include: true,
+          caption: previous[slotId]?.caption,
+        },
+      }));
+      toast.success("Foto anexada");
     } catch (problem) {
-      toast.error("Falha ao anexar foto", {
+      toast.error("Falha ao anexar a foto", {
         description: problem instanceof Error ? problem.message : undefined,
       });
     } finally {
@@ -105,15 +138,24 @@ export default function AuditorRelatorioEditor() {
   const salvar = async (enviar = false) => {
     setBusy(true);
     try {
+      // Guarda apenas o essencial: caminho, legenda e inclusão (sem base64).
+      const compacto = Object.fromEntries(
+        Object.entries(photos).map(([slot, entry]) => [
+          slot,
+          { dataUrl: "", include: entry.include, caption: entry.caption, path: entry.path },
+        ]),
+      );
+
       await saveReport({
         caseId,
         templateId,
-        values: {},
-        photos: { gallery },
+        values,
+        photos: compacto,
         justification,
         observations,
         status: enviar ? "enviado" : "rascunho",
       });
+
       if (enviar) {
         await markReportSent(caseId);
         setSentAt(new Date().toISOString());
@@ -134,13 +176,9 @@ export default function AuditorRelatorioEditor() {
     try {
       const nome = `auditor-fv-${caso?.fac || "sem"}-os-${caso?.os || "sem"}.pdf`;
       const result = await saveReportPdfFile(nome);
-      if (result === "cancelled") {
-        toast.info("Geração cancelada");
-      } else {
-        toast.success("PDF gerado", {
-          description: result === "unconfirmed" ? `${nome} (download sem confirmação)` : nome,
-        });
-      }
+      toast.success(result === "unconfirmed" ? "PDF gerado (download sem confirmação)" : "PDF gerado", {
+        description: nome,
+      });
     } catch (problem) {
       toast.error("Não foi possível gerar o PDF", {
         description: problem instanceof Error ? problem.message : undefined,
@@ -149,14 +187,6 @@ export default function AuditorRelatorioEditor() {
       setBusy(false);
     }
   };
-
-  const avaliadas = useMemo(
-    () =>
-      items.filter(
-        (item) => item.internalResult === "conforme" || item.internalResult === "nao_conforme",
-      ),
-    [items],
-  );
 
   if (loading) {
     return (
@@ -184,43 +214,78 @@ export default function AuditorRelatorioEditor() {
           </Button>
           <Button type="button" variant="glow" size="sm" onClick={() => void gerarPdf()} disabled={busy}>
             <Download className="h-3.5 w-3.5" />
-            Gerar PDF
+            Gerar PDF oficial
           </Button>
         </div>
       </div>
 
       <Card className="p-4">
-        <h2 className="text-sm font-semibold text-foreground">Resposta à AlphaGeos</h2>
+        <h2 className="text-sm font-semibold text-foreground">Relatório de resposta</h2>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          FV {caso?.fac || "—"} · OS {caso?.os || "—"} · {caso?.address || "endereço não informado"}
+          Usa o mesmo modelo oficial do Emissor. FV {caso?.fac || "—"} · OS {caso?.os || "—"} ·{" "}
+          {caso?.address || "endereço não informado"}
         </p>
 
-        <label className="mt-3 block text-[11px] text-muted-foreground">
-          Modelo
-          <select
-            value={templateId}
-            onChange={(event) => setTemplateId(event.target.value)}
-            className="mt-0.5 h-8 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
-          >
-            {TEMPLATES.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="text-[11px] text-muted-foreground">
+            Modelo oficial
+            <select
+              value={templateId}
+              onChange={(event) => setTemplateId(event.target.value as ReportTemplateId)}
+              className="mt-0.5 h-8 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
+            >
+              {MODELS.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[11px] text-muted-foreground">
+            Data
+            <Input
+              value={values.data ?? ""}
+              onChange={(event) => setValues({ ...values, data: event.target.value })}
+              placeholder="dd/mm/aaaa"
+              className="mt-0.5 h-8 text-xs"
+            />
+          </label>
+          <label className="text-[11px] text-muted-foreground">
+            Nº FAC
+            <Input
+              value={values.fac ?? ""}
+              onChange={(event) => setValues({ ...values, fac: event.target.value })}
+              className="mt-0.5 h-8 text-xs"
+            />
+          </label>
+          <label className="text-[11px] text-muted-foreground">
+            OS
+            <Input
+              value={values.os ?? ""}
+              onChange={(event) => setValues({ ...values, os: event.target.value })}
+              className="mt-0.5 h-8 text-xs"
+            />
+          </label>
+          <label className="text-[11px] text-muted-foreground sm:col-span-2">
+            Endereço
+            <Input
+              value={values.endereco ?? ""}
+              onChange={(event) => setValues({ ...values, endereco: event.target.value })}
+              className="mt-0.5 h-8 text-xs"
+            />
+          </label>
+        </div>
 
         <label className="mt-2 block text-[11px] text-muted-foreground">
-          Justificativa técnica
+          Justificativa técnica (não impressa no modelo oficial)
           <textarea
             value={justification}
             onChange={(event) => setJustification(event.target.value)}
-            className="mt-0.5 min-h-20 w-full rounded-md border border-input bg-background/70 px-2 py-1.5 text-xs text-foreground"
+            className="mt-0.5 min-h-16 w-full rounded-md border border-input bg-background/70 px-2 py-1.5 text-xs text-foreground"
           />
         </label>
-
         <label className="mt-2 block text-[11px] text-muted-foreground">
-          Observações
+          Observação impressa na folha
           <textarea
             value={observations}
             onChange={(event) => setObservations(event.target.value)}
@@ -230,81 +295,76 @@ export default function AuditorRelatorioEditor() {
       </Card>
 
       <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Fotografias ({gallery.length})</h2>
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-[11px] text-foreground">
-            <ImagePlus className="h-3.5 w-3.5" />
-            Anexar fotos
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(event) => void addPhotos(event.target.files)}
-            />
-          </label>
-        </div>
+        <h2 className="text-sm font-semibold text-foreground">
+          Fotos do modelo ({slots.filter((slot) => photos[slot.id]?.dataUrl).length}/{slots.length})
+        </h2>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Cada campo do modelo oficial recebe a foto do fiscal correspondente.
+        </p>
 
-        {gallery.length === 0 ? (
-          <p className="mt-2 rounded-lg border border-dashed border-border/70 bg-muted/25 px-3 py-2 text-[11px] text-muted-foreground">
-            Nenhuma foto anexada. As imagens ficam no armazenamento privado e aparecem no PDF.
-          </p>
-        ) : (
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {gallery.map((foto, index) => (
-              <div key={foto.path} className="rounded-lg border border-border/60 p-2">
-                {urls[foto.path] ? (
-                  <img src={urls[foto.path]} alt="" className="h-32 w-full rounded object-cover" />
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {slots.map((slot) => {
+            const entry = photos[slot.id];
+            return (
+              <div key={slot.id} className="rounded-lg border border-border/60 p-2">
+                <p className="text-[11px] font-medium text-foreground">{slot.caption}</p>
+                <p className="text-[10px] text-muted-foreground">{slot.hint}</p>
+
+                {entry?.dataUrl ? (
+                  <img src={entry.dataUrl} alt="" className="mt-1 h-28 w-full rounded object-cover" />
                 ) : (
-                  <div className="h-32 w-full rounded bg-muted" />
+                  <div className="mt-1 flex h-28 items-center justify-center rounded bg-muted/50 text-[10px] text-muted-foreground">
+                    sem foto
+                  </div>
                 )}
+
                 <div className="mt-1 flex gap-1">
+                  <label className="inline-flex h-7 cursor-pointer items-center gap-1 rounded border border-input px-2 text-[10px] text-foreground">
+                    <ImagePlus className="h-3 w-3" />
+                    anexar
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => void anexar(slot.id, event.target.files?.[0] ?? null)}
+                    />
+                  </label>
                   <Input
-                    value={foto.caption}
-                    placeholder="Legenda"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setGallery((previous) =>
-                        previous.map((item, position) =>
-                          position === index ? { ...item, caption: value } : item,
-                        ),
-                      );
-                    }}
+                    value={entry?.caption ?? ""}
+                    placeholder="legenda"
+                    onChange={(event) =>
+                      setPhotos((previous) => ({
+                        ...previous,
+                        [slot.id]: {
+                          ...(previous[slot.id] ?? { dataUrl: "", include: true }),
+                          caption: event.target.value,
+                        },
+                      }))
+                    }
                     className="h-7 text-[11px]"
                   />
-                  <select
-                    value={foto.code}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setGallery((previous) =>
-                        previous.map((item, position) =>
-                          position === index ? { ...item, code: value } : item,
-                        ),
-                      );
-                    }}
-                    className="h-7 rounded border border-input bg-background px-1 text-[11px]"
-                  >
-                    <option value="">item</option>
-                    {items.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {item.code}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-1"
-                    onClick={() => setGallery((previous) => previous.filter((_, p) => p !== index))}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {entry?.dataUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1"
+                      onClick={() =>
+                        setPhotos((previous) => {
+                          const next = { ...previous };
+                          delete next[slot.id];
+                          return next;
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </Card>
 
       <Card className="p-4">
@@ -322,116 +382,40 @@ export default function AuditorRelatorioEditor() {
         </div>
       </Card>
 
-      <PrintPortal>
-        <article className="print-sheet mx-auto flex flex-col px-[10mm] py-[8mm] font-sheet">
-          <header className="border-b-2 border-slate-800 pb-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[9px] uppercase tracking-widest">Qualy Auditor — Inteligência de Fiscalização</p>
-                <h1 className="text-[15px] font-bold">RESPOSTA À FISCALIZAÇÃO</h1>
-              </div>
-              <p className="text-[9px]">
-                Criado por Igor Ramalho
-              </p>
+      <Card className="p-3">
+        <h2 className="text-sm font-semibold text-foreground">Prévia do modelo oficial</h2>
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          A mesma folha A4 que vai para o PDF.
+        </p>
+        <div ref={outerRef} className="scroll-slim max-h-[70vh] overflow-auto rounded-lg bg-muted/30 p-3">
+          <div style={{ height: height > 0 ? `${height}px` : undefined }}>
+            <div
+              ref={innerRef}
+              className="preview-stack w-[210mm] origin-top-left"
+              style={{ transform: `scale(${scale})` }}
+            >
+              <ReportDocumentView
+                templateId={templateId}
+                values={values}
+                photos={photos}
+                objeto={caso?.serviceType}
+                observacoes={observations}
+                settings={settings}
+              />
             </div>
-          </header>
+          </div>
+        </div>
+      </Card>
 
-          <section className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
-            <p>
-              <strong>Nº FAC:</strong> {caso?.fac || "—"}
-            </p>
-            <p>
-              <strong>OS:</strong> {caso?.os || "—"}
-            </p>
-            <p className="col-span-2">
-              <strong>Endereço:</strong> {caso?.address || "—"}
-            </p>
-            <p>
-              <strong>Município:</strong> {caso?.municipality || "—"}
-            </p>
-            <p>
-              <strong>Localidade:</strong> {caso?.locality || "—"}
-            </p>
-            <p>
-              <strong>Serviço:</strong> {caso?.serviceType || "—"}
-            </p>
-            <p>
-              <strong>Modelo:</strong> {TEMPLATES.find((t) => t.id === templateId)?.label ?? "—"}
-            </p>
-          </section>
-
-          <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase">Itens avaliados</h2>
-            <table className="mt-1 w-full border-collapse text-[8px]">
-              <thead>
-                <tr className="bg-slate-100 text-left">
-                  <th className="border border-slate-300 px-1 py-0.5">Item</th>
-                  <th className="border border-slate-300 px-1 py-0.5">Descritivo</th>
-                  <th className="border border-slate-300 px-1 py-0.5">AlphaGeos</th>
-                  <th className="border border-slate-300 px-1 py-0.5">Avaliação interna</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="border border-slate-300 px-1 py-0.5">{item.code}</td>
-                    <td className="border border-slate-300 px-1 py-0.5">{item.description}</td>
-                    <td className="border border-slate-300 px-1 py-0.5">{item.originalResult || "—"}</td>
-                    <td className="border border-slate-300 px-1 py-0.5">
-                      {item.internalResult === "conforme"
-                        ? "Conforme"
-                        : item.internalResult === "nao_conforme"
-                          ? "Não conforme"
-                          : item.internalResult === "na"
-                            ? "Não se aplica"
-                            : "Não avaliado"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-1 text-[8px]">
-              {avaliadas.length} de {items.length} etapa(s) avaliada(s) internamente.
-            </p>
-          </section>
-
-          {gallery.length > 0 && (
-            <section className="mt-3">
-              <h2 className="text-[10px] font-bold uppercase">Registro fotográfico</h2>
-              <div className="mt-1 grid grid-cols-3 gap-1">
-                {gallery.map((foto) => (
-                  <figure key={foto.path} className="break-inside-avoid">
-                    {urls[foto.path] ? (
-                      <img src={urls[foto.path]} alt="" className="h-[38mm] w-full object-cover" />
-                    ) : (
-                      <div className="h-[38mm] w-full bg-slate-200" />
-                    )}
-                    <figcaption className="text-[7px] leading-tight">
-                      {foto.code ? `${foto.code} · ` : ""}
-                      {foto.caption || "sem legenda"}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section className="mt-3 text-[9px]">
-            <h2 className="text-[10px] font-bold uppercase">Justificativa técnica</h2>
-            <p className="mt-0.5 whitespace-pre-wrap">{justification || "—"}</p>
-            {observations && (
-              <>
-                <h2 className="mt-2 text-[10px] font-bold uppercase">Observações</h2>
-                <p className="mt-0.5 whitespace-pre-wrap">{observations}</p>
-              </>
-            )}
-          </section>
-
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[8px]">
-            <p>Qualy Auditor · Inteligência de Fiscalização · Criado por Igor Ramalho</p>
-            <p>Emitido em {formatDateBR(new Date())}</p>
-          </footer>
-        </article>
+      <PrintPortal>
+        <ReportDocumentView
+          templateId={templateId}
+          values={values}
+          photos={photos}
+          objeto={caso?.serviceType}
+          observacoes={observations}
+          settings={settings}
+        />
       </PrintPortal>
     </AuditorShell>
   );
