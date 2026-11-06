@@ -450,11 +450,6 @@ const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string }
   refazer: [
     { key: "observacoes", label: "Observações do fiscal" },
   ],
-  enviados: [
-    { key: "dataElaboracao", label: "Data de elaboração do relatório", type: "date" },
-    { key: "dataEnvio", label: "Data de envio (se houver)", type: "date" },
-    { key: "observacoes", label: "Observações" },
-  ],
   respondidos: [
     { key: "dataEnvio", label: "Data de envio à AlphaGeos", type: "date" },
     { key: "protocolo", label: "Protocolo / referência" },

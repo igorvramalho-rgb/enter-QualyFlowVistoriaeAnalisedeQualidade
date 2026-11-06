@@ -1,0 +1,2 @@
+-- Células "Enviados" e "Respondidos" eram a mesma etapa: fica apenas Respondidos.
+update public.qa_cases set cell = 'respondidos', updated_at = now() where cell = 'enviados';

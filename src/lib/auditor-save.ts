@@ -7,7 +7,6 @@ import type { AnalysisStatus, CaseOutcome, CellKey } from "@/lib/auditor";
 const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
   fiscalizacao: "encaminhado_fiscalizacao",
   refazer: "encaminhado_refazer",
-  enviados: "aguardando_relatorio",
   respondidos: "resposta_enviada",
   rpa: "em_analise",
   nao_avaliado: "necessita_esclarecimento",
@@ -17,7 +16,6 @@ const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
 const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
   fiscalizacao: "pendente",
   refazer: "nao_conforme",
-  enviados: "conforme",
   respondidos: "conforme",
   rpa: "pendente",
   nao_avaliado: "pendente",

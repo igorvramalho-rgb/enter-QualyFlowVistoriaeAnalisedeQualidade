@@ -18,12 +18,6 @@ export const CELLS = {
     short: "Refazer",
     description: "Serviço confirmado como não conforme e encaminhado para correção.",
   },
-  enviados: {
-    key: "enviados",
-    label: "Enviados para AlphaGeos",
-    short: "Enviados",
-    description: "Relatório individual elaborado para envio à AlphaGeos.",
-  },
   respondidos: {
     key: "respondidos",
     label: "Respondidos à AlphaGeos",

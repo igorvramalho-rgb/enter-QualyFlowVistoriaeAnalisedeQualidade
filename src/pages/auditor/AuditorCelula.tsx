@@ -98,7 +98,7 @@ export default function AuditorCelula() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              Célula {CELL_KEYS.indexOf(cellKey) + 1} de 6
+              Célula {CELL_KEYS.indexOf(cellKey) + 1} de {CELL_KEYS.length}
             </p>
             <h2 className="text-sm font-semibold text-foreground">{meta.label}</h2>
             <p className="mt-0.5 max-w-xl text-[11px] text-muted-foreground">{meta.description}</p>
