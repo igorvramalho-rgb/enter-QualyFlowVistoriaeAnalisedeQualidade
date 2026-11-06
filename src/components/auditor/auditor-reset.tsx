@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useAuth } from "@/hooks/auth-context";
+import { useCallback, useState } from "react";
 import { DatabaseZap, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,41 +11,68 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { clearAuditorDatabase, fetchAuditorTotals, type AuditorTotals } from "@/lib/auditor-reset";
-import { invalidateAuditorCache } from "@/lib/auditor";
+import { useAuth } from "@/hooks/auth-context";
+import {
+  clearAuditorCell,
+  clearAuditorDatabase,
+  fetchAuditorTotals,
+  fetchCellTotal,
+} from "@/lib/auditor-reset";
+import { CELLS, invalidateAuditorCache, type CellKey } from "@/lib/auditor";
 
 /**
- * Limpeza do banco do Qualy Auditor (somente tabelas qa_*).
- * Exige digitar APAGAR e mostra exatamente o que será excluído.
+ * Limpeza controlada do banco do Qualy Auditor.
+ * Sem `cell`, limpa tudo do módulo. Com `cell`, apaga só aquela célula.
+ * Restrito ao gestor e com confirmação digitada.
  */
-export function AuditorReset({ onCleared }: { onCleared?: () => void }) {
+export function AuditorReset({ cell, onCleared }: { cell?: CellKey; onCleared?: () => void }) {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
-  const [totais, setTotais] = useState<AuditorTotals | null>(null);
+  const [linhas, setLinhas] = useState<[string, number][] | null>(null);
   const [palavra, setPalavra] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const abrir = async () => {
+  const abrir = useCallback(async () => {
     setOpen(true);
     setPalavra("");
-    setTotais(null);
+    setLinhas(null);
     try {
-      setTotais(await fetchAuditorTotals());
+      if (cell) {
+        const total = await fetchCellTotal(cell);
+        setLinhas([["FV/OS nesta célula", total]]);
+      } else {
+        const totais = await fetchAuditorTotals();
+        setLinhas([
+          ["FV/OS (tratativas)", totais.cases],
+          ["Documentos", totais.documents],
+          ["Etapas avaliadas", totais.items],
+          ["Movimentações", totais.events],
+          ["Controle de refazer", totais.redo],
+          ["Relatórios", totais.reports],
+        ]);
+      }
     } catch (problem) {
       toast.error("Não foi possível contar os registros", {
         description: problem instanceof Error ? problem.message : undefined,
       });
     }
-  };
+  }, [cell]);
 
   const confirmar = async () => {
     setBusy(true);
     try {
-      await clearAuditorDatabase();
+      if (cell) {
+        const apagados = await clearAuditorCell(cell);
+        toast.success(`Célula ${CELLS[cell].label} limpa`, {
+          description: `${apagados} FV/OS removida(s). As demais células não foram afetadas.`,
+        });
+      } else {
+        await clearAuditorDatabase();
+        toast.success("Banco do Qualy Auditor limpo", {
+          description: "Os PDFs permanecem no armazenamento privado (sem política de exclusão).",
+        });
+      }
       invalidateAuditorCache();
-      toast.success("Banco do Qualy Auditor limpo", {
-        description: "Os PDFs permanecem no armazenamento privado (sem política de exclusão).",
-      });
       setOpen(false);
       onCleared?.();
     } catch (problem) {
@@ -61,17 +87,6 @@ export function AuditorReset({ onCleared }: { onCleared?: () => void }) {
     }
   };
 
-  const linhas: [string, number][] = totais
-    ? [
-        ["FV/OS (tratativas)", totais.cases],
-        ["Documentos", totais.documents],
-        ["Etapas avaliadas", totais.items],
-        ["Movimentações", totais.events],
-        ["Controle de refazer", totais.redo],
-        ["Relatórios", totais.reports],
-      ]
-    : [];
-
   if (profile?.role !== "gestor") {
     return null;
   }
@@ -80,20 +95,24 @@ export function AuditorReset({ onCleared }: { onCleared?: () => void }) {
     <>
       <Button type="button" variant="glass" size="sm" onClick={() => void abrir()}>
         <DatabaseZap className="h-3.5 w-3.5" />
-        Limpar banco
+        {cell ? "Limpar célula" : "Limpar banco"}
       </Button>
 
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : setOpen(false))}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Limpar banco do Qualy Auditor</DialogTitle>
+            <DialogTitle>
+              {cell ? `Limpar ${CELLS[cell].label}` : "Limpar banco do Qualy Auditor"}
+            </DialogTitle>
             <DialogDescription>
-              Apaga apenas os registros do Qualy Auditor. Analista, Emissor e configurações não são
-              afetados. Esta ação não pode ser desfeita.
+              {cell
+                ? "Apaga as FV/OS desta célula, com etapas, movimentações, refazer e relatórios vinculados. As outras células não são afetadas."
+                : "Apaga todos os registros do Qualy Auditor. Analista, Emissor e configurações não são afetados."}{" "}
+              Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
 
-          {!totais ? (
+          {!linhas ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Contando registros...
             </div>

@@ -1,4 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { CellKey } from "@/lib/auditor";
+
+const CHUNK = 100;
 
 /**
  * Limpeza controlada do banco do Qualy Auditor.
@@ -39,6 +42,80 @@ export async function fetchAuditorTotals(): Promise<AuditorTotals> {
     contar("qa_reports"),
   ]);
   return { documents, items, cases, events, redo, reports };
+}
+
+/** Quantas FV/OS existem numa célula. */
+export async function fetchCellTotal(cell: CellKey): Promise<number> {
+  const { count, error } = await supabase
+    .from("qa_cases")
+    .select("*", { count: "exact", head: true })
+    .eq("cell", cell);
+  if (error) {
+    fail(error);
+  }
+  return count ?? 0;
+}
+
+/**
+ * Apaga apenas os registros de uma célula (FV/OS + etapas + movimentações +
+ * refazer + relatórios daquelas tratativas). Nenhuma outra célula é afetada.
+ */
+export async function clearAuditorCell(cell: CellKey): Promise<number> {
+  const { data, error } = await supabase
+    .from("qa_cases")
+    .select("id, document_id")
+    .eq("cell", cell);
+
+  if (error) {
+    fail(error);
+  }
+
+  const casos = data ?? [];
+  if (casos.length === 0) {
+    return 0;
+  }
+
+  const caseIds = casos.map((row) => row.id);
+  const docIds = casos
+    .map((row) => row.document_id)
+    .filter((id): id is string => Boolean(id));
+
+  // Cliente genérico: evita a inferência profunda de tipos com nome de tabela variável.
+  const cliente = supabase as unknown as {
+    from: (tabela: string) => {
+      delete: () => { in: (coluna: string, valores: string[]) => Promise<{ error: unknown }> };
+    };
+  };
+
+  const apagar = async (tabela: string, coluna: string, ids: string[]) => {
+    for (let index = 0; index < ids.length; index += CHUNK) {
+      const { error: falha } = await cliente
+        .from(tabela)
+        .delete()
+        .in(coluna, ids.slice(index, index + CHUNK));
+      if (falha) {
+        fail(falha);
+      }
+    }
+  };
+
+  await apagar("qa_case_events", "case_id", caseIds);
+  await apagar("qa_reports", "case_id", caseIds);
+  await apagar("qa_redo", "case_id", caseIds);
+  if (docIds.length > 0) {
+    await apagar("qa_document_items", "document_id", docIds);
+  }
+  await apagar("qa_cases", "id", caseIds);
+  if (docIds.length > 0) {
+    await apagar("qa_documents", "id", docIds);
+  }
+
+  const restante = await fetchCellTotal(cell);
+  if (restante > 0) {
+    throw new Error("Os registros não foram apagados. A exclusão é permitida apenas ao gestor.");
+  }
+
+  return casos.length;
 }
 
 /** Ordem segura: filhos antes dos pais. */

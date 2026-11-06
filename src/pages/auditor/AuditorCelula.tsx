@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { AuditorEmpty } from "@/components/auditor/auditor-empty";
 import { AuditorImport } from "@/components/auditor/auditor-import";
+import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   CELL_KEYS,
   cellLabel,
   cachedCases,
+  invalidateAuditorCache,
   fetchCases,
   type CaseRow,
   type CellKey,
@@ -104,7 +106,20 @@ export default function AuditorCelula() {
             <p className="mt-0.5 max-w-xl text-[11px] text-muted-foreground">{meta.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AuditorImport cell={cellKey} onSaved={() => void load()} />
+            <AuditorImport
+              cell={cellKey}
+              onSaved={() => {
+                invalidateAuditorCache();
+                void load();
+              }}
+            />
+            <AuditorReset
+              cell={cellKey}
+              onCleared={() => {
+                invalidateAuditorCache();
+                void load();
+              }}
+            />
             <Button type="button" variant="glass" size="sm" onClick={() => void load()} disabled={loading}>
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               Atualizar
