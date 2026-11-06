@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import { importAuditorBatch } from "@/lib/auditor-save";
-import { CELLS, type CellKey } from "@/lib/auditor";
+import { CELLS, invalidateAuditorCache, type CellKey } from "@/lib/auditor";
 
 /** Limite operacional por importação. */
 const MAX_FILES = 400;
@@ -71,6 +71,7 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
           toast.warning("Nenhum documento novo foi registrado", { description: descricao });
         }
 
+        invalidateAuditorCache();
         onSaved();
       } finally {
         setBusy(false);

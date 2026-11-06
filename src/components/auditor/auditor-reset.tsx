@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { clearAuditorDatabase, fetchAuditorTotals, type AuditorTotals } from "@/lib/auditor-reset";
+import { invalidateAuditorCache } from "@/lib/auditor";
 
 /**
  * Limpeza do banco do Qualy Auditor (somente tabelas qa_*).
@@ -42,6 +43,7 @@ export function AuditorReset({ onCleared }: { onCleared?: () => void }) {
     setBusy(true);
     try {
       await clearAuditorDatabase();
+      invalidateAuditorCache();
       toast.success("Banco do Qualy Auditor limpo", {
         description: "Os PDFs permanecem no armazenamento privado (sem política de exclusão).",
       });

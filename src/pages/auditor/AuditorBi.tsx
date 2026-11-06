@@ -25,6 +25,7 @@ import {
   CELLS,
   CELL_KEYS,
   REDO_STATUS,
+  cachedCases,
   fetchAuditorCounts,
   type AuditorCounts,
   fetchCases,
@@ -56,7 +57,7 @@ function monthKey(value: string): string {
 }
 
 export default function AuditorBi() {
-  const [cases, setCases] = useState<CaseRow[]>([]);
+  const [cases, setCases] = useState<CaseRow[]>(() => cachedCases() ?? []);
   const [redo, setRedo] = useState<AuditorRedo[]>([]);
   const [reports, setReports] = useState<AuditorReport[]>([]);
   const [filters, setFilters] = useState<Filters>(EMPTY);

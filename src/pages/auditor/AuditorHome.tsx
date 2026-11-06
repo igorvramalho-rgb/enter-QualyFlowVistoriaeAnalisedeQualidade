@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
 import { AuditorReset } from "@/components/auditor/auditor-reset";
-import { fetchCases, type CaseRow } from "@/lib/auditor";
+import { cachedCases, fetchCases, type CaseRow } from "@/lib/auditor";
 import { useEffect, useState } from "react";
 import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
@@ -29,11 +29,11 @@ const TILES = [
 
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
-  const [casos, setCasos] = useState<CaseRow[]>([]);
+  const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases() ?? []);
 
   useEffect(() => {
     void fetchCases()
-      .then(setCasos)
+      .then((rows) => setCasos(rows))
       .catch(() => setCasos([]));
   }, [counts]);
 

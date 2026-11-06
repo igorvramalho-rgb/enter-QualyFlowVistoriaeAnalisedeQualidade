@@ -13,6 +13,7 @@ import {
   CELLS,
   CELL_KEYS,
   cellLabel,
+  cachedCases,
   fetchCases,
   type CaseRow,
   type CellKey,
@@ -25,8 +26,8 @@ export default function AuditorCelula() {
   const cellKey = (CELL_KEYS.includes(cell as CellKey) ? cell : "fiscalizacao") as CellKey;
   const meta = CELLS[cellKey];
 
-  const [rows, setRows] = useState<CaseRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<CaseRow[]>(() => cachedCases() ?? []);
+  const [loading, setLoading] = useState(() => cachedCases() === null);
   const [search, setSearch] = useState("");
   const [municipio, setMunicipio] = useState("");
   const [servico, setServico] = useState("");
@@ -35,10 +36,9 @@ export default function AuditorCelula() {
   const [to, setTo] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(cachedCases() === null);
     try {
-      const todos = await fetchCases();
-      setRows(todos);
+      setRows(await fetchCases(true));
     } finally {
       setLoading(false);
     }

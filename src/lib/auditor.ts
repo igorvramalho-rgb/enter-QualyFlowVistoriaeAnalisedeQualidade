@@ -201,6 +201,24 @@ export interface CaseRow {
   fileName: string;
 }
 
+/* Cache em memória: evita recarregar tudo a cada troca de tela. */
+const CACHE_TTL_MS = 60_000;
+let casesCache: { rows: CaseRow[]; at: number } | null = null;
+let countsCache: { data: AuditorCounts; at: number } | null = null;
+
+export function cachedCases(): CaseRow[] | null {
+  return casesCache?.rows ?? null;
+}
+
+export function cachedCounts(): AuditorCounts | null {
+  return countsCache?.data ?? null;
+}
+
+export function invalidateAuditorCache(): void {
+  casesCache = null;
+  countsCache = null;
+}
+
 function fail(error: unknown): never {
   throw error instanceof Error ? error : new Error(String(error));
 }
@@ -232,7 +250,11 @@ function toCase(row: Record<string, unknown>): AuditorCase {
 
 /* ------------------------------------------------------------------ consultas */
 
-export async function fetchCases(): Promise<CaseRow[]> {
+export async function fetchCases(force = false): Promise<CaseRow[]> {
+  if (!force && casesCache && Date.now() - casesCache.at < CACHE_TTL_MS) {
+    return casesCache.rows;
+  }
+
   const { data, error } = await supabase
     .from("qa_cases")
     .select(
@@ -245,7 +267,7 @@ export async function fetchCases(): Promise<CaseRow[]> {
     fail(error);
   }
 
-  return (data ?? []).map((row) => ({
+  const rows = (data ?? []).map((row) => ({
     id: row.id,
     fac: row.fac,
     os: row.os,
@@ -260,6 +282,9 @@ export async function fetchCases(): Promise<CaseRow[]> {
     returnedCount: row.returned_count,
     fileName: (row.qa_documents as { file_name?: string } | null)?.file_name ?? "",
   }));
+
+  casesCache = { rows, at: Date.now() };
+  return rows;
 }
 
 export async function fetchCase(caseId: string): Promise<AuditorCase | null> {
@@ -318,6 +343,8 @@ export async function moveCaseToCell(caseId: string, cell: CellKey): Promise<voi
     .eq("id", caseId);
   if (error) fail(error);
 
+  invalidateAuditorCache();
+
   await supabase.from("qa_case_events").insert({
     case_id: caseId,
     event_type: "movimentacao_celula",
@@ -367,6 +394,8 @@ export async function updateCase(
   const { error } = await supabase.from("qa_cases").update(payload as never).eq("id", caseId);
   if (error) fail(error);
 
+  invalidateAuditorCache();
+
   if (event) {
     await supabase.from("qa_case_events").insert({
       case_id: caseId,
@@ -389,6 +418,8 @@ export async function registerReturn(caseId: string, reason: string, current: nu
     })
     .eq("id", caseId);
   if (error) fail(error);
+
+  invalidateAuditorCache();
 
   await supabase.from("qa_case_events").insert({
     case_id: caseId,
@@ -547,7 +578,11 @@ export interface AuditorCounts {
 }
 
 /** Contagens reais do módulo (etapas nunca somadas entre si). */
-export async function fetchAuditorCounts(): Promise<AuditorCounts> {
+export async function fetchAuditorCounts(force = false): Promise<AuditorCounts> {
+  if (!force && countsCache && Date.now() - countsCache.at < CACHE_TTL_MS) {
+    return countsCache.data;
+  }
+
   const [documents, cases, redo, reports, events] = await Promise.all([
     supabase.from("qa_documents").select("*", { count: "exact", head: true }),
     supabase.from("qa_cases").select("analysis_status, outcome, returned_count, cell"),
@@ -579,7 +614,7 @@ export async function fetchAuditorCounts(): Promise<AuditorCounts> {
   const redoRows = redo.data ?? [];
   const redoDone = redoRows.filter((item) => item.redo_status === "encerrado").length;
 
-  return {
+  const data: AuditorCounts = {
     documents: documents.count ?? 0,
     cases: cases.data?.length ?? 0,
     events: events.count ?? 0,
@@ -592,6 +627,9 @@ export async function fetchAuditorCounts(): Promise<AuditorCounts> {
     reportsSent: (reports.data ?? []).filter((item) => item.status === "enviado").length,
     returns,
   };
+
+  countsCache = { data, at: Date.now() };
+  return data;
 }
 
 /* ------------------------------------------------------------------ relatórios */
