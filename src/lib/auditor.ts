@@ -98,6 +98,47 @@ export const OUTCOME_LABELS = {
 
 export type CaseOutcome = keyof typeof OUTCOME_LABELS;
 
+/** Resultado do caso decorrente da situação escolhida. */
+export const OUTCOME_BY_STATUS: Partial<Record<AnalysisStatus, CaseOutcome>> = {
+  conforme_verificado: "conforme",
+  nao_conforme_confirmado: "nao_conforme",
+  encaminhado_refazer: "nao_conforme",
+};
+
+/** Atualiza a situação de várias FV/OS de uma vez, com histórico. */
+export async function updateCasesBulk(caseIds: string[], status: AnalysisStatus): Promise<number> {
+  if (caseIds.length === 0) {
+    return 0;
+  }
+
+  const outcome = OUTCOME_BY_STATUS[status] ?? "pendente";
+  const agora = new Date().toISOString();
+
+  for (let index = 0; index < caseIds.length; index += 100) {
+    const lote = caseIds.slice(index, index + 100);
+    const { error } = await supabase
+      .from("qa_cases")
+      .update({ analysis_status: status, outcome, updated_at: agora })
+      .in("id", lote);
+    if (error) {
+      fail(error);
+    }
+  }
+
+  const eventos = caseIds.map((caseId) => ({
+    case_id: caseId,
+    event_type: status,
+    payload: { lote: true } as never,
+  }));
+
+  for (let index = 0; index < eventos.length; index += 100) {
+    await supabase.from("qa_case_events").insert(eventos.slice(index, index + 100) as never);
+  }
+
+  invalidateAuditorCache();
+  return caseIds.length;
+}
+
 export const EVENT_LABELS: Record<string, string> = {
   recebimento: "Documento recebido",
   analise_iniciada: "Análise iniciada",

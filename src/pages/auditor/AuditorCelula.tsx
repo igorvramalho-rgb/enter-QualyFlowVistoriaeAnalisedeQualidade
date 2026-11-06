@@ -8,13 +8,17 @@ import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/sonner";
 import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
+  updateCasesBulk,
   CELLS,
   CELL_KEYS,
   cellLabel,
   cachedCases,
+  type AnalysisStatus,
   invalidateAuditorCache,
   fetchCases,
   type CaseRow,
@@ -36,6 +40,9 @@ export default function AuditorCelula() {
   const [situacao, setSituacao] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loteStatus, setLoteStatus] = useState("");
+  const [aplicando, setAplicando] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(cachedCases() === null);
@@ -52,8 +59,12 @@ export default function AuditorCelula() {
 
   const daCelula = useMemo(() => rows.filter((row) => row.cell === cellKey), [rows, cellKey]);
 
+  const termos = useMemo(
+    () => search.split(/[\s,;]+/).map((item) => item.trim().toLowerCase()).filter(Boolean),
+    [search],
+  );
+
   const filtrados = useMemo(() => {
-    const term = search.trim().toLowerCase();
     const de = from ? new Date(`${from}T00:00:00`).getTime() : null;
     const ate = to ? new Date(`${to}T23:59:59`).getTime() : null;
 
@@ -64,17 +75,66 @@ export default function AuditorCelula() {
       if (municipio && row.municipality !== municipio) return false;
       if (servico && row.serviceType !== servico) return false;
       if (situacao && row.status !== situacao) return false;
-      if (!term) return true;
-      return [row.fac, row.os, row.address, row.municipality, row.locality]
-        .join(" ")
-        .toLowerCase()
-        .includes(term);
+      if (termos.length === 0) return true;
+      const alvo = [row.fac, row.os, row.address, row.fileName].join(" ").toLowerCase();
+      // Vários termos = várias FVs/OS de uma vez (basta um corresponder).
+      return termos.some((termo) => alvo.includes(termo));
     });
-  }, [daCelula, search, municipio, servico, situacao, from, to]);
+  }, [daCelula, termos, municipio, servico, situacao, from, to]);
 
   const municipios = Array.from(new Set(daCelula.map((row) => row.municipality).filter(Boolean)));
   const servicos = Array.from(new Set(daCelula.map((row) => row.serviceType).filter(Boolean)));
   const casos = useMemo(() => new Set(filtrados.map((row) => `${row.fac}|${row.os}`)).size, [filtrados]);
+
+  const naoEncontrados = useMemo(() => {
+    if (termos.length < 2) return [] as string[];
+    const base = daCelula.map((row) =>
+      [row.fac, row.os, row.address, row.fileName].join(" ").toLowerCase(),
+    );
+    return termos.filter((termo) => !base.some((alvo) => alvo.includes(termo)));
+  }, [termos, daCelula]);
+
+  const todosSelecionados = filtrados.length > 0 && filtrados.every((row) => selected.has(row.id));
+
+  const alternar = (id: string) => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const alternarTodos = () => {
+    setSelected((previous) => {
+      if (todosSelecionados) {
+        const next = new Set(previous);
+        filtrados.forEach((row) => next.delete(row.id));
+        return next;
+      }
+      return new Set([...previous, ...filtrados.map((row) => row.id)]);
+    });
+  };
+
+  const aplicarLote = async () => {
+    if (!loteStatus || selected.size === 0) return;
+    setAplicando(true);
+    try {
+      const total = await updateCasesBulk([...selected], loteStatus as AnalysisStatus);
+      toast.success("Situação atualizada em lote", {
+        description: `${total} FV/OS · ${ANALYSIS_STATUS[loteStatus as AnalysisStatus]}`,
+      });
+      setSelected(new Set());
+      setLoteStatus("");
+      await load();
+    } catch (problem) {
+      toast.error("Falha ao atualizar em lote", {
+        description: problem instanceof Error ? problem.message : undefined,
+      });
+    } finally {
+      setAplicando(false);
+    }
+  };
 
   const exportar = () => {
     downloadCsv(
@@ -150,7 +210,7 @@ export default function AuditorCelula() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="FV, OS ou endereço"
+              placeholder="Cole várias FVs/OS separadas por vírgula"
               className="mt-0.5 h-8 text-xs"
             />
           </label>
@@ -202,13 +262,52 @@ export default function AuditorCelula() {
             </select>
           </label>
         </div>
-        <div className="mt-2 flex justify-end">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] text-muted-foreground">
+            {termos.length > 1
+              ? `${termos.length} termo(s) pesquisado(s) · ${filtrados.length} FV/OS encontrada(s)` +
+                (naoEncontrados.length > 0 ? ` · não encontradas: ${naoEncontrados.join(", ")}` : "")
+              : `${filtrados.length} FV/OS listada(s)`}
+          </p>
           <Button type="button" variant="glass" size="sm" onClick={exportar} disabled={filtrados.length === 0}>
             <Download className="h-3.5 w-3.5" />
             CSV
           </Button>
         </div>
       </Card>
+
+      {selected.size > 0 && (
+        <Card className="flex flex-wrap items-center justify-between gap-2 border-primary/40 bg-primary/5 p-3">
+          <p className="text-xs font-medium text-foreground">
+            {selected.size} FV/OS selecionada(s)
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={loteStatus}
+              onChange={(event) => setLoteStatus(event.target.value)}
+              className="h-8 rounded-md border border-input bg-background/70 px-2 text-xs"
+            >
+              <option value="">Mudar situação para...</option>
+              {ANALYSIS_ORDER.map((status) => (
+                <option key={status} value={status}>{ANALYSIS_STATUS[status]}</option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              variant="glow"
+              size="sm"
+              disabled={!loteStatus || aplicando}
+              onClick={() => void aplicarLote()}
+            >
+              {aplicando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Aplicar
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setSelected(new Set())}>
+              Limpar seleção
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-4">
         {filtrados.length === 0 && !loading ? (
@@ -222,6 +321,9 @@ export default function AuditorCelula() {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="w-8 py-2 pr-2 font-medium">
+                    <Checkbox checked={todosSelecionados} onCheckedChange={alternarTodos} />
+                  </th>
                   <th className="py-2 pr-3 font-medium">FV / OS</th>
                   <th className="py-2 pr-3 font-medium">Endereço</th>
                   <th className="py-2 pr-3 font-medium">Município</th>
@@ -233,6 +335,9 @@ export default function AuditorCelula() {
               <tbody>
                 {filtrados.map((row) => (
                   <tr key={row.id} className="border-b border-border/30 align-top">
+                    <td className="py-2 pr-2">
+                      <Checkbox checked={selected.has(row.id)} onCheckedChange={() => alternar(row.id)} />
+                    </td>
                     <td className="py-2 pr-3">
                       <Link to={`/auditor/caso/${row.id}`} className="text-primary underline-offset-2 hover:underline">
                         {row.fac || row.fileName || "sem FV/OS"}
