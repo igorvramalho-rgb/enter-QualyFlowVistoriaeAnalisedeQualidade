@@ -3360,6 +3360,308 @@ export type Database = {
   }
   public: {
     Tables: {
+      qa_case_events: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string | null
+          event_type: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_case_events_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "qa_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_cases: {
+        Row: {
+          address: string
+          analysis_status: string
+          contractor: string
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          fac: string
+          id: string
+          locality: string
+          municipality: string
+          os: string
+          outcome: string
+          reopen_count: number
+          service_type: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          analysis_status?: string
+          contractor?: string
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          fac?: string
+          id?: string
+          locality?: string
+          municipality?: string
+          os?: string
+          outcome?: string
+          reopen_count?: number
+          service_type?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          analysis_status?: string
+          contractor?: string
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          fac?: string
+          id?: string
+          locality?: string
+          municipality?: string
+          os?: string
+          outcome?: string
+          reopen_count?: number
+          service_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_cases_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "qa_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_document_items: {
+        Row: {
+          code: string
+          complement: string
+          created_at: string
+          description: string
+          document_id: string
+          id: string
+          internal_result: string | null
+          notes: string
+          original_result: string
+          page_number: number | null
+        }
+        Insert: {
+          code?: string
+          complement?: string
+          created_at?: string
+          description?: string
+          document_id: string
+          id?: string
+          internal_result?: string | null
+          notes?: string
+          original_result?: string
+          page_number?: number | null
+        }
+        Update: {
+          code?: string
+          complement?: string
+          created_at?: string
+          description?: string
+          document_id?: string
+          id?: string
+          internal_result?: string | null
+          notes?: string
+          original_result?: string
+          page_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_document_items_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "qa_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_documents: {
+        Row: {
+          confidence: Json
+          created_at: string
+          fields: Json
+          file_name: string
+          fingerprint: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          pages: number
+          pdf_path: string
+          snippet: string
+          source: string
+          text_available: boolean
+          updated_at: string
+        }
+        Insert: {
+          confidence?: Json
+          created_at?: string
+          fields?: Json
+          file_name: string
+          fingerprint: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          pages?: number
+          pdf_path?: string
+          snippet?: string
+          source?: string
+          text_available?: boolean
+          updated_at?: string
+        }
+        Update: {
+          confidence?: Json
+          created_at?: string
+          fields?: Json
+          file_name?: string
+          fingerprint?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          pages?: number
+          pdf_path?: string
+          snippet?: string
+          source?: string
+          text_available?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_redo: {
+        Row: {
+          case_id: string
+          created_at: string
+          finished_at: string | null
+          foreman: string
+          id: string
+          item_code: string
+          notes: string
+          problem: string
+          reason: string
+          redo_status: string
+          scheduled_at: string | null
+          sent_at: string | null
+          team_type: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          finished_at?: string | null
+          foreman?: string
+          id?: string
+          item_code?: string
+          notes?: string
+          problem?: string
+          reason?: string
+          redo_status?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          team_type?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          finished_at?: string | null
+          foreman?: string
+          id?: string
+          item_code?: string
+          notes?: string
+          problem?: string
+          reason?: string
+          redo_status?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          team_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_redo_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "qa_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_reports: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          justification: string
+          observations: string
+          photos: Json
+          sent_at: string | null
+          status: string
+          template_id: string
+          updated_at: string
+          values: Json
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          justification?: string
+          observations?: string
+          photos?: Json
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+          values?: Json
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          justification?: string
+          observations?: string
+          photos?: Json
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_reports_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "qa_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qualyflow_analyses: {
         Row: {
           analyzed_at: string
@@ -3583,7 +3885,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_24: {
+      messages_2026_11_03: {
         Row: {
           event: string | null
           extension: string
@@ -3616,7 +3918,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_25: {
+      messages_2026_11_04: {
         Row: {
           event: string | null
           extension: string
@@ -3649,7 +3951,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_26: {
+      messages_2026_11_05: {
         Row: {
           event: string | null
           extension: string
@@ -3682,7 +3984,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_27: {
+      messages_2026_11_06: {
         Row: {
           event: string | null
           extension: string
@@ -3715,7 +4017,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_28: {
+      messages_2026_11_07: {
         Row: {
           event: string | null
           extension: string
@@ -3748,7 +4050,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_29: {
+      messages_2026_11_08: {
         Row: {
           event: string | null
           extension: string
@@ -3781,7 +4083,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_30: {
+      messages_2026_11_09: {
         Row: {
           event: string | null
           extension: string

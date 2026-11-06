@@ -1,0 +1,30 @@
+-- Políticas do Qualy Auditor: leitura/escrita para autenticados, exclusão só para gestor.
+create policy qa_documents_select on public.qa_documents for select to authenticated using (true);
+create policy qa_documents_insert on public.qa_documents for insert to authenticated with check (true);
+create policy qa_documents_update on public.qa_documents for update to authenticated using (true) with check (true);
+create policy qa_documents_delete on public.qa_documents for delete to authenticated using (public.qualyflow_is_manager());
+
+create policy qa_document_items_select on public.qa_document_items for select to authenticated using (true);
+create policy qa_document_items_insert on public.qa_document_items for insert to authenticated with check (true);
+create policy qa_document_items_update on public.qa_document_items for update to authenticated using (true) with check (true);
+create policy qa_document_items_delete on public.qa_document_items for delete to authenticated using (public.qualyflow_is_manager());
+
+create policy qa_cases_select on public.qa_cases for select to authenticated using (true);
+create policy qa_cases_insert on public.qa_cases for insert to authenticated with check (true);
+create policy qa_cases_update on public.qa_cases for update to authenticated using (true) with check (true);
+create policy qa_cases_delete on public.qa_cases for delete to authenticated using (public.qualyflow_is_manager());
+
+create policy qa_case_events_select on public.qa_case_events for select to authenticated using (true);
+create policy qa_case_events_insert on public.qa_case_events for insert to authenticated with check (true);
+create policy qa_case_events_update on public.qa_case_events for update to authenticated using (true) with check (true);
+create policy qa_case_events_delete on public.qa_case_events for delete to authenticated using (public.qualyflow_is_manager());
+
+create policy qa_redo_select on public.qa_redo for select to authenticated using (true);
+create policy qa_redo_insert on public.qa_redo for insert to authenticated with check (true);
+create policy qa_redo_update on public.qa_redo for update to authenticated using (true) with check (true);
+create policy qa_redo_delete on public.qa_redo for delete to authenticated using (public.qualyflow_is_manager());
+
+create policy qa_reports_select on public.qa_reports for select to authenticated using (true);
+create policy qa_reports_insert on public.qa_reports for insert to authenticated with check (true);
+create policy qa_reports_update on public.qa_reports for update to authenticated using (true) with check (true);
+create policy qa_reports_delete on public.qa_reports for delete to authenticated using (public.qualyflow_is_manager());

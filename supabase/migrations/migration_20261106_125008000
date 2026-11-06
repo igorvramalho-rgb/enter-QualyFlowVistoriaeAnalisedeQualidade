@@ -1,0 +1,104 @@
+-- QUALY AUDITOR — estrutura própria, isolada dos módulos existentes.
+create table if not exists public.qa_documents (
+  id uuid primary key default gen_random_uuid(),
+  fingerprint text not null unique,
+  file_name text not null,
+  pdf_path text not null default '',
+  pages integer not null default 1,
+  fields jsonb not null default '{}'::jsonb,
+  confidence jsonb not null default '{}'::jsonb,
+  snippet text not null default '',
+  source text not null default 'texto',
+  text_available boolean not null default true,
+  imported_by uuid default auth.uid(),
+  imported_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.qa_document_items (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.qa_documents(id) on delete cascade,
+  code text not null default '',
+  description text not null default '',
+  original_result text not null default '',
+  complement text not null default '',
+  page_number integer,
+  internal_result text,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.qa_cases (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid references public.qa_documents(id) on delete set null,
+  fac text not null default '',
+  os text not null default '',
+  address text not null default '',
+  municipality text not null default '',
+  locality text not null default '',
+  service_type text not null default '',
+  contractor text not null default '',
+  analysis_status text not null default 'aguardando_analise',
+  outcome text not null default 'pendente',
+  reopen_count integer not null default 0,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.qa_case_events (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.qa_cases(id) on delete cascade,
+  event_type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.qa_redo (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null unique references public.qa_cases(id) on delete cascade,
+  item_code text not null default '',
+  problem text not null default '',
+  reason text not null default '',
+  team_type text not null default '',
+  foreman text not null default '',
+  sent_at timestamptz,
+  scheduled_at timestamptz,
+  redo_status text not null default 'pendente_encaminhamento',
+  finished_at timestamptz,
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.qa_reports (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.qa_cases(id) on delete cascade,
+  template_id text not null default '',
+  values jsonb not null default '{}'::jsonb,
+  photos jsonb not null default '{}'::jsonb,
+  justification text not null default '',
+  observations text not null default '',
+  status text not null default 'rascunho',
+  sent_at timestamptz,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists qa_document_items_document_idx on public.qa_document_items (document_id);
+create index if not exists qa_cases_status_idx on public.qa_cases (analysis_status);
+create index if not exists qa_cases_document_idx on public.qa_cases (document_id);
+create unique index if not exists qa_cases_fac_os_idx on public.qa_cases (fac, os) where fac <> '' and os <> '';
+create index if not exists qa_case_events_case_idx on public.qa_case_events (case_id, created_at desc);
+create index if not exists qa_reports_case_idx on public.qa_reports (case_id);
+create index if not exists qa_redo_status_idx on public.qa_redo (redo_status);
+
+alter table public.qa_documents enable row level security;
+alter table public.qa_document_items enable row level security;
+alter table public.qa_cases enable row level security;
+alter table public.qa_case_events enable row level security;
+alter table public.qa_redo enable row level security;
+alter table public.qa_reports enable row level security;
