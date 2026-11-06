@@ -48,6 +48,15 @@ export function originalPdfPath(documentId: string): string {
   return `${AUDITOR_PREFIX}/${documentId}/original.pdf`;
 }
 
+/** Fingerprints já registrados — deduplicação em lote com uma única consulta. */
+export async function fetchAllFingerprints(): Promise<Set<string>> {
+  const { data, error } = await supabase.from("qa_documents").select("fingerprint").limit(5000);
+  if (error) {
+    fail(error);
+  }
+  return new Set((data ?? []).map((row) => String(row.fingerprint)));
+}
+
 export async function findDocumentByFingerprint(
   fingerprint: string,
 ): Promise<ExistingDocument | null> {
