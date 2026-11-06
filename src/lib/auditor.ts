@@ -111,13 +111,14 @@ export interface AuditorDocument {
   fac: string;
   os: string;
   address: string;
+  pdfPath: string;
 }
 
 /** Documentos já recebidos (a importação entra na Etapa 3). */
 export async function fetchDocuments(limit = 40): Promise<AuditorDocument[]> {
   const { data, error } = await supabase
     .from("qa_documents")
-    .select("id, file_name, pages, imported_at, source, text_available, fields")
+    .select("id, file_name, pages, imported_at, source, text_available, fields, pdf_path")
     .order("imported_at", { ascending: false })
     .limit(limit);
 
@@ -137,6 +138,7 @@ export async function fetchDocuments(limit = 40): Promise<AuditorDocument[]> {
       fac: fields.fac ?? "",
       os: fields.os ?? "",
       address: fields.endereco ?? "",
+      pdfPath: row.pdf_path ?? "",
     };
   });
 }

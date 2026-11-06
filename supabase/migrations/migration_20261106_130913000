@@ -1,0 +1,4 @@
+delete from storage.objects
+ where bucket_id = 'qualyflow-fotos'
+   and name like 'qualyflow/auditor/%/original.pdf'
+   and name not in (select coalesce(pdf_path, '') from public.qa_documents);

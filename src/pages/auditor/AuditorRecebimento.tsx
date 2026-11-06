@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { FileStack, Info, Loader2, RefreshCw } from "lucide-react";
+import { ExternalLink, FileStack, Info, Loader2, RefreshCw } from "lucide-react";
 import { AuditorEmpty } from "@/components/auditor/auditor-empty";
+import { AuditorImport } from "@/components/auditor/auditor-import";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fetchDocuments, type AuditorDocument } from "@/lib/auditor";
+import { signedPdfUrl } from "@/lib/auditor-save";
 import { formatDateTimeBR } from "@/lib/fields";
 
 export default function AuditorRecebimento() {
@@ -38,10 +40,13 @@ export default function AuditorRecebimento() {
               Documentos da AlphaGeos importados manualmente para o Qualy Auditor.
             </p>
           </div>
-          <Button type="button" variant="glass" size="sm" onClick={() => void load()} disabled={loading}>
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Atualizar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <AuditorImport onSaved={() => void load()} />
+            <Button type="button" variant="glass" size="sm" onClick={() => void load()} disabled={loading}>
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         <div className="mt-3 flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
@@ -63,8 +68,7 @@ export default function AuditorRecebimento() {
             <AuditorEmpty
               icon={FileStack}
               title="Nenhum documento recebido"
-              description="Quando a importação estiver ativa, os formulários de verificação aparecerão aqui com FV, OS, endereço e páginas."
-              nextStage="Importação e leitura assistida — Etapa 3"
+              description="Use “Importar PDF” para ler um formulário de verificação da AlphaGeos. O documento original fica guardado em área privada."
             />
           </div>
         ) : (
@@ -79,6 +83,7 @@ export default function AuditorRecebimento() {
                   <th className="py-2 pr-3 font-medium">Págs.</th>
                   <th className="py-2 pr-3 font-medium">Origem</th>
                   <th className="py-2 pr-3 font-medium">Recebido</th>
+                  <th className="py-2 pr-3 font-medium">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,6 +103,26 @@ export default function AuditorRecebimento() {
                     </td>
                     <td className="py-2 pr-3 text-muted-foreground">
                       {formatDateTimeBR(row.importedAt)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {row.pdfPath ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+                          onClick={() => {
+                            void signedPdfUrl(row.pdfPath).then((link) => {
+                              if (link) {
+                                window.open(link, "_blank", "noopener");
+                              }
+                            });
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          abrir
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

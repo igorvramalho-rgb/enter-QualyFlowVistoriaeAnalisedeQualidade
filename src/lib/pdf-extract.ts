@@ -218,6 +218,53 @@ export async function analyzePdfFile(
   }
 }
 
+export interface PdfPageText {
+  page: number;
+  text: string;
+}
+
+/**
+ * Texto por página (sem OCR). Usado pelo Qualy Auditor para registrar a
+ * **página de origem** de cada informação. Não altera o fluxo do Analista.
+ */
+export async function readPdfPageTexts(
+  file: File,
+  options: { onProgress?: (page: number, total: number) => void; shouldCancel?: () => boolean } = {},
+): Promise<{ pages: PdfPageText[]; total: number }> {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = pdfjs.getDocument({ data: buffer });
+  let document: pdfjs.PDFDocumentProxy;
+
+  try {
+    document = await loadingTask.promise;
+  } catch {
+    void loadingTask.destroy();
+    throw new PdfExtractionError("Não foi possível ler este PDF. O arquivo pode estar corrompido.");
+  }
+
+  try {
+    const pages: PdfPageText[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      if (options.shouldCancel?.()) {
+        break;
+      }
+      options.onProgress?.(pageNumber, document.numPages);
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const text = normalizeText(pageLines(content.items).map((line) => line.text).join("\n"));
+      pages.push({ page: pageNumber, text });
+      page.cleanup();
+    }
+    return { pages, total: document.numPages };
+  } finally {
+    try {
+      await loadingTask.destroy();
+    } catch {
+      /* liberar o worker falhou: o resultado já está pronto */
+    }
+  }
+}
+
 function buildRecord(file: File, pages: number, lines: TextLine[]): AnalysisRecord {
   const text = normalizeText(lines.map((line) => line.text).join("\n"));
 

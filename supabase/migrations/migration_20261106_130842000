@@ -1,0 +1,5 @@
+-- Qualy Auditor guarda o PDF original no mesmo bucket privado, sob qualyflow/auditor/.
+-- Apenas amplia os tipos aceitos; nenhum arquivo existente é alterado.
+update storage.buckets
+   set allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+ where id = 'qualyflow-fotos';
