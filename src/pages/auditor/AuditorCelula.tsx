@@ -220,7 +220,8 @@ export default function AuditorCelula() {
                   <tr key={row.id} className="border-b border-border/30 align-top">
                     <td className="py-2 pr-3">
                       <Link to={`/auditor/caso/${row.id}`} className="text-primary underline-offset-2 hover:underline">
-                        {row.fac || "—"} / {row.os || "—"}
+                        {row.fac || row.fileName || "sem FV/OS"}
+                        {row.fac || row.os ? ` / ${row.os || "—"}` : ""}
                       </Link>
                       <p className="text-[10px] text-muted-foreground">{cellLabel(row.cell)}</p>
                     </td>

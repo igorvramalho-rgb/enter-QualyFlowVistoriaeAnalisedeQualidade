@@ -3524,6 +3524,7 @@ export type Database = {
       }
       qa_documents: {
         Row: {
+          cell: string
           confidence: Json
           created_at: string
           fields: Json
@@ -3542,6 +3543,7 @@ export type Database = {
           upload_status: string
         }
         Insert: {
+          cell?: string
           confidence?: Json
           created_at?: string
           fields?: Json
@@ -3560,6 +3562,7 @@ export type Database = {
           upload_status?: string
         }
         Update: {
+          cell?: string
           confidence?: Json
           created_at?: string
           fields?: Json

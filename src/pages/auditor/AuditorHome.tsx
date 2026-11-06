@@ -140,7 +140,8 @@ export default function AuditorHome() {
                   <tr key={caso.id} className="border-b border-border/30">
                     <td className="py-1.5 pr-2">
                       <Link to={`/auditor/caso/${caso.id}`} className="text-primary underline-offset-2 hover:underline">
-                        {caso.fac || "—"} / {caso.os || "—"}
+                        {caso.fac || caso.fileName || "sem FV/OS"}
+                        {caso.fac || caso.os ? ` / ${caso.os || "—"}` : ""}
                       </Link>
                     </td>
                     <td className="max-w-[320px] truncate py-1.5 pr-2 text-muted-foreground">

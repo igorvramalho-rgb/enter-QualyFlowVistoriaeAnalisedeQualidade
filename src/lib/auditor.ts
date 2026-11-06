@@ -197,6 +197,8 @@ export interface CaseRow {
   cell: CellKey;
   updatedAt: string;
   returnedCount: number;
+  /** Nome do PDF — usado quando a FV/OS não foi extraída. */
+  fileName: string;
 }
 
 function fail(error: unknown): never {
@@ -234,7 +236,7 @@ export async function fetchCases(): Promise<CaseRow[]> {
   const { data, error } = await supabase
     .from("qa_cases")
     .select(
-      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell",
+      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, qa_documents(file_name)",
     )
     .order("updated_at", { ascending: false })
     .limit(500);
@@ -256,6 +258,7 @@ export async function fetchCases(): Promise<CaseRow[]> {
     cell: (row.cell as CellKey) ?? "fiscalizacao",
     updatedAt: row.updated_at,
     returnedCount: row.returned_count,
+    fileName: (row.qa_documents as { file_name?: string } | null)?.file_name ?? "",
   }));
 }
 

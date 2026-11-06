@@ -54,6 +54,7 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
         });
 
         const partes = [`${resultado.registrados} registrado(s)`];
+        if (resultado.movidos) partes.push(`${resultado.movidos} movido(s) para esta célula`);
         if (resultado.duplicados) partes.push(`${resultado.duplicados} já existente(s)`);
         if (resultado.pendentes) partes.push(`${resultado.pendentes} com PDF pendente`);
         if (resultado.falhas) partes.push(`${resultado.falhas} falha(s)`);

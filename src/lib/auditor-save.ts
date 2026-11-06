@@ -3,6 +3,7 @@ import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
 import type { AnalysisStatus, CaseOutcome, CellKey } from "@/lib/auditor";
+import { deriveNumbersFromFileName } from "@/lib/fields";
 
 /** Situação inicial sugerida por célula (o usuário pode mudar depois). */
 const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
@@ -107,6 +108,88 @@ export async function signedPdfUrl(path: string): Promise<string | null> {
   return data?.signedUrl ?? null;
 }
 
+/** FV/OS vêm da extração; quando faltam, o nome do arquivo costuma trazê-las. */
+export function resolveIdentity(
+  fields: Record<string, string>,
+  fileName: string,
+): { fac: string; os: string } {
+  const doNome = deriveNumbersFromFileName(fileName);
+  return {
+    fac: (fields.fac || doNome.fac || "").trim(),
+    os: (fields.os || doNome.os || "").trim(),
+  };
+}
+
+/**
+ * Garante que o documento tenha uma tratativa e que ela esteja na célula pedida.
+ * Sem isso, documento sem FV/OS ficava fora de todas as células.
+ */
+async function ensureCase(params: {
+  documentId: string;
+  fields: Record<string, string>;
+  fileName: string;
+  cell: CellKey;
+  mapa: Map<string, string>;
+}): Promise<string | null> {
+  const { fac, os } = resolveIdentity(params.fields, params.fileName);
+  const chave = fac || os ? `${fac}|${os}` : `doc:${params.documentId}`;
+
+  let existente = params.mapa.get(chave);
+
+  if (!existente) {
+    const consulta = supabase.from("qa_cases").select("id");
+    const { data: achado } = fac || os
+      ? await consulta.eq("fac", fac).eq("os", os).maybeSingle()
+      : await consulta.eq("document_id", params.documentId).maybeSingle();
+
+    if (achado?.id) {
+      existente = achado.id;
+      params.mapa.set(chave, achado.id);
+    }
+  }
+
+  if (existente) {
+    await supabase
+      .from("qa_cases")
+      .update({
+        document_id: params.documentId,
+        cell: params.cell,
+        analysis_status: STATUS_BY_CELL[params.cell],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existente);
+    return existente;
+  }
+
+  const { data, error } = await supabase
+    .from("qa_cases")
+    .insert({
+      document_id: params.documentId,
+      fac,
+      os,
+      address: (params.fields.endereco ?? "").trim(),
+      municipality: (params.fields.municipio ?? "").trim(),
+      locality: (params.fields.localidade ?? "").trim(),
+      service_type: (params.fields.servico ?? "").trim(),
+      contractor: (params.fields.contratada ?? "").trim(),
+      analysis_status: STATUS_BY_CELL[params.cell],
+      outcome: OUTCOME_BY_CELL[params.cell],
+      cell: params.cell,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    fail(error);
+  }
+
+  const caseId = data?.id ?? null;
+  if (caseId) {
+    params.mapa.set(chave, caseId);
+  }
+  return caseId;
+}
+
 export interface ConfirmInput {
   extraction: AuditorExtraction;
   file: File;
@@ -141,6 +224,7 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
     text_available: extraction.textAvailable,
     upload_status: "pendente",
     upload_error: "",
+    cell,
   });
 
   if (documentError) {
@@ -182,59 +266,14 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
     }
   }
 
-  // 4) Tratativa única por FV/OS.
-  let caseId: string | null = null;
-  const fac = (fields.fac ?? "").trim();
-  const os = (fields.os ?? "").trim();
-
-  if (fac || os) {
-    const { data: existing, error: findError } = await supabase
-      .from("qa_cases")
-      .select("id")
-      .eq("fac", fac)
-      .eq("os", os)
-      .maybeSingle();
-
-    if (findError) {
-      fail(findError);
-    }
-
-    if (existing) {
-      caseId = existing.id;
-      await supabase
-        .from("qa_cases")
-        .update({
-          document_id: documentId,
-          cell,
-          analysis_status: STATUS_BY_CELL[cell],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", caseId);
-    } else {
-      const { data: created, error: caseError } = await supabase
-        .from("qa_cases")
-        .insert({
-          document_id: documentId,
-          fac,
-          os,
-          address: (fields.endereco ?? "").trim(),
-          municipality: (fields.municipio ?? "").trim(),
-          locality: (fields.localidade ?? "").trim(),
-          service_type: (fields.servico ?? "").trim(),
-          contractor: (fields.contratada ?? "").trim(),
-          analysis_status: STATUS_BY_CELL[cell],
-          outcome: OUTCOME_BY_CELL[cell],
-          cell,
-        })
-        .select("id")
-        .single();
-
-      if (caseError) {
-        fail(caseError);
-      }
-      caseId = created?.id ?? null;
-    }
-  }
+  // 4) Tratativa: garante uma por FV/OS (ou por documento, sem FV/OS).
+  const caseId = await ensureCase({
+    documentId,
+    fields,
+    fileName: extraction.fileName,
+    cell,
+    mapa: new Map<string, string>(),
+  });
 
   if (caseId) {
     await supabase.from("qa_case_events").insert({
@@ -289,6 +328,7 @@ export interface BatchProgress {
 export interface BatchResult {
   registrados: number;
   duplicados: number;
+  movidos: number;
   falhas: number;
   pendentes: number;
   primeiroErro: string;
@@ -322,6 +362,7 @@ export async function importAuditorBatch(params: {
   const resultado: BatchResult = {
     registrados: 0,
     duplicados: 0,
+    movidos: 0,
     falhas: 0,
     pendentes: 0,
     primeiroErro: "",
@@ -344,6 +385,7 @@ export async function importAuditorBatch(params: {
 
   const chave = (fac: string, os: string) => `${fac.trim()}|${os.trim()}`;
   const preparados: Prepared[] = [];
+  const eventosPendentes: { case_id: string; documentId: string; fileName: string; pages: number }[] = [];
   let concluidos = 0;
 
   // Extração + gravação do documento em paralelo (limite de 4 simultâneos).
@@ -362,7 +404,34 @@ export async function importAuditorBatch(params: {
         const extraction = await extractAuditorDocument(file, { ocr });
 
         if (vistos.has(extraction.fingerprint)) {
-          resultado.duplicados += 1;
+          // Já existe: garante a tratativa e move para a célula pedida.
+          const { data: existente } = await supabase
+            .from("qa_documents")
+            .select("id, fields, file_name")
+            .eq("fingerprint", extraction.fingerprint)
+            .maybeSingle();
+
+          if (existente) {
+            await supabase.from("qa_documents").update({ cell }).eq("id", existente.id);
+            const caseId = await ensureCase({
+              documentId: existente.id,
+              fields: (existente.fields as Record<string, string>) ?? {},
+              fileName: existente.file_name ?? file.name,
+              cell,
+              mapa: mapaCasos,
+            });
+            if (caseId) {
+              eventosPendentes.push({
+                case_id: caseId,
+                documentId: existente.id,
+                fileName: existente.file_name ?? file.name,
+                pages: 0,
+              });
+            }
+            resultado.movidos += 1;
+          } else {
+            resultado.duplicados += 1;
+          }
           return;
         }
         vistos.add(extraction.fingerprint);
@@ -389,6 +458,7 @@ export async function importAuditorBatch(params: {
           text_available: extraction.textAvailable,
           upload_status: "pendente",
           upload_error: "",
+          cell,
         });
 
         if (docError) {
@@ -456,53 +526,25 @@ export async function importAuditorBatch(params: {
     }
   }
 
-  // Tratativas: reaproveita por FV/OS ou cria uma nova.
+  // Tratativas: uma por FV/OS (ou por documento, quando não há FV/OS).
   const eventos: { case_id: string; event_type: string; payload: unknown }[] = [];
 
+  for (const evento of eventosPendentes) {
+    eventos.push({
+      case_id: evento.case_id,
+      event_type: "recebimento",
+      payload: { documentId: evento.documentId, fileName: evento.fileName, pages: evento.pages },
+    });
+  }
+
   for (const doc of preparados) {
-    const key = chave(doc.fac, doc.os);
-    if (!doc.fac && !doc.os) {
-      continue;
-    }
-
-    let caseId = mapaCasos.get(key);
-    if (caseId) {
-      await supabase
-        .from("qa_cases")
-        .update({
-          document_id: doc.documentId,
-          cell,
-          analysis_status: STATUS_BY_CELL[cell],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", caseId);
-    } else {
-      const { data: created, error } = await supabase
-        .from("qa_cases")
-        .insert({
-          document_id: doc.documentId,
-          fac: doc.fac,
-          os: doc.os,
-          address: (doc.fields.endereco ?? "").trim(),
-          municipality: (doc.fields.municipio ?? "").trim(),
-          locality: (doc.fields.localidade ?? "").trim(),
-          service_type: (doc.fields.servico ?? "").trim(),
-          contractor: (doc.fields.contratada ?? "").trim(),
-          analysis_status: STATUS_BY_CELL[cell],
-          outcome: OUTCOME_BY_CELL[cell],
-          cell,
-        })
-        .select("id")
-        .single();
-
-      if (error) {
-        fail(error);
-      }
-      caseId = created?.id;
-      if (caseId) {
-        mapaCasos.set(key, caseId);
-      }
-    }
+    const caseId = await ensureCase({
+      documentId: doc.documentId,
+      fields: doc.fields,
+      fileName: doc.fileName,
+      cell,
+      mapa: mapaCasos,
+    });
 
     if (caseId) {
       eventos.push({
