@@ -13,6 +13,7 @@ import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
+import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { fetchCases, type CaseRow } from "@/lib/auditor";
 import { useEffect, useState } from "react";
 import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
@@ -49,10 +50,13 @@ export default function AuditorHome() {
     <AuditorShell>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Visão geral</h2>
-        <Button type="button" variant="glass" size="sm" onClick={() => void refresh()} disabled={loading}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Atualizar
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <AuditorReset onCleared={() => void refresh()} />
+          <Button type="button" variant="glass" size="sm" onClick={() => void refresh()} disabled={loading}>
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {error && (

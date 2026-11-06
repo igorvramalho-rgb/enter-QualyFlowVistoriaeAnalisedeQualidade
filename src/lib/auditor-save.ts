@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/photo-storage";
+import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
 import type { AnalysisStatus, CaseOutcome, CellKey } from "@/lib/auditor";
 
@@ -275,4 +276,246 @@ export async function retryPendingUpload(
       .eq("id", documentId);
     return { ok: false, message };
   }
+}
+
+/* ------------------------------------------------------- importação em lote */
+
+export interface BatchProgress {
+  done: number;
+  total: number;
+  name: string;
+}
+
+export interface BatchResult {
+  registrados: number;
+  duplicados: number;
+  falhas: number;
+  pendentes: number;
+  primeiroErro: string;
+}
+
+const CONCURRENCY = 4;
+const ITEM_CHUNK = 100;
+const EVENT_CHUNK = 100;
+
+interface Prepared {
+  documentId: string;
+  fields: Record<string, string>;
+  items: AuditorItem[];
+  fileName: string;
+  pages: number;
+  fac: string;
+  os: string;
+  uploadOk: boolean;
+}
+
+/** Importa vários PDFs: extração em paralelo, gravação em massa. */
+export async function importAuditorBatch(params: {
+  files: File[];
+  cell: CellKey;
+  ocr: boolean;
+  onProgress?: (progress: BatchProgress) => void;
+  shouldCancel?: () => boolean;
+}): Promise<BatchResult> {
+  const { files, cell, ocr, onProgress, shouldCancel } = params;
+
+  const resultado: BatchResult = {
+    registrados: 0,
+    duplicados: 0,
+    falhas: 0,
+    pendentes: 0,
+    primeiroErro: "",
+  };
+
+  const [fingerprints, casos] = await Promise.all([
+    fetchAllFingerprints(),
+    supabase.from("qa_cases").select("id, fac, os").limit(5000),
+  ]);
+
+  if (casos.error) {
+    fail(casos.error);
+  }
+
+  const vistos = new Set(fingerprints);
+  const mapaCasos = new Map<string, string>();
+  for (const row of casos.data ?? []) {
+    mapaCasos.set(`${row.fac}|${row.os}`, row.id);
+  }
+
+  const chave = (fac: string, os: string) => `${fac.trim()}|${os.trim()}`;
+  const preparados: Prepared[] = [];
+  let concluidos = 0;
+
+  // Extração + gravação do documento em paralelo (limite de 4 simultâneos).
+  const fila = [...files];
+
+  const trabalhar = async (): Promise<void> => {
+    for (;;) {
+      if (shouldCancel?.()) {
+        return;
+      }
+      const file = fila.shift();
+      if (!file) {
+        return;
+      }
+      try {
+        const extraction = await extractAuditorDocument(file, { ocr });
+
+        if (vistos.has(extraction.fingerprint)) {
+          resultado.duplicados += 1;
+          return;
+        }
+        vistos.add(extraction.fingerprint);
+
+        const fields = Object.fromEntries(
+          AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
+        );
+        const documentId = crypto.randomUUID();
+
+        const { error: docError } = await supabase.from("qa_documents").insert({
+          id: documentId,
+          fingerprint: extraction.fingerprint,
+          file_name: extraction.fileName,
+          pdf_path: "",
+          pages: extraction.pages,
+          fields,
+          confidence: {},
+          snippet: "",
+          source: extraction.usedOcr
+            ? "texto+ocr"
+            : extraction.textAvailable
+              ? "texto"
+              : "sem-texto",
+          text_available: extraction.textAvailable,
+          upload_status: "pendente",
+          upload_error: "",
+        });
+
+        if (docError) {
+          fail(docError);
+        }
+
+        let uploadOk = true;
+        try {
+          const path = await upload(documentId, file);
+          await supabase
+            .from("qa_documents")
+            .update({ pdf_path: path, upload_status: "concluido" })
+            .eq("id", documentId);
+        } catch {
+          uploadOk = false;
+        }
+
+        preparados.push({
+          documentId,
+          fields,
+          items: extraction.items,
+          fileName: extraction.fileName,
+          pages: extraction.pages,
+          fac: (fields.fac ?? "").trim(),
+          os: (fields.os ?? "").trim(),
+          uploadOk,
+        });
+
+        resultado.registrados += 1;
+        if (!uploadOk) resultado.pendentes += 1;
+      } catch (problem) {
+        resultado.falhas += 1;
+        if (!resultado.primeiroErro) {
+          resultado.primeiroErro = `${file.name}: ${
+            problem instanceof Error ? problem.message : "erro desconhecido"
+          }`;
+        }
+      } finally {
+        concluidos += 1;
+        onProgress?.({ done: concluidos, total: files.length, name: file.name });
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, fila.length) }, () => trabalhar()));
+
+  // Etapas avaliadas em massa (1 chamada por 100 documentos).
+  const itens = preparados.flatMap((doc) =>
+    doc.items.map((item) => ({
+      document_id: doc.documentId,
+      code: item.code,
+      description: item.description,
+      original_result: item.originalResult,
+      complement: item.complement,
+      page_number: item.page,
+    })),
+  );
+
+  for (let index = 0; index < itens.length; index += ITEM_CHUNK) {
+    const { error } = await supabase
+      .from("qa_document_items")
+      .insert(itens.slice(index, index + ITEM_CHUNK));
+    if (error) {
+      fail(error);
+    }
+  }
+
+  // Tratativas: reaproveita por FV/OS ou cria uma nova.
+  const eventos: { case_id: string; event_type: string; payload: unknown }[] = [];
+
+  for (const doc of preparados) {
+    const key = chave(doc.fac, doc.os);
+    if (!doc.fac && !doc.os) {
+      continue;
+    }
+
+    let caseId = mapaCasos.get(key);
+    if (caseId) {
+      await supabase
+        .from("qa_cases")
+        .update({
+          document_id: doc.documentId,
+          cell,
+          analysis_status: STATUS_BY_CELL[cell],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", caseId);
+    } else {
+      const { data: created, error } = await supabase
+        .from("qa_cases")
+        .insert({
+          document_id: doc.documentId,
+          fac: doc.fac,
+          os: doc.os,
+          address: (doc.fields.endereco ?? "").trim(),
+          municipality: (doc.fields.municipio ?? "").trim(),
+          locality: (doc.fields.localidade ?? "").trim(),
+          service_type: (doc.fields.servico ?? "").trim(),
+          contractor: (doc.fields.contratada ?? "").trim(),
+          analysis_status: STATUS_BY_CELL[cell],
+          outcome: OUTCOME_BY_CELL[cell],
+          cell,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        fail(error);
+      }
+      caseId = created?.id;
+      if (caseId) {
+        mapaCasos.set(key, caseId);
+      }
+    }
+
+    if (caseId) {
+      eventos.push({
+        case_id: caseId,
+        event_type: "recebimento",
+        payload: { documentId: doc.documentId, fileName: doc.fileName, pages: doc.pages },
+      });
+    }
+  }
+
+  for (let index = 0; index < eventos.length; index += EVENT_CHUNK) {
+    await supabase.from("qa_case_events").insert(eventos.slice(index, index + EVENT_CHUNK) as never);
+  }
+
+  return resultado;
 }

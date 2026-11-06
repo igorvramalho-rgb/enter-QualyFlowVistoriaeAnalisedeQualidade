@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
-import {
-  confirmAuditorDocument,
-  fetchAllFingerprints,
-} from "@/lib/auditor-save";
+import { importAuditorBatch } from "@/lib/auditor-save";
 import { CELLS, type CellKey } from "@/lib/auditor";
 
 /** Limite operacional por importação. */
@@ -46,64 +43,28 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
 
       setBusy(true);
       cancelRef.current = false;
-      let ok = 0;
-      let pendentes = 0;
-      let duplicados = 0;
-      let falhas = 0;
-      let primeiroErro = "";
 
       try {
-        const existentes = await fetchAllFingerprints();
-        const vistos = new Set(existentes);
+        const resultado = await importAuditorBatch({
+          files: arquivos,
+          cell,
+          ocr,
+          onProgress: (info) => setProgress(info),
+          shouldCancel: () => cancelRef.current,
+        });
 
-        for (let index = 0; index < arquivos.length; index += 1) {
-          if (cancelRef.current) break;
-          const file = arquivos[index];
-          setProgress({ done: index, total: arquivos.length, name: file.name });
-
-          try {
-            const extraction = await extractAuditorDocument(file, { ocr });
-
-            if (vistos.has(extraction.fingerprint)) {
-              duplicados += 1;
-              continue;
-            }
-            vistos.add(extraction.fingerprint);
-
-            const result = await confirmAuditorDocument({
-              extraction,
-              file,
-              fields: Object.fromEntries(
-                AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
-              ),
-              items: extraction.items,
-              cell,
-            });
-
-            ok += 1;
-            if (!result.uploadOk) pendentes += 1;
-          } catch (problem) {
-            falhas += 1;
-            if (!primeiroErro) {
-              primeiroErro = `${file.name}: ${
-                problem instanceof Error ? problem.message : "erro desconhecido"
-              }`;
-            }
-          }
-        }
-
-        setProgress({ done: arquivos.length, total: arquivos.length, name: "" });
-
-        const partes = [`${ok} registrado(s)`];
-        if (duplicados) partes.push(`${duplicados} já existente(s)`);
-        if (pendentes) partes.push(`${pendentes} com PDF pendente`);
-        if (falhas) partes.push(`${falhas} falha(s)`);
+        const partes = [`${resultado.registrados} registrado(s)`];
+        if (resultado.duplicados) partes.push(`${resultado.duplicados} já existente(s)`);
+        if (resultado.pendentes) partes.push(`${resultado.pendentes} com PDF pendente`);
+        if (resultado.falhas) partes.push(`${resultado.falhas} falha(s)`);
         if (ignorados) partes.push(`${ignorados} ignorado(s) (não PDF)`);
         if (excedentes) partes.push(`${excedentes} acima do limite de ${MAX_FILES}`);
 
-        const descricao = primeiroErro ? `${partes.join(" · ")} — ${primeiroErro}` : partes.join(" · ");
+        const descricao = resultado.primeiroErro
+          ? `${partes.join(" · ")} — ${resultado.primeiroErro}`
+          : partes.join(" · ");
 
-        if (ok > 0) {
+        if (resultado.registrados > 0) {
           toast.success(`Importação em ${CELLS[cell].label}`, { description: descricao });
         } else {
           toast.warning("Nenhum documento novo foi registrado", { description: descricao });
