@@ -19,6 +19,8 @@ export interface BiCell {
 
 export interface BiPdfData {
   periodo: string;
+  /** Data de início da medição (editável antes de gerar). */
+  medicaoInicio: string;
   totalUnicas: number;
   conformes: number;
   naoConformes: number;
@@ -116,14 +118,12 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setFontSize(13);
   doc.text("FV/OS", M + larguraNumero + 3, 42);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   ink(doc, [203, 213, 225]);
-  doc.text(
-    `Período: ${data.periodo}   ·   Vila Maria e Santana`,
-    W - M,
-    42,
-    { align: "right" },
-  );
+  doc.text(`PERÍODO DE EMISSÃO: ${data.periodo}`, W - M, 34, { align: "right" });
+  doc.text(`MEDIÇÃO INICIADA EM ${data.medicaoInicio}`, W - M, 39, { align: "right" });
+  ink(doc, [148, 163, 184]);
+  doc.text("VILA MARIA E SANTANA", W - M, 44, { align: "right" });
 
   // Cartões das células
   let y = 62;

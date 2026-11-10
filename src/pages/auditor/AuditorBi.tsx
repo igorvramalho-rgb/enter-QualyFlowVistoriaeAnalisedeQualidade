@@ -69,6 +69,7 @@ export default function AuditorBi() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [totais, setTotais] = useState<AuditorCounts | null>(null);
+  const [medicaoInicio, setMedicaoInicio] = useState("2026-10-15");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,9 +244,16 @@ export default function AuditorBi() {
     } Restam ${kpis.refazerPendentes} pendência(s) de correção e ${kpis.devolucoes} devolução(ões) da AlphaGeos a tratar. Recomenda-se acompanhamento semanal até a zeragem das pendências.`;
   }, [kpis, porCelula, motivos, unicas]);
 
-  const periodoLabel = `${filters.from ? formatDateBR(filters.from) : "início"} a ${
-    filters.to ? formatDateBR(filters.to) : formatDateBR(new Date())
-  }`;
+  const hoje = formatDateBR(new Date());
+  const periodoLabel = filters.from && filters.to
+    ? `${formatDateBR(filters.from)} a ${formatDateBR(filters.to)}`
+    : filters.from
+      ? `a partir de ${formatDateBR(filters.from)}`
+      : filters.to
+        ? `até ${formatDateBR(filters.to)}`
+        : `até ${hoje}`;
+
+  const medicaoLabel = medicaoInicio ? formatDateBR(medicaoInicio) : "não informada";
 
   const analise = useMemo(() => {
     if (filtrados.length === 0) {
@@ -384,6 +392,7 @@ export default function AuditorBi() {
         motivos,
         resumo: analise,
         conclusao,
+        medicaoInicio: medicaoLabel,
         emitidoEm: new Date().toLocaleString("pt-BR"),
       });
 
@@ -459,6 +468,15 @@ export default function AuditorBi() {
                 <option key={servico} value={servico}>{servico}</option>
               ))}
             </select>
+          </label>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Medição iniciada em
+            <Input
+              type="date"
+              value={medicaoInicio}
+              onChange={(event) => setMedicaoInicio(event.target.value)}
+              className="mt-0.5 h-8 text-xs"
+            />
           </label>
           <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
             Situação
