@@ -249,37 +249,17 @@ export default function AuditorBi() {
 
   const analise = useMemo(() => {
     if (filtrados.length === 0) {
-      return "Não há registros no período selecionado. Os indicadores serão preenchidos assim que houver FV/OS importadas nas células.";
+      return "Não há registros no período selecionado.";
     }
 
-    const maior = [...porCelula].sort((a, b) => b.total - a.total)[0];
-    const servicoTop = [...porServico].sort((a, b) => b.total - a.total)[0];
-    const emFiscalizacao = porCelula.find((item) => item.key === "fiscalizacao")?.total ?? 0;
-    const emRefazer = porCelula.find((item) => item.key === "refazer")?.total ?? 0;
-    const respondidos = porCelula.find((item) => item.key === "respondidos")?.total ?? 0;
-    const naoAvaliados = porCelula.find((item) => item.key === "nao_avaliado")?.total ?? 0;
+    const valor = (key: string) => porCelula.find((item) => item.key === key)?.total ?? 0;
 
-    const partes = [
-      `No período de ${periodoLabel}, a Célula da Qualidade tratou ${unicas} FV/OS, distribuídas em ${filtrados.length} registro(s) nas células de trabalho.`,
-    ];
-
-    if (maior && maior.total > 0) {
-      partes.push(
-        `O maior volume está em "${maior.nome}" (${maior.total} — ${maior.pct}% do total).`,
-      );
-    }
-    partes.push(
-      `Em fiscalização: ${emFiscalizacao}. Em refazer: ${emRefazer}. Respondidos à AlphaGeos: ${respondidos}. Não avaliados: ${naoAvaliados}.`,
-    );
-    if (servicoTop && servicoTop.total > 0) {
-      partes.push(`O tipo de serviço mais frequente é "${servicoTop.nome}" (${servicoTop.total}).`);
-    }
-    partes.push(
-      `Foram registradas ${kpis.devolucoes} devolução(ões) da AlphaGeos e ${kpis.corrigidos} correção(ões) concluída(s) no período.`,
-    );
-
-    return partes.join(" ");
-  }, [filtrados.length, unicas, porCelula, porServico, kpis.devolucoes, kpis.corrigidos, periodoLabel]);
+    return `Foram avaliadas ${unicas} FV/OS: ${valor("fiscalizacao")} em fiscalização, ${valor(
+      "refazer",
+    )} em refazer, ${valor("respondidos")} respondidos à AlphaGeos, ${valor("rpa")} em RPA e ${valor(
+      "nao_avaliado",
+    )} em análise (não avaliados).`;
+  }, [filtrados.length, unicas, porCelula]);
 
   const exportarCsv = () => {
     downloadCsv(
