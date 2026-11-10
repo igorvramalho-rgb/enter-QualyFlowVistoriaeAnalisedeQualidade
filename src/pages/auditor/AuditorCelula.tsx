@@ -14,6 +14,7 @@ import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
   updateCasesBulk,
+  updateCasesCellBulk,
   CELLS,
   CELL_KEYS,
   cellLabel,
@@ -42,6 +43,7 @@ export default function AuditorCelula() {
   const [to, setTo] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loteStatus, setLoteStatus] = useState("");
+  const [loteCell, setLoteCell] = useState("");
   const [aplicando, setAplicando] = useState(false);
 
   const load = useCallback(async () => {
@@ -129,6 +131,26 @@ export default function AuditorCelula() {
       await load();
     } catch (problem) {
       toast.error("Falha ao atualizar em lote", {
+        description: problem instanceof Error ? problem.message : undefined,
+      });
+    } finally {
+      setAplicando(false);
+    }
+  };
+
+  const moverLote = async () => {
+    if (!loteCell || selected.size === 0) return;
+    setAplicando(true);
+    try {
+      const total = await updateCasesCellBulk([...selected], loteCell as never);
+      toast.success("Movidas de célula", {
+        description: `${total} FV/OS · ${CELLS[loteCell as keyof typeof CELLS].label}`,
+      });
+      setSelected(new Set());
+      setLoteCell("");
+      await load();
+    } catch (problem) {
+      toast.error("Falha ao mover", {
         description: problem instanceof Error ? problem.message : undefined,
       });
     } finally {
@@ -301,6 +323,25 @@ export default function AuditorCelula() {
             >
               {aplicando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Aplicar
+            </Button>
+            <select
+              value={loteCell}
+              onChange={(event) => setLoteCell(event.target.value)}
+              className="h-8 rounded-md border border-input bg-background/70 px-2 text-xs"
+            >
+              <option value="">Mover para célula...</option>
+              {CELL_KEYS.filter((key) => key !== cellKey).map((key) => (
+                <option key={key} value={key}>{CELLS[key].label}</option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              variant="glass"
+              size="sm"
+              disabled={!loteCell || aplicando}
+              onClick={() => void moverLote()}
+            >
+              Mover
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setSelected(new Set())}>
               Limpar seleção

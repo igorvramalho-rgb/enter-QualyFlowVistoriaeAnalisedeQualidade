@@ -98,6 +98,26 @@ export const OUTCOME_LABELS = {
 
 export type CaseOutcome = keyof typeof OUTCOME_LABELS;
 
+/** Célula para onde a situação leva automaticamente (o usuário ainda pode mover à mão). */
+export const CELL_BY_STATUS: Partial<Record<AnalysisStatus, CellKey>> = {
+  encaminhado_fiscalizacao: "fiscalizacao",
+  aguardando_retorno_fiscal: "fiscalizacao",
+  nao_conforme_confirmado: "refazer",
+  encaminhado_refazer: "refazer",
+  aguardando_relatorio: "respondidos",
+  resposta_enviada: "respondidos",
+  conforme_verificado: "respondidos",
+};
+
+/** Situação inicial sugerida ao entrar numa célula. */
+export const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
+  fiscalizacao: "encaminhado_fiscalizacao",
+  refazer: "encaminhado_refazer",
+  respondidos: "resposta_enviada",
+  rpa: "em_analise",
+  nao_avaliado: "necessita_esclarecimento",
+};
+
 /** Resultado do caso decorrente da situação escolhida. */
 export const OUTCOME_BY_STATUS: Partial<Record<AnalysisStatus, CaseOutcome>> = {
   conforme_verificado: "conforme",
@@ -114,12 +134,15 @@ export async function updateCasesBulk(caseIds: string[], status: AnalysisStatus)
   const outcome = OUTCOME_BY_STATUS[status] ?? "pendente";
   const agora = new Date().toISOString();
 
+  const destino = CELL_BY_STATUS[status];
+  const patch: Record<string, string> = { analysis_status: status, outcome, updated_at: agora };
+  if (destino) {
+    patch.cell = destino;
+  }
+
   for (let index = 0; index < caseIds.length; index += 100) {
     const lote = caseIds.slice(index, index + 100);
-    const { error } = await supabase
-      .from("qa_cases")
-      .update({ analysis_status: status, outcome, updated_at: agora })
-      .in("id", lote);
+    const { error } = await supabase.from("qa_cases").update(patch as never).in("id", lote);
     if (error) {
       fail(error);
     }
@@ -129,6 +152,40 @@ export async function updateCasesBulk(caseIds: string[], status: AnalysisStatus)
     case_id: caseId,
     event_type: status,
     payload: { lote: true } as never,
+  }));
+
+  for (let index = 0; index < eventos.length; index += 100) {
+    await supabase.from("qa_case_events").insert(eventos.slice(index, index + 100) as never);
+  }
+
+  invalidateAuditorCache();
+  return caseIds.length;
+}
+
+/** Move várias FV/OS para uma célula de uma vez, com histórico. */
+export async function updateCasesCellBulk(caseIds: string[], cell: CellKey): Promise<number> {
+  if (caseIds.length === 0) {
+    return 0;
+  }
+
+  const agora = new Date().toISOString();
+  const status = STATUS_BY_CELL[cell];
+
+  for (let index = 0; index < caseIds.length; index += 100) {
+    const lote = caseIds.slice(index, index + 100);
+    const { error } = await supabase
+      .from("qa_cases")
+      .update({ cell, analysis_status: status, updated_at: agora })
+      .in("id", lote);
+    if (error) {
+      fail(error);
+    }
+  }
+
+  const eventos = caseIds.map((caseId) => ({
+    case_id: caseId,
+    event_type: "movimentacao_celula",
+    payload: { cell, lote: true } as never,
   }));
 
   for (let index = 0; index < eventos.length; index += 100) {
@@ -423,7 +480,13 @@ export async function updateCase(
   const now = new Date().toISOString();
   const payload: Record<string, string | null> = { updated_at: now };
 
-  if (patch.status) payload.analysis_status = patch.status;
+  if (patch.status) {
+    payload.analysis_status = patch.status;
+    const destino = CELL_BY_STATUS[patch.status];
+    if (destino) {
+      payload.cell = destino;
+    }
+  }
   if (patch.outcome) payload.outcome = patch.outcome;
   if (typeof patch.opinion === "string") payload.internal_opinion = patch.opinion;
   if (typeof patch.notes === "string") payload.internal_notes = patch.notes;

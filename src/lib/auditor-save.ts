@@ -2,17 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
-import type { AnalysisStatus, CaseOutcome, CellKey } from "@/lib/auditor";
+import { STATUS_BY_CELL, type AnalysisStatus, type CaseOutcome, type CellKey } from "@/lib/auditor";
 import { deriveNumbersFromFileName } from "@/lib/fields";
 
-/** Situação inicial sugerida por célula (o usuário pode mudar depois). */
-const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
-  fiscalizacao: "encaminhado_fiscalizacao",
-  refazer: "encaminhado_refazer",
-  respondidos: "resposta_enviada",
-  rpa: "em_analise",
-  nao_avaliado: "necessita_esclarecimento",
-};
 
 /** N/A nunca vira conformidade nem não conformidade confirmada. */
 const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
