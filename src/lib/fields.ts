@@ -67,18 +67,19 @@ export function toDateInputValue(value: string | undefined): string {
 export function parseAnyDate(value: string): Date | null {
   const trimmed = value.trim();
 
+  // ISO primeiro: sem isso "2026-10-15" era lido como 26/10/2015 pelo padrão BR.
+  const iso = trimmed.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
   const br = trimmed.match(/(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/);
   if (br) {
     const day = Number(br[1]);
     const month = Number(br[2]);
     const year = Number(br[3].length === 2 ? `20${br[3]}` : br[3]);
     const date = new Date(year, month - 1, day);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  const iso = trimmed.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) {
-    const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
     return Number.isNaN(date.getTime()) ? null : date;
   }
 

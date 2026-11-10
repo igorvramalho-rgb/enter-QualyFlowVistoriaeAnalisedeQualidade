@@ -397,7 +397,11 @@ export default function AuditorBi() {
       });
 
       const blob = doc.output("blob");
-      const nome = `qualy-auditor-bi-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const emissao = new Date();
+      const stamp = `${String(emissao.getDate()).padStart(2, "0")}-${String(
+        emissao.getMonth() + 1,
+      ).padStart(2, "0")}-${emissao.getFullYear()}`;
+      const nome = `TRATATIVA_POS60_${stamp}.pdf`;
       const resultado = await savePdfBlob(blob, nome);
 
       if (resultado === "cancelled") {
