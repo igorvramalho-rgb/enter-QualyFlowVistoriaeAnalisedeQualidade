@@ -334,22 +334,13 @@ export interface BatchResult {
   primeiroErro: string;
 }
 
-const CONCURRENCY = 4;
-const ITEM_CHUNK = 100;
-const EVENT_CHUNK = 100;
+const CONCURRENCY = 3;
 
-interface Prepared {
-  documentId: string;
-  fields: Record<string, string>;
-  items: AuditorItem[];
-  fileName: string;
-  pages: number;
-  fac: string;
-  os: string;
-  uploadOk: boolean;
-}
-
-/** Importa vários PDFs: extração em paralelo, gravação em massa. */
+/**
+ * Importa vários PDFs. Cada arquivo é concluído de ponta a ponta (documento,
+ * PDF, etapas, tratativa e evento) dentro do próprio try: uma falha em um
+ * arquivo nunca interrompe os demais.
+ */
 export async function importAuditorBatch(params: {
   files: File[];
   cell: CellKey;
@@ -383,13 +374,136 @@ export async function importAuditorBatch(params: {
     mapaCasos.set(`${row.fac}|${row.os}`, row.id);
   }
 
-  const chave = (fac: string, os: string) => `${fac.trim()}|${os.trim()}`;
-  const preparados: Prepared[] = [];
-  const eventosPendentes: { case_id: string; documentId: string; fileName: string; pages: number }[] = [];
+  const fila = [...files];
   let concluidos = 0;
 
-  // Extração + gravação do documento em paralelo (limite de 4 simultâneos).
-  const fila = [...files];
+  const registrar = async (file: File): Promise<void> => {
+    const extraction = await extractAuditorDocument(file, { ocr });
+    const fields = Object.fromEntries(
+      AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
+    );
+
+    // Já existe: garante a tratativa e move para a célula escolhida.
+    if (vistos.has(extraction.fingerprint)) {
+      const { data: existente } = await supabase
+        .from("qa_documents")
+        .select("id, fields, file_name")
+        .eq("fingerprint", extraction.fingerprint)
+        .maybeSingle();
+
+      if (!existente) {
+        resultado.duplicados += 1;
+        return;
+      }
+
+      await supabase.from("qa_documents").update({ cell }).eq("id", existente.id);
+
+      // Documento antigo pode ter ficado sem etapas: completa agora.
+      const { count: itensExistentes } = await supabase
+        .from("qa_document_items")
+        .select("*", { count: "exact", head: true })
+        .eq("document_id", existente.id);
+
+      if ((itensExistentes ?? 0) === 0 && extraction.items.length > 0) {
+        await supabase.from("qa_document_items").insert(
+          extraction.items.map((item) => ({
+            document_id: existente.id,
+            code: item.code,
+            description: item.description,
+            original_result: item.originalResult,
+            complement: item.complement,
+            page_number: item.page,
+          })),
+        );
+      }
+
+      const caseId = await ensureCase({
+        documentId: existente.id,
+        fields: (existente.fields as Record<string, string>) ?? {},
+        fileName: existente.file_name ?? file.name,
+        cell,
+        mapa: mapaCasos,
+      });
+      if (caseId) {
+        await supabase.from("qa_case_events").insert({
+          case_id: caseId,
+          event_type: "recebimento",
+          payload: { documentId: existente.id, fileName: existente.file_name } as never,
+        });
+      }
+      resultado.movidos += 1;
+      return;
+    }
+
+    vistos.add(extraction.fingerprint);
+
+    const documentId = crypto.randomUUID();
+    const { error: docError } = await supabase.from("qa_documents").insert({
+      id: documentId,
+      fingerprint: extraction.fingerprint,
+      file_name: extraction.fileName,
+      pdf_path: "",
+      pages: extraction.pages,
+      fields,
+      confidence: {},
+      snippet: "",
+      source: extraction.usedOcr ? "texto+ocr" : extraction.textAvailable ? "texto" : "sem-texto",
+      text_available: extraction.textAvailable,
+      upload_status: "pendente",
+      upload_error: "",
+      cell,
+    });
+
+    if (docError) {
+      throw new Error(`registro do documento: ${docError.message}`);
+    }
+
+    let uploadOk = true;
+    try {
+      const path = await upload(documentId, file);
+      await supabase
+        .from("qa_documents")
+        .update({ pdf_path: path, upload_status: "concluido" })
+        .eq("id", documentId);
+    } catch {
+      uploadOk = false;
+    }
+
+    if (extraction.items.length > 0) {
+      const { error: itensError } = await supabase.from("qa_document_items").insert(
+        extraction.items.map((item) => ({
+          document_id: documentId,
+          code: item.code,
+          description: item.description,
+          original_result: item.originalResult,
+          complement: item.complement,
+          page_number: item.page,
+        })),
+      );
+      if (itensError) {
+        throw new Error(`etapas avaliadas: ${itensError.message}`);
+      }
+    }
+
+    const caseId = await ensureCase({
+      documentId,
+      fields,
+      fileName: extraction.fileName,
+      cell,
+      mapa: mapaCasos,
+    });
+
+    if (caseId) {
+      await supabase.from("qa_case_events").insert({
+        case_id: caseId,
+        event_type: "recebimento",
+        payload: { documentId, fileName: extraction.fileName, pages: extraction.pages } as never,
+      });
+    }
+
+    resultado.registrados += 1;
+    if (!uploadOk) resultado.pendentes += 1;
+  };
 
   const trabalhar = async (): Promise<void> => {
     for (;;) {
@@ -401,94 +515,7 @@ export async function importAuditorBatch(params: {
         return;
       }
       try {
-        const extraction = await extractAuditorDocument(file, { ocr });
-
-        if (vistos.has(extraction.fingerprint)) {
-          // Já existe: garante a tratativa e move para a célula pedida.
-          const { data: existente } = await supabase
-            .from("qa_documents")
-            .select("id, fields, file_name")
-            .eq("fingerprint", extraction.fingerprint)
-            .maybeSingle();
-
-          if (existente) {
-            await supabase.from("qa_documents").update({ cell }).eq("id", existente.id);
-            const caseId = await ensureCase({
-              documentId: existente.id,
-              fields: (existente.fields as Record<string, string>) ?? {},
-              fileName: existente.file_name ?? file.name,
-              cell,
-              mapa: mapaCasos,
-            });
-            if (caseId) {
-              eventosPendentes.push({
-                case_id: caseId,
-                documentId: existente.id,
-                fileName: existente.file_name ?? file.name,
-                pages: 0,
-              });
-            }
-            resultado.movidos += 1;
-          } else {
-            resultado.duplicados += 1;
-          }
-          return;
-        }
-        vistos.add(extraction.fingerprint);
-
-        const fields = Object.fromEntries(
-          AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
-        );
-        const documentId = crypto.randomUUID();
-
-        const { error: docError } = await supabase.from("qa_documents").insert({
-          id: documentId,
-          fingerprint: extraction.fingerprint,
-          file_name: extraction.fileName,
-          pdf_path: "",
-          pages: extraction.pages,
-          fields,
-          confidence: {},
-          snippet: "",
-          source: extraction.usedOcr
-            ? "texto+ocr"
-            : extraction.textAvailable
-              ? "texto"
-              : "sem-texto",
-          text_available: extraction.textAvailable,
-          upload_status: "pendente",
-          upload_error: "",
-          cell,
-        });
-
-        if (docError) {
-          fail(docError);
-        }
-
-        let uploadOk = true;
-        try {
-          const path = await upload(documentId, file);
-          await supabase
-            .from("qa_documents")
-            .update({ pdf_path: path, upload_status: "concluido" })
-            .eq("id", documentId);
-        } catch {
-          uploadOk = false;
-        }
-
-        preparados.push({
-          documentId,
-          fields,
-          items: extraction.items,
-          fileName: extraction.fileName,
-          pages: extraction.pages,
-          fac: (fields.fac ?? "").trim(),
-          os: (fields.os ?? "").trim(),
-          uploadOk,
-        });
-
-        resultado.registrados += 1;
-        if (!uploadOk) resultado.pendentes += 1;
+        await registrar(file);
       } catch (problem) {
         resultado.falhas += 1;
         if (!resultado.primeiroErro) {
@@ -504,60 +531,6 @@ export async function importAuditorBatch(params: {
   };
 
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, fila.length) }, () => trabalhar()));
-
-  // Etapas avaliadas em massa (1 chamada por 100 documentos).
-  const itens = preparados.flatMap((doc) =>
-    doc.items.map((item) => ({
-      document_id: doc.documentId,
-      code: item.code,
-      description: item.description,
-      original_result: item.originalResult,
-      complement: item.complement,
-      page_number: item.page,
-    })),
-  );
-
-  for (let index = 0; index < itens.length; index += ITEM_CHUNK) {
-    const { error } = await supabase
-      .from("qa_document_items")
-      .insert(itens.slice(index, index + ITEM_CHUNK));
-    if (error) {
-      fail(error);
-    }
-  }
-
-  // Tratativas: uma por FV/OS (ou por documento, quando não há FV/OS).
-  const eventos: { case_id: string; event_type: string; payload: unknown }[] = [];
-
-  for (const evento of eventosPendentes) {
-    eventos.push({
-      case_id: evento.case_id,
-      event_type: "recebimento",
-      payload: { documentId: evento.documentId, fileName: evento.fileName, pages: evento.pages },
-    });
-  }
-
-  for (const doc of preparados) {
-    const caseId = await ensureCase({
-      documentId: doc.documentId,
-      fields: doc.fields,
-      fileName: doc.fileName,
-      cell,
-      mapa: mapaCasos,
-    });
-
-    if (caseId) {
-      eventos.push({
-        case_id: caseId,
-        event_type: "recebimento",
-        payload: { documentId: doc.documentId, fileName: doc.fileName, pages: doc.pages },
-      });
-    }
-  }
-
-  for (let index = 0; index < eventos.length; index += EVENT_CHUNK) {
-    await supabase.from("qa_case_events").insert(eventos.slice(index, index + EVENT_CHUNK) as never);
-  }
 
   return resultado;
 }

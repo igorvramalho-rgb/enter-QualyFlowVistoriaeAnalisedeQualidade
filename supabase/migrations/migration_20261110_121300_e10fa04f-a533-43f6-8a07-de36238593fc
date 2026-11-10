@@ -1,0 +1,4 @@
+-- Remove apenas os registros de teste que eu criei na verificação (FV 999999).
+delete from public.qa_case_events where case_id in (select id from public.qa_cases where fac = '999999');
+delete from public.qa_cases where fac = '999999';
+delete from public.qa_document_items where description = 'teste' and code = '1.1';
