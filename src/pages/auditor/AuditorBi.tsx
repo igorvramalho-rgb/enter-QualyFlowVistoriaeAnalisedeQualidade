@@ -173,15 +173,41 @@ export default function AuditorBi() {
 
   const porCelula = CELL_KEYS.map((key) => {
     const daCelula = filtrados.filter((row) => row.cell === key);
+    const conformes = daCelula.filter((row) => row.outcome === "conforme").length;
+    const naoConformes = daCelula.filter((row) => row.outcome === "nao_conforme").length;
+    const devolucoes = daCelula.reduce((total, row) => total + row.returnedCount, 0);
+    const pct = kpisBase(filtrados.length, daCelula.length);
+
+    const servicos = new Map<string, number>();
+    daCelula.forEach((row) => {
+      const nome = row.serviceType || "Não informado";
+      servicos.set(nome, (servicos.get(nome) ?? 0) + 1);
+    });
+    const topServicos = Array.from(servicos.entries())
+      .map(([nome, total]) => ({ nome, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3);
+
+    const frase =
+      daCelula.length === 0
+        ? `Sem registros nesta célula no período.`
+        : `${daCelula.length} FV/OS (${pct}% do total), com ${conformes} conformidade(s) e ${naoConformes} não conformidade(s) confirmada(s)${
+            devolucoes > 0 ? ` e ${devolucoes} devolução(ões) da AlphaGeos` : ""
+          }. Serviço predominante: ${topServicos[0]?.nome ?? "não informado"}.`;
+
     return {
       key,
       nome: CELLS[key].label,
       short: CELLS[key].short,
       total: daCelula.length,
-      conformes: daCelula.filter((row) => row.outcome === "conforme").length,
-      naoConformes: daCelula.filter((row) => row.outcome === "nao_conforme").length,
-      devolucoes: daCelula.reduce((total, row) => total + row.returnedCount, 0),
-      pct: kpisBase(filtrados.length, daCelula.length),
+      conformes,
+      naoConformes,
+      devolucoes,
+      pct,
+      topServicos,
+      frase,
+      pctConforme: kpisBase(daCelula.length, conformes),
+      pctNaoConforme: kpisBase(daCelula.length, naoConformes),
     };
   });
 
@@ -435,10 +461,12 @@ export default function AuditorBi() {
           {porCelula.map((item) => (
             <div key={item.key} className="flex items-center gap-2">
               <span className="w-44 shrink-0 truncate text-[11px] text-foreground">{item.nome}</span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="flex h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-success" style={{ width: `${item.pctConforme}%` }} />
+                <div className="h-full bg-destructive" style={{ width: `${item.pctNaoConforme}%` }} />
                 <div
-                  className="h-full rounded-full bg-[hsl(var(--auditor-navy-mid))]"
-                  style={{ width: `${item.pct}%` }}
+                  className="h-full bg-[hsl(var(--auditor-navy-mid))]"
+                  style={{ width: `${Math.max(0, 100 - item.pctConforme - item.pctNaoConforme)}%` }}
                 />
               </div>
               <span className="auditor-num w-10 text-right text-[11px] font-semibold text-foreground">
@@ -539,113 +567,210 @@ export default function AuditorBi() {
       )}
 
       <PrintPortal>
-        <article className="print-sheet mx-auto flex flex-col px-[12mm] py-[10mm] font-sheet">
-          <header className="border-b-2 border-slate-800 pb-2">
-            <p className="text-[8px] uppercase tracking-[0.25em] text-slate-500">
-              Qualy Auditor — Inteligência de Fiscalização
+        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
+          <header className="rounded-sm bg-slate-900 px-4 py-3 text-white">
+            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-300">
+              Qualy Auditor · Inteligência de Fiscalização
             </p>
-            <h1 className="mt-0.5 text-[18px] font-bold leading-tight">
-              RELATÓRIO GERENCIAL DE FISCALIZAÇÃO
+            <h1 className="mt-1 text-[19px] font-bold leading-tight">
+              RELATÓRIO GERENCIAL DA FISCALIZAÇÃO
             </h1>
-            <p className="text-[9px] text-slate-600">
+            <p className="mt-0.5 text-[8.5px] text-slate-300">
               Período: {periodoLabel} · Regiões: Vila Maria e Santana
             </p>
           </header>
 
-          <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Resumo executivo</h2>
-            <p className="mt-1 text-[9px] leading-relaxed text-slate-800">{analise}</p>
-          </section>
-
-          <section className="mt-3 grid grid-cols-4 gap-1.5">
+          <section className="mt-4 grid grid-cols-4 gap-2">
             {[
-              ["FV/OS únicas", unicas],
-              ["Em fiscalização", kpis.fiscalizacao],
-              ["Aguardando análise", kpis.aguardando],
-              ["Conforme", kpis.conforme],
-              ["Não conforme", kpis.naoConforme],
-              ["Relatórios enviados", kpis.relatorios],
-              ["A refazer", kpis.refazerTotal],
-              ["Correções", kpis.corrigidos],
-              ["Devoluções", kpis.devolucoes],
-              ["Não avaliados", porCelula.find((c) => c.key === "nao_avaliado")?.total ?? 0],
-              ["RPA / defesas", porCelula.find((c) => c.key === "rpa")?.total ?? 0],
-              ["Encerradas", kpis.encerradas],
-            ].map(([label, valor]) => (
-              <div key={String(label)} className="border border-slate-300 px-1.5 py-1">
-                <p className="text-[6.5px] uppercase leading-tight text-slate-500">{label}</p>
-                <p className="text-[13px] font-bold leading-tight">{valor}</p>
+              ["FV/OS únicas", unicas, "#0F172A"],
+              ["Conformes", kpis.conforme, "#047857"],
+              ["Não conformes", kpis.naoConforme, "#B91C1C"],
+              ["Pendências abertas", kpis.refazerPendentes, "#B45309"],
+            ].map(([label, valor, cor]) => (
+              <div key={String(label)} className="rounded-sm border border-slate-200 px-2 py-2">
+                <p className="text-[6.5px] uppercase tracking-wide text-slate-500">{label}</p>
+                <p className="mt-0.5 text-[22px] font-bold leading-none" style={{ color: String(cor) }}>
+                  {valor}
+                </p>
               </div>
             ))}
           </section>
 
           <section className="mt-4">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Análise por célula</h2>
-            <table className="mt-1 w-full border-collapse text-[8px]">
-              <thead>
-                <tr className="bg-slate-100 text-left">
-                  <th className="border border-slate-300 px-1 py-0.5">Célula</th>
-                  <th className="border border-slate-300 px-1 py-0.5 text-right">FV/OS</th>
-                  <th className="border border-slate-300 px-1 py-0.5 text-right">% do total</th>
-                  <th className="border border-slate-300 px-1 py-0.5">Participação</th>
-                  <th className="border border-slate-300 px-1 py-0.5 text-right">Conforme</th>
-                  <th className="border border-slate-300 px-1 py-0.5 text-right">Não conf.</th>
-                  <th className="border border-slate-300 px-1 py-0.5 text-right">Devol.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {porCelula.map((item) => (
-                  <tr key={item.key}>
-                    <td className="border border-slate-300 px-1 py-0.5">{item.nome}</td>
-                    <td className="border border-slate-300 px-1 py-0.5 text-right font-semibold">{item.total}</td>
-                    <td className="border border-slate-300 px-1 py-0.5 text-right">{item.pct}%</td>
-                    <td className="border border-slate-300 px-1 py-0.5">
-                      <div className="h-1.5 w-full bg-slate-200">
-                        <div className="h-full bg-slate-800" style={{ width: `${item.pct}%` }} />
-                      </div>
-                    </td>
-                    <td className="border border-slate-300 px-1 py-0.5 text-right">{item.conformes}</td>
-                    <td className="border border-slate-300 px-1 py-0.5 text-right">{item.naoConformes}</td>
-                    <td className="border border-slate-300 px-1 py-0.5 text-right">{item.devolucoes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
+              Resumo executivo
+            </h2>
+            <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-800">{analise}</p>
           </section>
 
-          <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Situação das tratativas</h2>
-            <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px]">
+          <section className="mt-4">
+            <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
+              Distribuição das FV/OS por célula
+            </h2>
+            <div className="mt-1.5 space-y-1.5">
+              {porCelula.map((item) => (
+                <div key={item.key} className="flex items-center gap-2 text-[8px]">
+                  <span className="w-44 truncate">{item.nome}</span>
+                  <div className="flex h-3 flex-1 overflow-hidden bg-slate-200">
+                    <div style={{ width: `${item.pct}%`, background: "#0F2A4A" }} />
+                  </div>
+                  <span className="w-8 text-right font-bold">{item.total}</span>
+                  <span className="w-8 text-right text-slate-500">{item.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
+                Indicadores gerais
+              </h2>
+              <div className="mt-1 text-[8px]">
+                {[
+                  ["Aguardando análise", kpis.aguardando],
+                  ["Em fiscalização", kpis.fiscalizacao],
+                  ["Relatórios enviados", kpis.relatorios],
+                  ["Serviços a refazer", kpis.refazerTotal],
+                  ["Correções concluídas", kpis.corrigidos],
+                  ["Devoluções AlphaGeos", kpis.devolucoes],
+                  ["Tratativas encerradas", kpis.encerradas],
+                  ["Documentos importados", totais?.documents ?? 0],
+                ].map(([label, valor]) => (
+                  <div key={String(label)} className="flex justify-between border-b border-slate-100 py-0.5">
+                    <span className="text-slate-600">{label}</span>
+                    <strong>{valor}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
+                Legenda das cores
+              </h2>
+              <div className="mt-1 space-y-1 text-[8px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-3" style={{ background: "#10B981" }} />
+                  Conforme confirmado
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-3" style={{ background: "#DC2626" }} />
+                  Não conforme confirmado
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-3" style={{ background: "#0F2A4A" }} />
+                  Em andamento / pendente
+                </div>
+                <p className="mt-2 text-[7px] leading-snug text-slate-500">
+                  N/A e serviços não avaliados nunca são contabilizados como conformidade.
+                  Cada FV/OS é contada uma única vez, independentemente do número de etapas.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
+            <p>{AUDITOR_SIGNATURE} · Qualy Auditor</p>
+          </footer>
+        </article>
+
+        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
+          <header className="border-b-2 border-slate-800 pb-1">
+            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-500">
+              Qualy Auditor · Inteligência de Fiscalização
+            </p>
+            <h1 className="text-[15px] font-bold">ANÁLISE POR CÉLULA DE TRABALHO</h1>
+            <p className="text-[8px] text-slate-600">Período: {periodoLabel}</p>
+          </header>
+
+          <div className="mt-2 space-y-2.5">
+            {porCelula.map((item, index) => (
+              <section key={item.key} className="rounded-sm border border-slate-200 px-2.5 py-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="text-[10px] font-bold uppercase tracking-wide">
+                    {String(index + 1).padStart(2, "0")} · {item.nome}
+                  </h2>
+                  <p className="text-[8px] text-slate-500">
+                    {item.total} FV/OS · {item.pct}% do total
+                  </p>
+                </div>
+
+                <div className="mt-1 flex h-2.5 w-full overflow-hidden bg-slate-200">
+                  <div style={{ width: `${item.pctConforme}%`, background: "#10B981" }} />
+                  <div style={{ width: `${item.pctNaoConforme}%`, background: "#DC2626" }} />
+                  <div
+                    style={{
+                      width: `${Math.max(0, 100 - item.pctConforme - item.pctNaoConforme)}%`,
+                      background: "#0F2A4A",
+                    }}
+                  />
+                </div>
+
+                <div className="mt-1 grid grid-cols-4 gap-2 text-[7.5px]">
+                  <p>
+                    <span className="text-slate-500">Conforme:</span> <strong>{item.conformes}</strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Não conforme:</span> <strong>{item.naoConformes}</strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Em aberto:</span>{" "}
+                    <strong>{Math.max(0, item.total - item.conformes - item.naoConformes)}</strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Devoluções:</span> <strong>{item.devolucoes}</strong>
+                  </p>
+                </div>
+
+                <p className="mt-1 text-[8px] leading-snug text-slate-700">{item.frase}</p>
+
+                {item.topServicos.length > 0 && (
+                  <p className="mt-0.5 text-[7.5px] text-slate-500">
+                    Serviços:{" "}
+                    {item.topServicos.map((servico) => `${servico.nome} (${servico.total})`).join(" · ")}
+                  </p>
+                )}
+              </section>
+            ))}
+          </div>
+
+          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
+            <p>{AUDITOR_SIGNATURE} · Qualy Auditor</p>
+            <p>Emitido em {formatDateBR(new Date())}</p>
+          </footer>
+        </article>
+
+        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
+          <header className="border-b-2 border-slate-800 pb-1">
+            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-500">
+              Qualy Auditor · Inteligência de Fiscalização
+            </p>
+            <h1 className="text-[15px] font-bold">INDICADORES E CONCLUSÃO</h1>
+            <p className="text-[8px] text-slate-600">Período: {periodoLabel}</p>
+          </header>
+
+          <section className="mt-2">
+            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Situação das tratativas</h2>
+            <div className="mt-1 space-y-0.5">
               {ANALYSIS_ORDER.map((status) => {
                 const total = filtrados.filter((row) => row.status === status).length;
+                const pct = kpisBase(filtrados.length, total);
                 return (
-                  <div key={status} className="flex items-center justify-between border-b border-slate-200 py-0.5">
-                    <span>{ANALYSIS_STATUS[status]}</span>
-                    <strong>{total}</strong>
+                  <div key={status} className="flex items-center gap-2 text-[8px]">
+                    <span className="w-44 truncate">{ANALYSIS_STATUS[status]}</span>
+                    <div className="h-2 flex-1 bg-slate-200">
+                      <div style={{ width: `${pct}%`, background: "#0F2A4A" }} />
+                    </div>
+                    <span className="w-6 text-right font-bold">{total}</span>
                   </div>
                 );
               })}
             </div>
           </section>
 
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7.5px] text-slate-600">
-            <p>{AUDITOR_SIGNATURE} · Qualy Auditor — Inteligência de Fiscalização</p>
-            <p>Emitido em {formatDateBR(new Date())}</p>
-          </footer>
-        </article>
-
-        <article className="print-sheet mx-auto flex flex-col px-[12mm] py-[10mm] font-sheet">
-          <header className="border-b border-slate-300 pb-1">
-            <p className="text-[8px] uppercase tracking-[0.25em] text-slate-500">
-              Qualy Auditor — Inteligência de Fiscalização
-            </p>
-            <h1 className="text-[14px] font-bold">INDICADORES COMPLEMENTARES</h1>
-            <p className="text-[8px] text-slate-600">Período: {periodoLabel}</p>
-          </header>
-
           <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Distribuição por tipo de serviço</h2>
-            <div className="mt-1 space-y-1">
+            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Tipos de serviço</h2>
+            <div className="mt-1 space-y-0.5">
               {porServico.length === 0 ? (
                 <p className="text-[8px] text-slate-500">Sem registros no período.</p>
               ) : (
@@ -653,11 +778,11 @@ export default function AuditorBi() {
                   const pct = kpisBase(filtrados.length, item.total);
                   return (
                     <div key={item.nome} className="flex items-center gap-2 text-[8px]">
-                      <span className="w-40 truncate">{item.nome}</span>
+                      <span className="w-44 truncate">{item.nome}</span>
                       <div className="h-2 flex-1 bg-slate-200">
-                        <div className="h-full bg-slate-700" style={{ width: `${pct}%` }} />
+                        <div style={{ width: `${pct}%`, background: "#334155" }} />
                       </div>
-                      <span className="w-8 text-right font-semibold">{item.total}</span>
+                      <span className="w-6 text-right font-bold">{item.total}</span>
                     </div>
                   );
                 })
@@ -666,8 +791,8 @@ export default function AuditorBi() {
           </section>
 
           <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Evolução mensal</h2>
-            <div className="mt-1 space-y-1">
+            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Evolução mensal</h2>
+            <div className="mt-1 space-y-0.5">
               {evolucao.length === 0 ? (
                 <p className="text-[8px] text-slate-500">Sem registros no período.</p>
               ) : (
@@ -678,11 +803,10 @@ export default function AuditorBi() {
                       <span className="w-16">{item.mes}</span>
                       <div className="h-2 flex-1 bg-slate-200">
                         <div
-                          className="h-full bg-slate-500"
-                          style={{ width: `${Math.round((item.total / maximo) * 100)}%` }}
+                          style={{ width: `${Math.round((item.total / maximo) * 100)}%`, background: "#64748B" }}
                         />
                       </div>
-                      <span className="w-8 text-right font-semibold">{item.total}</span>
+                      <span className="w-6 text-right font-bold">{item.total}</span>
                     </div>
                   );
                 })
@@ -691,7 +815,7 @@ export default function AuditorBi() {
           </section>
 
           <section className="mt-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Serviços a refazer</h2>
+            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Serviços a refazer</h2>
             <div className="mt-1 grid grid-cols-3 gap-1.5 text-[8px]">
               <div className="border border-slate-300 px-1.5 py-1">
                 <p className="text-[6.5px] uppercase text-slate-500">Encaminhados</p>
@@ -708,18 +832,18 @@ export default function AuditorBi() {
             </div>
           </section>
 
-          <section className="mt-4">
-            <h2 className="text-[10px] font-bold uppercase tracking-wide">Conclusão</h2>
-            <p className="mt-1 text-[9px] leading-relaxed text-slate-800">
+          <section className="mt-3">
+            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Conclusão gerencial</h2>
+            <p className="mt-1 text-[8.5px] leading-relaxed text-slate-800">
               {kpis.recebidas === 0
                 ? "Não há dados suficientes no período para conclusão gerencial."
-                : `O consolidado aponta ${kpis.conforme} conformidade(s) confirmada(s) e ${kpis.naoConforme} não conformidade(s) em ${kpis.recebidas} FV/OS. Restam ${kpis.refazerPendentes} pendência(s) de correção e ${kpis.devolucoes} devolução(ões) a tratar. Recomenda-se priorizar as células Refazer e Em fiscalização, que concentram as ações em andamento.`}
+                : `Foram tratadas ${unicas} FV/OS, com ${kpis.conforme} conformidade(s) confirmada(s) e ${kpis.naoConforme} não conformidade(s). As células de fiscalização e refazer concentram ${(porCelula.find((c) => c.key === "fiscalizacao")?.total ?? 0) + (porCelula.find((c) => c.key === "refazer")?.total ?? 0)} FV/OS, ou seja, a maior parte das ações em andamento. Restam ${kpis.refazerPendentes} pendência(s) de correção e ${kpis.devolucoes} devolução(ões) da AlphaGeos a tratar. Recomenda-se acompanhamento semanal das células Refazer e Em fiscalização até a zeragem das pendências.`}
             </p>
           </section>
 
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7.5px] text-slate-600">
-            <p>{AUDITOR_SIGNATURE} · Qualy Auditor</p>
-            <p>Documento de uso interno — Célula da Qualidade</p>
+          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
+            <p>{AUDITOR_SIGNATURE} · Qualy Auditor — Inteligência de Fiscalização</p>
+            <p>Documento de uso interno — Célula da Qualidade · Vila Maria e Santana</p>
           </footer>
         </article>
       </PrintPortal>
