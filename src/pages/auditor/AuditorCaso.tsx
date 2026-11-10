@@ -439,7 +439,18 @@ export default function AuditorCaso() {
   );
 }
 
-const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string }[]> = {
+const MOTIVOS_NA = [
+  "Endereço não localizado",
+  "Impedimento de fiscalização",
+  "Trânsito intenso",
+  "Interferência de terceiros",
+  "Serviço não localizado",
+  "Serviço avaliado não condiz com o executado",
+  "Convívio com outra obra",
+  "Outros",
+];
+
+const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string; options?: string[] }[]> = {
   fiscalizacao: [
     { key: "dataEnvioFiscal", label: "Data de encaminhamento ao fiscal", type: "date" },
     { key: "itensVerificar", label: "Itens a verificar" },
@@ -466,7 +477,7 @@ const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string }
   ],
   nao_avaliado: [
     { key: "item", label: "Item não avaliado" },
-    { key: "motivo", label: "Motivo da não avaliação" },
+    { key: "motivo", label: "Motivo da não avaliação", type: "select", options: MOTIVOS_NA },
     { key: "dataFiscalizacao", label: "Data da fiscalização", type: "date" },
     { key: "observacoes", label: "Observação do fiscal" },
   ],
@@ -502,12 +513,25 @@ function CellPanel({
             }`}
           >
             {campo.label}
-            <Input
-              type={campo.type ?? "text"}
-              value={cellData[campo.key] ?? ""}
-              onChange={(event) => onChange(campo.key, event.target.value)}
-              className="mt-0.5 h-8 text-xs"
-            />
+            {campo.options ? (
+              <select
+                value={cellData[campo.key] ?? ""}
+                onChange={(event) => onChange(campo.key, event.target.value)}
+                className="mt-0.5 h-8 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
+              >
+                <option value="">selecione</option>
+                {campo.options.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                type={campo.type ?? "text"}
+                value={cellData[campo.key] ?? ""}
+                onChange={(event) => onChange(campo.key, event.target.value)}
+                className="mt-0.5 h-8 text-xs"
+              />
+            )}
           </label>
         ))}
       </div>

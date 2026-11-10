@@ -220,6 +220,47 @@ export async function saveReportPdfFile(fileName: string): Promise<PdfSaveResult
   }
 }
 
+/** Grava um PDF já montado (sem captura de tela), com o mesmo tratamento de permissão. */
+export async function savePdfBlob(blob: Blob, fileName: string): Promise<PdfSaveResult> {
+  const name = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+  const baixar = (): PdfSaveResult => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return "unconfirmed";
+  };
+
+  if (!isFilePickerAvailable()) {
+    return baixar();
+  }
+
+  const picker = (window as FilePickerWindow).showSaveFilePicker;
+  if (!picker) {
+    return baixar();
+  }
+
+  try {
+    const handle = await picker({
+      suggestedName: name,
+      types: [{ description: "Documento PDF", accept: { "application/pdf": [".pdf"] } }],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return "saved";
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return "cancelled";
+    }
+    return baixar();
+  }
+}
+
 export async function downloadReportPdf(fileName: string): Promise<void> {
   const { pdf } = await buildReportDocument();
   pdf.save(fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`);

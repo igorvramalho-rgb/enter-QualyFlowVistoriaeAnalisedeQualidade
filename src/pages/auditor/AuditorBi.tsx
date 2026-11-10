@@ -13,7 +13,6 @@ import {
   YAxis,
 } from "recharts";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
-import { PrintPortal } from "@/components/report/print-portal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,8 @@ import {
   type AuditorReport,
   type CaseRow,
 } from "@/lib/auditor";
-import { saveReportPdfFile } from "@/lib/report-export";
+import { savePdfBlob } from "@/lib/report-export";
+import { buildBiPdf } from "@/lib/auditor-bi-pdf";
 import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
 
@@ -211,8 +211,37 @@ export default function AuditorBi() {
     };
   });
 
+  const motivos = useMemo(() => {
+    const mapa = new Map<string, number>();
+    filtrados
+      .filter((row) => row.cell === "nao_avaliado")
+      .forEach((row) => {
+        const motivo = (row.motive || "Não informado").trim();
+        mapa.set(motivo, (mapa.get(motivo) ?? 0) + 1);
+      });
+    return Array.from(mapa.entries())
+      .map(([motivo, total]) => ({ motivo, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtrados]);
+
   const unicas = new Set(filtrados.map((row) => `${row.fac}|${row.os}`)).size;
   const temDados = filtrados.length > 0;
+
+  const conclusao = useMemo(() => {
+    if (kpis.recebidas === 0) {
+      return "Não há dados suficientes no período para conclusão gerencial.";
+    }
+    const fiscalizacao = porCelula.find((item) => item.key === "fiscalizacao")?.total ?? 0;
+    const refazer = porCelula.find((item) => item.key === "refazer")?.total ?? 0;
+    const naoAvaliados = porCelula.find((item) => item.key === "nao_avaliado")?.total ?? 0;
+    const motivoTop = motivos[0];
+
+    return `Foram tratadas ${unicas} FV/OS no período, com ${kpis.conforme} conformidade(s) confirmada(s) e ${kpis.naoConforme} não conformidade(s). As células Em fiscalização (${fiscalizacao}) e Refazer (${refazer}) concentram as ações em andamento.${
+      naoAvaliados > 0
+        ? ` Há ${naoAvaliados} serviço(s) não avaliado(s)${motivoTop ? `, sendo o motivo mais frequente "${motivoTop.motivo}" (${motivoTop.total})` : ""}.`
+        : ""
+    } Restam ${kpis.refazerPendentes} pendência(s) de correção e ${kpis.devolucoes} devolução(ões) da AlphaGeos a tratar. Recomenda-se acompanhamento semanal até a zeragem das pendências.`;
+  }, [kpis, porCelula, motivos, unicas]);
 
   const periodoLabel = `${filters.from ? formatDateBR(filters.from) : "início"} a ${
     filters.to ? formatDateBR(filters.to) : formatDateBR(new Date())
@@ -356,8 +385,37 @@ export default function AuditorBi() {
   const gerarPdf = async () => {
     setBusy(true);
     try {
-      const result = await saveReportPdfFile(`qualy-auditor-bi-${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success(result === "unconfirmed" ? "PDF gerado (download sem confirmação)" : "PDF gerado");
+      const doc = buildBiPdf({
+        periodo: periodoLabel,
+        totalUnicas: unicas,
+        conformes: kpis.conforme,
+        naoConformes: kpis.naoConforme,
+        pendentes: kpis.refazerPendentes,
+        cells: porCelula.map((item) => ({
+          label: item.nome,
+          total: item.total,
+          conformes: item.conformes,
+          naoConformes: item.naoConformes,
+          devolucoes: item.devolucoes,
+          pct: item.pct,
+          servicos: item.topServicos.map((servico) => servico.nome),
+          analise: item.frase,
+        })),
+        motivos,
+        resumo: analise,
+        conclusao,
+        emitidoEm: new Date().toLocaleString("pt-BR"),
+      });
+
+      const blob = doc.output("blob");
+      const nome = `qualy-auditor-bi-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const resultado = await savePdfBlob(blob, nome);
+
+      if (resultado === "cancelled") {
+        toast.info("Geração cancelada");
+      } else {
+        toast.success("Relatório gerado", { description: nome });
+      }
     } catch (problem) {
       toast.error("Falha ao gerar o PDF", {
         description: problem instanceof Error ? problem.message : undefined,
@@ -566,287 +624,7 @@ export default function AuditorBi() {
         </div>
       )}
 
-      <PrintPortal>
-        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
-          <header className="rounded-sm bg-slate-900 px-4 py-3 text-white">
-            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-300">
-              Qualy Auditor · Inteligência de Fiscalização
-            </p>
-            <h1 className="mt-1 text-[19px] font-bold leading-tight">
-              RELATÓRIO GERENCIAL DA FISCALIZAÇÃO
-            </h1>
-            <p className="mt-0.5 text-[8.5px] text-slate-300">
-              Período: {periodoLabel} · Regiões: Vila Maria e Santana
-            </p>
-          </header>
 
-          <section className="mt-4 grid grid-cols-4 gap-2">
-            {[
-              ["FV/OS únicas", unicas, "#0F172A"],
-              ["Conformes", kpis.conforme, "#047857"],
-              ["Não conformes", kpis.naoConforme, "#B91C1C"],
-              ["Pendências abertas", kpis.refazerPendentes, "#B45309"],
-            ].map(([label, valor, cor]) => (
-              <div key={String(label)} className="rounded-sm border border-slate-200 px-2 py-2">
-                <p className="text-[6.5px] uppercase tracking-wide text-slate-500">{label}</p>
-                <p className="mt-0.5 text-[22px] font-bold leading-none" style={{ color: String(cor) }}>
-                  {valor}
-                </p>
-              </div>
-            ))}
-          </section>
-
-          <section className="mt-4">
-            <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
-              Resumo executivo
-            </h2>
-            <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-800">{analise}</p>
-          </section>
-
-          <section className="mt-4">
-            <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
-              Distribuição das FV/OS por célula
-            </h2>
-            <div className="mt-1.5 space-y-1.5">
-              {porCelula.map((item) => (
-                <div key={item.key} className="flex items-center gap-2 text-[8px]">
-                  <span className="w-44 truncate">{item.nome}</span>
-                  <div className="flex h-3 flex-1 overflow-hidden bg-slate-200">
-                    <div style={{ width: `${item.pct}%`, background: "#0F2A4A" }} />
-                  </div>
-                  <span className="w-8 text-right font-bold">{item.total}</span>
-                  <span className="w-8 text-right text-slate-500">{item.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-4 grid grid-cols-2 gap-3">
-            <div>
-              <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
-                Indicadores gerais
-              </h2>
-              <div className="mt-1 text-[8px]">
-                {[
-                  ["Aguardando análise", kpis.aguardando],
-                  ["Em fiscalização", kpis.fiscalizacao],
-                  ["Relatórios enviados", kpis.relatorios],
-                  ["Serviços a refazer", kpis.refazerTotal],
-                  ["Correções concluídas", kpis.corrigidos],
-                  ["Devoluções AlphaGeos", kpis.devolucoes],
-                  ["Tratativas encerradas", kpis.encerradas],
-                  ["Documentos importados", totais?.documents ?? 0],
-                ].map(([label, valor]) => (
-                  <div key={String(label)} className="flex justify-between border-b border-slate-100 py-0.5">
-                    <span className="text-slate-600">{label}</span>
-                    <strong>{valor}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <h2 className="border-b border-slate-300 pb-0.5 text-[9.5px] font-bold uppercase tracking-wide">
-                Legenda das cores
-              </h2>
-              <div className="mt-1 space-y-1 text-[8px]">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-3" style={{ background: "#10B981" }} />
-                  Conforme confirmado
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-3" style={{ background: "#DC2626" }} />
-                  Não conforme confirmado
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-3" style={{ background: "#0F2A4A" }} />
-                  Em andamento / pendente
-                </div>
-                <p className="mt-2 text-[7px] leading-snug text-slate-500">
-                  N/A e serviços não avaliados nunca são contabilizados como conformidade.
-                  Cada FV/OS é contada uma única vez, independentemente do número de etapas.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
-            <p>{AUDITOR_SIGNATURE} · Qualy Auditor</p>
-          </footer>
-        </article>
-
-        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
-          <header className="border-b-2 border-slate-800 pb-1">
-            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-500">
-              Qualy Auditor · Inteligência de Fiscalização
-            </p>
-            <h1 className="text-[15px] font-bold">ANÁLISE POR CÉLULA DE TRABALHO</h1>
-            <p className="text-[8px] text-slate-600">Período: {periodoLabel}</p>
-          </header>
-
-          <div className="mt-2 space-y-2.5">
-            {porCelula.map((item, index) => (
-              <section key={item.key} className="rounded-sm border border-slate-200 px-2.5 py-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="text-[10px] font-bold uppercase tracking-wide">
-                    {String(index + 1).padStart(2, "0")} · {item.nome}
-                  </h2>
-                  <p className="text-[8px] text-slate-500">
-                    {item.total} FV/OS · {item.pct}% do total
-                  </p>
-                </div>
-
-                <div className="mt-1 flex h-2.5 w-full overflow-hidden bg-slate-200">
-                  <div style={{ width: `${item.pctConforme}%`, background: "#10B981" }} />
-                  <div style={{ width: `${item.pctNaoConforme}%`, background: "#DC2626" }} />
-                  <div
-                    style={{
-                      width: `${Math.max(0, 100 - item.pctConforme - item.pctNaoConforme)}%`,
-                      background: "#0F2A4A",
-                    }}
-                  />
-                </div>
-
-                <div className="mt-1 grid grid-cols-4 gap-2 text-[7.5px]">
-                  <p>
-                    <span className="text-slate-500">Conforme:</span> <strong>{item.conformes}</strong>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Não conforme:</span> <strong>{item.naoConformes}</strong>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Em aberto:</span>{" "}
-                    <strong>{Math.max(0, item.total - item.conformes - item.naoConformes)}</strong>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Devoluções:</span> <strong>{item.devolucoes}</strong>
-                  </p>
-                </div>
-
-                <p className="mt-1 text-[8px] leading-snug text-slate-700">{item.frase}</p>
-
-                {item.topServicos.length > 0 && (
-                  <p className="mt-0.5 text-[7.5px] text-slate-500">
-                    Serviços:{" "}
-                    {item.topServicos.map((servico) => `${servico.nome} (${servico.total})`).join(" · ")}
-                  </p>
-                )}
-              </section>
-            ))}
-          </div>
-
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
-            <p>{AUDITOR_SIGNATURE} · Qualy Auditor</p>
-            <p>Emitido em {formatDateBR(new Date())}</p>
-          </footer>
-        </article>
-
-        <article className="print-sheet mx-auto flex flex-col px-[14mm] py-[12mm] font-sheet">
-          <header className="border-b-2 border-slate-800 pb-1">
-            <p className="text-[7.5px] uppercase tracking-[0.3em] text-slate-500">
-              Qualy Auditor · Inteligência de Fiscalização
-            </p>
-            <h1 className="text-[15px] font-bold">INDICADORES E CONCLUSÃO</h1>
-            <p className="text-[8px] text-slate-600">Período: {periodoLabel}</p>
-          </header>
-
-          <section className="mt-2">
-            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Situação das tratativas</h2>
-            <div className="mt-1 space-y-0.5">
-              {ANALYSIS_ORDER.map((status) => {
-                const total = filtrados.filter((row) => row.status === status).length;
-                const pct = kpisBase(filtrados.length, total);
-                return (
-                  <div key={status} className="flex items-center gap-2 text-[8px]">
-                    <span className="w-44 truncate">{ANALYSIS_STATUS[status]}</span>
-                    <div className="h-2 flex-1 bg-slate-200">
-                      <div style={{ width: `${pct}%`, background: "#0F2A4A" }} />
-                    </div>
-                    <span className="w-6 text-right font-bold">{total}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="mt-3">
-            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Tipos de serviço</h2>
-            <div className="mt-1 space-y-0.5">
-              {porServico.length === 0 ? (
-                <p className="text-[8px] text-slate-500">Sem registros no período.</p>
-              ) : (
-                porServico.map((item) => {
-                  const pct = kpisBase(filtrados.length, item.total);
-                  return (
-                    <div key={item.nome} className="flex items-center gap-2 text-[8px]">
-                      <span className="w-44 truncate">{item.nome}</span>
-                      <div className="h-2 flex-1 bg-slate-200">
-                        <div style={{ width: `${pct}%`, background: "#334155" }} />
-                      </div>
-                      <span className="w-6 text-right font-bold">{item.total}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-
-          <section className="mt-3">
-            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Evolução mensal</h2>
-            <div className="mt-1 space-y-0.5">
-              {evolucao.length === 0 ? (
-                <p className="text-[8px] text-slate-500">Sem registros no período.</p>
-              ) : (
-                evolucao.map((item) => {
-                  const maximo = Math.max(...evolucao.map((linha) => linha.total), 1);
-                  return (
-                    <div key={item.mes} className="flex items-center gap-2 text-[8px]">
-                      <span className="w-16">{item.mes}</span>
-                      <div className="h-2 flex-1 bg-slate-200">
-                        <div
-                          style={{ width: `${Math.round((item.total / maximo) * 100)}%`, background: "#64748B" }}
-                        />
-                      </div>
-                      <span className="w-6 text-right font-bold">{item.total}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-
-          <section className="mt-3">
-            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Serviços a refazer</h2>
-            <div className="mt-1 grid grid-cols-3 gap-1.5 text-[8px]">
-              <div className="border border-slate-300 px-1.5 py-1">
-                <p className="text-[6.5px] uppercase text-slate-500">Encaminhados</p>
-                <p className="text-[12px] font-bold">{kpis.refazerTotal}</p>
-              </div>
-              <div className="border border-slate-300 px-1.5 py-1">
-                <p className="text-[6.5px] uppercase text-slate-500">Pendentes</p>
-                <p className="text-[12px] font-bold">{kpis.refazerPendentes}</p>
-              </div>
-              <div className="border border-slate-300 px-1.5 py-1">
-                <p className="text-[6.5px] uppercase text-slate-500">Corrigidos</p>
-                <p className="text-[12px] font-bold">{kpis.corrigidos}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-3">
-            <h2 className="text-[9.5px] font-bold uppercase tracking-wide">Conclusão gerencial</h2>
-            <p className="mt-1 text-[8.5px] leading-relaxed text-slate-800">
-              {kpis.recebidas === 0
-                ? "Não há dados suficientes no período para conclusão gerencial."
-                : `Foram tratadas ${unicas} FV/OS, com ${kpis.conforme} conformidade(s) confirmada(s) e ${kpis.naoConforme} não conformidade(s). As células de fiscalização e refazer concentram ${(porCelula.find((c) => c.key === "fiscalizacao")?.total ?? 0) + (porCelula.find((c) => c.key === "refazer")?.total ?? 0)} FV/OS, ou seja, a maior parte das ações em andamento. Restam ${kpis.refazerPendentes} pendência(s) de correção e ${kpis.devolucoes} devolução(ões) da AlphaGeos a tratar. Recomenda-se acompanhamento semanal das células Refazer e Em fiscalização até a zeragem das pendências.`}
-            </p>
-          </section>
-
-          <footer className="mt-auto border-t border-slate-300 pt-1 text-[7px] text-slate-500">
-            <p>{AUDITOR_SIGNATURE} · Qualy Auditor — Inteligência de Fiscalização</p>
-            <p>Documento de uso interno — Célula da Qualidade · Vila Maria e Santana</p>
-          </footer>
-        </article>
-      </PrintPortal>
     </AuditorShell>
   );
 }

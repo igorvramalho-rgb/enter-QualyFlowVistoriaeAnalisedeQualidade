@@ -297,6 +297,8 @@ export interface CaseRow {
   returnedCount: number;
   /** Nome do PDF — usado quando a FV/OS não foi extraída. */
   fileName: string;
+  /** Motivo registrado na célula (ex.: endereço não localizado). */
+  motive: string;
 }
 
 /* Cache em memória: evita recarregar tudo a cada troca de tela. */
@@ -356,7 +358,7 @@ export async function fetchCases(force = false): Promise<CaseRow[]> {
   const { data, error } = await supabase
     .from("qa_cases")
     .select(
-      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, qa_documents(file_name)",
+      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, cell_data, qa_documents(file_name)",
     )
     .order("updated_at", { ascending: false })
     .limit(500);
@@ -379,6 +381,7 @@ export async function fetchCases(force = false): Promise<CaseRow[]> {
     updatedAt: row.updated_at,
     returnedCount: row.returned_count,
     fileName: (row.qa_documents as { file_name?: string } | null)?.file_name ?? "",
+    motive: ((row.cell_data as Record<string, string> | null)?.motivo ?? "").trim(),
   }));
 
   casesCache = { rows, at: Date.now() };
