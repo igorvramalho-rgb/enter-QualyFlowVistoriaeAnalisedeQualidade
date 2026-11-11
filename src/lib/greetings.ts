@@ -344,24 +344,21 @@ export const GREETINGS: Greeting[] = buildPool();
 const STORAGE_KEY = "qualyflow:greeting-state";
 
 interface GreetingState {
-  day: string;
+  /** Momento em que a frase atual foi escolhida. Renova a cada 24 horas. */
+  pickedAt: number;
   index: number;
   order: number[];
   pointer: number;
 }
 
-function dayKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-}
+const VINTE_QUATRO_HORAS = 24 * 60 * 60 * 1000;
 
 /**
  * Escolhe a frase do dia: embaralha o banco uma vez, avança um por dia e só
  * volta ao início quando todas as 300 forem usadas.
  */
-export function pickDailyGreeting(date = new Date()): Greeting {
-  const today = dayKey(date);
+export function pickDailyGreeting(now = Date.now()): Greeting {
+  const hoje = now;
   let state: GreetingState | null = null;
 
   try {
@@ -371,7 +368,14 @@ export function pickDailyGreeting(date = new Date()): Greeting {
     state = null;
   }
 
-  if (state && state.day === today && Number.isInteger(state.index) && GREETINGS[state.index]) {
+  // Mantém a mesma frase por 24 horas; depois disso, escolhe outra.
+  if (
+    state &&
+    typeof state.pickedAt === "number" &&
+    hoje - state.pickedAt < VINTE_QUATRO_HORAS &&
+    Number.isInteger(state.index) &&
+    GREETINGS[state.index]
+  ) {
     return GREETINGS[state.index];
   }
 
@@ -385,7 +389,7 @@ export function pickDailyGreeting(date = new Date()): Greeting {
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ day: today, index, order, pointer: pointer + 1 } satisfies GreetingState),
+      JSON.stringify({ pickedAt: hoje, index, order, pointer: pointer + 1 } satisfies GreetingState),
     );
   } catch {
     /* sem armazenamento: usa a frase sorteada apenas nesta sessão */

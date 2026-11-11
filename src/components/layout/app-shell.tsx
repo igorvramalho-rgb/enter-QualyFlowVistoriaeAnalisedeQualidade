@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogOut, Menu, ShieldCheck } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "@/components/layout/app-footer";
@@ -23,18 +23,16 @@ export default function AppShell() {
 
   useLegacyCloudMigration();
 
-  // Abertura estilo Jarvis: uma vez por sessão, após o login.
+  // Abertura estilo Jarvis: sempre que o operador entra no sistema.
+  const introMostrada = useRef(false);
   useEffect(() => {
+    if (introMostrada.current) {
+      return;
+    }
     if (!user || !profile || profile.status !== "ativo") {
       return;
     }
-    try {
-      if (window.sessionStorage.getItem("qualyflow:jarvis") === "1") {
-        return;
-      }
-    } catch {
-      /* sem armazenamento de sessão: mostra apenas nesta navegação */
-    }
+    introMostrada.current = true;
     setIntroOpen(true);
   }, [user, profile]);
 
@@ -73,14 +71,7 @@ export default function AppShell() {
       {introOpen && (
         <JarvisIntro
           name={profile.displayName || profile.username}
-          onDone={() => {
-            setIntroOpen(false);
-            try {
-              window.sessionStorage.setItem("qualyflow:jarvis", "1");
-            } catch {
-              /* ignora */
-            }
-          }}
+          onDone={() => setIntroOpen(false)}
         />
       )}
       <div className="tech-mesh flex h-screen w-full overflow-hidden">
