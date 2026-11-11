@@ -22,6 +22,7 @@ import { ReportForm } from "@/components/emissores/report-form";
 import { TemplatePickerCard } from "@/components/emissores/template-picker";
 import { PrintPortal } from "@/components/report/print-portal";
 import { ReportDocumentView } from "@/components/report/report-document-view";
+import { signPhotoUrls } from "@/lib/photo-storage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -68,6 +69,7 @@ import { createId } from "@/lib/storage";
 
 const FIRST_TEMPLATE = REPORT_TEMPLATES[0];
 const CURRENT_DRAFT_KEY = "qualyflow:current-draft:v1";
+const LOCAL_DRAFT_KEY = "qualyflow:emissor:draft-local:v1";
 
 /** Assinatura leve do conteúdo (sem serializar as imagens inteiras). */
 function draftSignature(draft: {
@@ -124,6 +126,8 @@ export default function Emissor() {
   } | null>(null);
   const [migrando, setMigrando] = useState(false);
   const savedSignature = useRef("");
+  // Id estável: evita criar dois relatórios quando o autosave dispara antes de o anterior voltar.
+  const draftIdRef = useRef<string | null>(null);
   const pendingDraft = useRef<ReportDraft | null>(null);
 
   const template = getTemplate(templateId);
@@ -185,27 +189,76 @@ export default function Emissor() {
     }
     setHydrated(true);
 
+    const aplicar = (draft: ReportDraft) => {
+      const draftTemplate = getTemplate(draft.templateId);
+      setTemplateId(draftTemplate.id);
+      setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
+      setPhotos(draft.photos ?? {});
+      setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
+      setObservacoes(draft.observacoes ?? "");
+      setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
+      setCurrentDraftId(draft.id);
+      draftIdRef.current = draft.id;
+      savedSignature.current = draftSignature(draft);
+      window.localStorage.setItem(CURRENT_DRAFT_KEY, draft.id);
+    };
+
+    const temConteudo = (draft: ReportDraft) =>
+      Object.values(draft.photos ?? {}).some((entry) => Boolean(entry?.path)) ||
+      Object.values(draft.values ?? {}).some((value) => (value ?? "").trim().length > 0) ||
+      (draft.observacoes ?? "").trim().length > 0;
+
     const storedId = window.localStorage.getItem(CURRENT_DRAFT_KEY);
-    if (!storedId) {
+    const encontrado = storedId ? drafts.find((item) => item.id === storedId) : undefined;
+    const recente = encontrado ?? drafts.find(temConteudo);
+
+    if (recente) {
+      aplicar(recente);
+      if (!encontrado) {
+        window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+        window.localStorage.setItem(CURRENT_DRAFT_KEY, recente.id);
+      }
+      toast.info("Relatório em andamento restaurado", { description: recente.name });
       return;
     }
 
-    const draft = drafts.find((item) => item.id === storedId);
-    if (!draft) {
-      window.localStorage.removeItem(CURRENT_DRAFT_KEY);
-      return;
-    }
-
-    const draftTemplate = getTemplate(draft.templateId);
-    setTemplateId(draftTemplate.id);
-    setValues({ ...getDefaultValues(draftTemplate), ...migrateDraftValues(draft.values) });
-    setPhotos(draft.photos ?? {});
-    setObjeto(draft.objeto ?? draftTemplate.objeto ?? "");
-    setObservacoes(draft.observacoes ?? "");
-    setGeotag(draft.geotag ?? { enabled: false, defaults: emptyGeotag() });
-    setCurrentDraftId(draft.id);
-    savedSignature.current = draftSignature(draft);
-    toast.info("Relatório em andamento restaurado", { description: draft.name });
+    // Sem nada na nuvem: tenta a cópia local feita enquanto o operador digitava.
+    void (async () => {
+      try {
+        const bruto = window.localStorage.getItem(LOCAL_DRAFT_KEY);
+        if (!bruto) {
+          return;
+        }
+        const local = JSON.parse(bruto) as ReportDraft & { at?: number };
+        if (!local?.templateId) {
+          return;
+        }
+        aplicar(local);
+        const caminhos = Object.values(local.photos ?? {}).flatMap((entry) => [
+          entry?.path,
+          entry?.originalPath,
+        ]);
+        const assinados = await signPhotoUrls(caminhos);
+        if (Object.keys(assinados).length > 0) {
+          setPhotos((anterior) =>
+            Object.fromEntries(
+              Object.entries(anterior).map(([slot, entry]) => [
+                slot,
+                {
+                  ...entry,
+                  dataUrl: entry.path ? assinados[entry.path] ?? entry.dataUrl : entry.dataUrl,
+                },
+              ]),
+            ),
+          );
+        }
+        toast.warning("Relatório recuperado deste computador", {
+          description: local.name || "conteúdo não sincronizado",
+        });
+      } catch {
+        /* cópia local inválida: segue em branco */
+      }
+    })();
   }, [drafts, draftsLoading, hydrated]);
 
   // Salva automaticamente enquanto o operador preenche
@@ -219,8 +272,11 @@ export default function Emissor() {
       ? drafts.find((item) => item.id === currentDraftId)
       : undefined;
 
+    const idEstavel = currentDraftId ?? draftIdRef.current ?? createId();
+    draftIdRef.current = idEstavel;
+
     const draft: ReportDraft = {
-      id: currentDraftId ?? createId(),
+      id: idEstavel,
       name: draftLabel(templateId, values),
       templateId,
       values,
@@ -259,6 +315,50 @@ export default function Emissor() {
     observacoes,
     geotag,
     saveReport,
+  ]);
+
+  // Cópia local de segurança: o rascunho volta mesmo sem rede ou se a página recarregar.
+  useEffect(() => {
+    if (!hydrated || !hasContent) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        const compacto = Object.fromEntries(
+          Object.entries(photos).map(([slot, entry]) => [
+            slot,
+            { ...entry, dataUrl: entry.path ? "" : entry.dataUrl },
+          ]),
+        );
+        window.localStorage.setItem(
+          LOCAL_DRAFT_KEY,
+          JSON.stringify({
+            id: currentDraftId,
+            name: draftLabel(templateId, values),
+            templateId,
+            values,
+            photos: compacto,
+            objeto,
+            observacoes,
+            geotag,
+            at: Date.now(),
+          }),
+        );
+      } catch {
+        /* cota cheia: ignora a cópia local */
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    hydrated,
+    hasContent,
+    currentDraftId,
+    templateId,
+    values,
+    photos,
+    objeto,
+    observacoes,
+    geotag,
   ]);
 
   // Grava o que estiver pendente ao sair da tela
@@ -360,7 +460,7 @@ export default function Emissor() {
   };
 
   const handleSaveDraft = async () => {
-    const draft = buildDraft(currentDraftId ?? undefined);
+    const draft = buildDraft(currentDraftId ?? draftIdRef.current ?? undefined);
     const existing = drafts.find((item) => item.id === draft.id);
     const saved = await saveReport(draft);
     if (!saved) {
@@ -458,6 +558,8 @@ export default function Emissor() {
 
   const handleNewReport = () => {
     window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+    window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+    draftIdRef.current = null;
     savedSignature.current = "";
     setValues(getDefaultValues(template));
     setPhotos({});
@@ -471,6 +573,8 @@ export default function Emissor() {
   /** Zera o formulário (campos, fotos, legendas, observação e marca) sem apagar o rascunho salvo. */
   const handleClearReport = () => {
     setClearOpen(false);
+    window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+    draftIdRef.current = null;
     setValues(Object.fromEntries(template.fields.map((field) => [field.id, ""])));
     setPhotos({});
     setObjeto(template.objeto ?? "");
@@ -484,6 +588,7 @@ export default function Emissor() {
 
   const handleOpenDraft = (draft: ReportDraft) => {
     hydrateDraft(draft);
+    draftIdRef.current = draft.id;
     window.localStorage.setItem(CURRENT_DRAFT_KEY, draft.id);
     savedSignature.current = draftSignature(draft);
     toast.success("Relatório carregado", { description: draft.name });
@@ -504,7 +609,9 @@ export default function Emissor() {
     }
     if (currentDraftId === draftId) {
       setCurrentDraftId(null);
+      draftIdRef.current = null;
       window.localStorage.removeItem(CURRENT_DRAFT_KEY);
+      window.localStorage.removeItem(LOCAL_DRAFT_KEY);
     }
     toast.success("Relatório excluído da nuvem");
   };
@@ -542,7 +649,7 @@ export default function Emissor() {
   const handleDownload = async () => {
     setExporting(true);
     try {
-      const draft = buildDraft(currentDraftId ?? undefined);
+      const draft = buildDraft(currentDraftId ?? draftIdRef.current ?? undefined);
       const saved = await saveReport(draft);
 
       if (!saved) {
