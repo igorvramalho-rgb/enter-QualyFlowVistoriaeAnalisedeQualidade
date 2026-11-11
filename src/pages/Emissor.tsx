@@ -115,6 +115,14 @@ export default function Emissor() {
   const [exporting, setExporting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
+  const [migrarOpen, setMigrarOpen] = useState(false);
+  const [migrarDados, setMigrarDados] = useState<{
+    fac: string;
+    os: string;
+    address: string;
+    serviceType: string;
+  } | null>(null);
+  const [migrando, setMigrando] = useState(false);
   const savedSignature = useRef("");
   const pendingDraft = useRef<ReportDraft | null>(null);
 
@@ -401,6 +409,29 @@ export default function Emissor() {
     }
   };
 
+  const confirmarMigracao = async () => {
+    if (!migrarDados) {
+      return;
+    }
+    setMigrando(true);
+    try {
+      await syncReportToAuditor({ templateId, ...migrarDados });
+      toast.success("Migrado para Respondidos à AlphaGeos", {
+        description: [migrarDados.fac && `FV ${migrarDados.fac}`, migrarDados.os && `OS ${migrarDados.os}`]
+          .filter(Boolean)
+          .join(" · "),
+      });
+      setMigrarOpen(false);
+      setMigrarDados(null);
+    } catch (error) {
+      toast.error("Não foi possível migrar", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setMigrando(false);
+    }
+  };
+
   const handleNewReport = () => {
     window.localStorage.removeItem(CURRENT_DRAFT_KEY);
     savedSignature.current = "";
@@ -516,6 +547,17 @@ export default function Emissor() {
         return;
       }
 
+      // Pós 60: pergunta se o operador quer levar a FV/OS para "Respondidos".
+      if (templateId.startsWith("pos_60") && (values.fac?.trim() || values.os?.trim())) {
+        setMigrarDados({
+          fac: values.fac ?? "",
+          os: values.os ?? "",
+          address: values.endereco ?? "",
+          serviceType: values.servicoExda ?? "",
+        });
+        setMigrarOpen(true);
+      }
+
       if (result === "unconfirmed") {
         const dentroDoPreview = !isFilePickerAvailable() && window.self !== window.top;
         toast.info("PDF gerado", {
@@ -525,14 +567,6 @@ export default function Emissor() {
         });
         return;
       }
-
-      void syncReportToAuditor({
-        templateId,
-        fac: values.fac ?? "",
-        os: values.os ?? "",
-        address: values.endereco ?? "",
-        serviceType: values.servicoExda ?? "",
-      }).catch(() => undefined);
 
       const pruned = await pruneExcess(2);
       toast.success("PDF salvo com sucesso", {
@@ -682,6 +716,51 @@ export default function Emissor() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={migrarOpen}
+        onOpenChange={(open) => {
+          setMigrarOpen(open);
+          if (!open) {
+            setMigrarDados(null);
+          }
+        }}
+      >
+        <DialogContent className="panel-glass rounded-2xl sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Migrar para Respondidos?</DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed">
+              Relatório Pós 60 emitido
+              {migrarDados?.fac || migrarDados?.os ? (
+                <>
+                  {" "}
+                  (FV <strong>{migrarDados?.fac || "—"}</strong> · OS{" "}
+                  <strong>{migrarDados?.os || "—"}</strong>)
+                </>
+              ) : null}
+              . Deseja mover esta FV/OS para a célula{" "}
+              <strong>Respondidos à AlphaGeos</strong> no Qualy Auditor, com a situação
+              “Resposta enviada”?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setMigrarOpen(false);
+                setMigrarDados(null);
+              }}
+              disabled={migrando}
+            >
+              Agora não
+            </Button>
+            <Button type="button" variant="glow" onClick={() => void confirmarMigracao()} disabled={migrando}>
+              {migrando ? "Migrando..." : "Migrar agora"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
         <DialogContent className="panel-glass rounded-2xl sm:max-w-[460px]">
