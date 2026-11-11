@@ -56,7 +56,7 @@ import {
   printReport,
   saveReportPdfFile,
 } from "@/lib/report-export";
-import { lookupReportData, syncReportToAuditor } from "@/lib/report-lookup";
+import { lookupReportData, syncReportToAuditor, type ReportLookup } from "@/lib/report-lookup";
 import {
   getDefaultValues,
   getTemplate,
@@ -313,11 +313,7 @@ export default function Emissor() {
           if (!achado) {
             return;
           }
-          setValues((previous) => ({
-            ...previous,
-            os: previous.os?.trim() ? previous.os : achado.os || previous.os,
-            endereco: previous.endereco?.trim() ? previous.endereco : achado.address || previous.endereco,
-          }));
+          preencherCom(achado, false);
         })
         .catch(() => undefined);
     }, 500);
@@ -380,6 +376,41 @@ export default function Emissor() {
   };
 
   /** Consulta o banco pela FV, OS ou protocolo SGZ e atualiza OS e endereço. */
+  /** Preenche os campos com o que veio do banco. `forcar` sobrescreve o que já existe. */
+  const preencherCom = (achado: ReportLookup, forcar: boolean) => {
+    const next: ReportValues = { ...values };
+    let preencheu = false;
+
+    const aplicar = (campo: string, valorNovo: string) => {
+      if (!valorNovo) {
+        return;
+      }
+      if (forcar || !next[campo]?.trim()) {
+        next[campo] = valorNovo;
+        preencheu = true;
+      }
+    };
+
+    aplicar("fac", achado.fac);
+    aplicar("os", achado.os);
+    aplicar("endereco", achado.address);
+    aplicar("servicoExda", achado.serviceType);
+    aplicar("polo", achado.locality);
+    aplicar("contratada", achado.contractor);
+
+    if (preencheu) {
+      setValues(next);
+    }
+
+    if (preencheu) {
+      toast.success(forcar ? "Dados atualizados" : "Dados preenchidos automaticamente", {
+        description: [achado.fac && `FAC ${achado.fac}`, achado.os && `OS ${achado.os}`, achado.address]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+  };
+
   const handleAtualizarDados = async () => {
     const termo = (values.protocoloSgz || values.fac || values.os || "").trim();
     if (termo.length < 4) {
@@ -394,14 +425,7 @@ export default function Emissor() {
         return;
       }
 
-      setValues((previous) => ({
-        ...previous,
-        os: achado.os || previous.os,
-        endereco: achado.address || previous.endereco,
-      }));
-      toast.success("Dados atualizados", {
-        description: [achado.os && `OS ${achado.os}`, achado.address].filter(Boolean).join(" · "),
-      });
+      preencherCom(achado, true);
     } catch (error) {
       toast.error("Não foi possível atualizar", {
         description: error instanceof Error ? error.message : undefined,
@@ -649,6 +673,7 @@ export default function Emissor() {
               onObjetoChange={setObjeto}
               observacoes={observacoes}
               onObservacoesChange={setObservacoes}
+              onRefresh={() => void handleAtualizarDados()}
             />
             <InstitutionalHeaderForm settings={settings} onChange={updateSettings} />
             <PhotoSlotGrid

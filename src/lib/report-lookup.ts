@@ -8,16 +8,19 @@ import { invalidateAuditorCache } from "@/lib/auditor";
  */
 
 export interface ReportLookup {
+  fac: string;
   os: string;
   address: string;
   serviceType: string;
+  locality: string;
+  contractor: string;
 }
 
-function valor(fields: Record<string, string> | null, chave: string): string {
+function valor(fields: Record<string, string> | null | undefined, chave: string): string {
   return (fields?.[chave] ?? "").trim();
 }
 
-/** Busca OS e endereço já conhecidos para a FV, OS ou protocolo SGZ informado. */
+/** Busca os dados já conhecidos para a FV, OS ou protocolo SGZ informado. */
 export async function lookupReportData(term: string): Promise<ReportLookup | null> {
   const value = term.trim();
   if (value.length < 4) {
@@ -26,16 +29,35 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
 
   const { data: casos } = await supabase
     .from("qa_cases")
-    .select("os, address, service_type")
+    .select("id, document_id, fac, os, address, service_type, locality, contractor")
     .or(`fac.eq.${value},os.eq.${value}`)
     .limit(1);
 
   const caso = casos?.[0];
-  if (caso && (caso.os || caso.address)) {
+  if (caso) {
+    let address = caso.address ?? "";
+    const campos: Record<string, string> = {};
+
+    if (caso.document_id) {
+      const { data: doc } = await supabase
+        .from("qa_documents")
+        .select("fields")
+        .eq("id", caso.document_id)
+        .maybeSingle();
+      Object.assign(campos, (doc?.fields as Record<string, string>) ?? {});
+    }
+
+    if (!address) {
+      address = valor(campos, "endereco");
+    }
+
     return {
-      os: caso.os ?? "",
-      address: caso.address ?? "",
-      serviceType: caso.service_type ?? "",
+      fac: (caso.fac ?? "").trim(),
+      os: (caso.os ?? "").trim(),
+      address,
+      serviceType: (caso.service_type ?? "").trim() || valor(campos, "servico"),
+      locality: (caso.locality ?? "").trim() || valor(campos, "polo") || valor(campos, "localidade"),
+      contractor: (caso.contractor ?? "").trim() || valor(campos, "contratada"),
     };
   }
 
@@ -50,10 +72,16 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
     if (!fields) {
       continue;
     }
-    const os = valor(fields, "os");
-    const address = valor(fields, "endereco");
-    if (os || address) {
-      return { os, address, serviceType: valor(fields, "servico") };
+    const achado: ReportLookup = {
+      fac: valor(fields, "fac"),
+      os: valor(fields, "os"),
+      address: valor(fields, "endereco"),
+      serviceType: valor(fields, "servico"),
+      locality: valor(fields, "polo") || valor(fields, "localidade"),
+      contractor: valor(fields, "contratada"),
+    };
+    if (achado.os || achado.address || achado.fac) {
+      return achado;
     }
   }
 

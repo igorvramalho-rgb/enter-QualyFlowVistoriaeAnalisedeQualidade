@@ -1,4 +1,4 @@
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ interface ReportFormProps {
   onObjetoChange: (value: string) => void;
   observacoes: string;
   onObservacoesChange: (value: string) => void;
+  /** Consulta o banco pela FV/OS/protocolo e atualiza os campos. */
+  onRefresh?: () => void;
 }
 
 const MAX_OBSERVACOES = 2000;
@@ -54,14 +56,23 @@ export function ReportForm({
   onObjetoChange,
   observacoes,
   onObservacoesChange,
+  onRefresh,
 }: ReportFormProps) {
   return (
     <Card className="p-4">
-      <div className="mb-3">
-        <h2 className="text-sm font-semibold text-foreground">2. Dados de cabeçalho</h2>
-        <p className="text-xs text-muted-foreground">
-          Os dados abaixo são impressos exatamente nos campos do modelo {template.title}.
-        </p>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">2. Dados de cabeçalho</h2>
+          <p className="text-xs text-muted-foreground">
+            Preencha o protocolo, a FV ou a OS: os demais campos vêm do banco quando existirem.
+          </p>
+        </div>
+        {onRefresh && (
+          <Button type="button" variant="glass" size="sm" className="h-8" onClick={onRefresh}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Atualizar
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
