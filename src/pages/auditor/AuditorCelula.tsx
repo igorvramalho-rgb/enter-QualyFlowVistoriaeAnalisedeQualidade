@@ -42,6 +42,8 @@ export default function AuditorCelula() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState("50");
+  const [page, setPage] = useState(1);
   const [loteStatus, setLoteStatus] = useState("");
   const [loteCell, setLoteCell] = useState("");
   const [aplicando, setAplicando] = useState(false);
@@ -87,6 +89,15 @@ export default function AuditorCelula() {
   const municipios = Array.from(new Set(daCelula.map((row) => row.municipality).filter(Boolean)));
   const servicos = Array.from(new Set(daCelula.map((row) => row.serviceType).filter(Boolean)));
   const casos = useMemo(() => new Set(filtrados.map((row) => `${row.fac}|${row.os}`)).size, [filtrados]);
+
+  const porPagina = Number(pageSize) || 50;
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
+  const paginaAtual = Math.min(page, totalPaginas);
+  const visiveis = filtrados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, municipio, servico, situacao, from, to, pageSize]);
 
   const naoEncontrados = useMemo(() => {
     if (termos.length < 2) return [] as string[];
@@ -374,7 +385,7 @@ export default function AuditorCelula() {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((row) => (
+                {visiveis.map((row) => (
                   <tr key={row.id} className="border-b border-border/30 align-top">
                     <td className="py-2 pr-2">
                       <Checkbox checked={selected.has(row.id)} onCheckedChange={() => alternar(row.id)} />
@@ -397,6 +408,45 @@ export default function AuditorCelula() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filtrados.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <span>
+              {filtrados.length} registro(s) · página {paginaAtual} de {totalPaginas}
+            </span>
+            <div className="flex items-center gap-2">
+              <select
+                value={pageSize}
+                onChange={(event) => setPageSize(event.target.value)}
+                className="h-7 rounded-md border border-input bg-background/70 px-1 text-[11px]"
+              >
+                {["50", "100", "200"].map((valor) => (
+                  <option key={valor} value={valor}>{valor} por página</option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7"
+                disabled={paginaAtual <= 1}
+                onClick={() => setPage((valor) => Math.max(1, valor - 1))}
+              >
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7"
+                disabled={paginaAtual >= totalPaginas}
+                onClick={() => setPage((valor) => Math.min(totalPaginas, valor + 1))}
+              >
+                Próxima
+              </Button>
+            </div>
           </div>
         )}
       </Card>

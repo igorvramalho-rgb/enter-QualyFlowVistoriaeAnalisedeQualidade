@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
   Eraser,
@@ -12,6 +12,7 @@ import {
   Plus,
   Printer,
   Save,
+  RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { DraftsList } from "@/components/emissores/drafts-list";
@@ -132,6 +133,26 @@ export default function Emissor() {
       observacoes={observacoes}
       settings={safeSettings}
     />
+  );
+
+  // Prévia adiada: digitar não precisa redesenhar as folhas a cada tecla.
+  const valoresPreview = useDeferredValue(values);
+  const fotosPreview = useDeferredValue(photos);
+  const observacoesPreview = useDeferredValue(observacoes);
+  const objetoPreview = useDeferredValue(objeto);
+
+  const previewView = useMemo(
+    () => (
+      <ReportDocumentView
+        templateId={templateId}
+        values={valoresPreview}
+        photos={fotosPreview}
+        objeto={objetoPreview}
+        observacoes={observacoesPreview}
+        settings={safeSettings}
+      />
+    ),
+    [templateId, valoresPreview, fotosPreview, objetoPreview, observacoesPreview, safeSettings],
   );
 
   const hasContent = useMemo(
@@ -350,6 +371,36 @@ export default function Emissor() {
     });
   };
 
+  /** Consulta o banco pela FV, OS ou protocolo SGZ e atualiza OS e endereço. */
+  const handleAtualizarDados = async () => {
+    const termo = (values.protocoloSgz || values.fac || values.os || "").trim();
+    if (termo.length < 4) {
+      toast.info("Informe o protocolo SGZ, o FAC ou a OS para atualizar.");
+      return;
+    }
+
+    try {
+      const achado = await lookupReportData(termo);
+      if (!achado || (!achado.os && !achado.address)) {
+        toast.warning("Nada encontrado no banco para este número", { description: termo });
+        return;
+      }
+
+      setValues((previous) => ({
+        ...previous,
+        os: achado.os || previous.os,
+        endereco: achado.address || previous.endereco,
+      }));
+      toast.success("Dados atualizados", {
+        description: [achado.os && `OS ${achado.os}`, achado.address].filter(Boolean).join(" · "),
+      });
+    } catch (error) {
+      toast.error("Não foi possível atualizar", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
+
   const handleNewReport = () => {
     window.localStorage.removeItem(CURRENT_DRAFT_KEY);
     savedSignature.current = "";
@@ -407,6 +458,32 @@ export default function Emissor() {
    * Fluxo protegido: salva o relatório, gera o PDF, grava o arquivo e só então
    * aplica a retenção dos dois mais recentes. Qualquer falha preserva os antigos.
    */
+  const esperarFolhas = async (limiteMs = 2500): Promise<boolean> => {
+    const inicio = Date.now();
+    while (Date.now() - inicio < limiteMs) {
+      const portal = document.getElementById("print-portal");
+      if (portal && portal.querySelector(".print-sheet")) {
+        return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    return false;
+  };
+
+  /** A impressão usa as mesmas folhas do PDF: monta o portal, imprime e libera. */
+  const handlePrint = async () => {
+    setExporting(true);
+    try {
+      if (!(await esperarFolhas())) {
+        toast.error("Não foi possível preparar as folhas para impressão.");
+        return;
+      }
+      printReport();
+    } finally {
+      window.setTimeout(() => setExporting(false), 1000);
+    }
+  };
+
   const handleDownload = async () => {
     setExporting(true);
     try {
@@ -425,6 +502,11 @@ export default function Emissor() {
       savedSignature.current = draftSignature(saved);
 
       const fileName = buildReportFileName(templateId, values);
+
+      if (!(await esperarFolhas())) {
+        throw new Error("Não foi possível preparar as folhas do relatório para o PDF.");
+      }
+
       const result = await saveReportPdfFile(fileName);
 
       if (result === "cancelled") {
@@ -494,6 +576,14 @@ export default function Emissor() {
                 <Plus className="h-4 w-4" />
                 Novo relatório
               </Button>
+              <Button
+                type="button"
+                variant="glass"
+                onClick={() => void handleAtualizarDados()}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Atualizar
+              </Button>
               <Button type="button" variant="glass" onClick={() => setClearOpen(true)}>
                 <Eraser className="h-4 w-4" />
                 Limpar relatório
@@ -557,7 +647,7 @@ export default function Emissor() {
                 <Badge variant="secondary" className="bg-accent/70 text-accent-foreground">
                   {template.shortTitle}
                 </Badge>
-                <Button type="button" variant="glass" size="sm" onClick={printReport}>
+                <Button type="button" variant="glass" size="sm" onClick={() => void handlePrint()}>
                   <Printer className="h-4 w-4" />
                   Imprimir
                 </Button>
@@ -585,7 +675,7 @@ export default function Emissor() {
                   className="preview-stack w-[210mm] origin-top-left"
                   style={{ transform: `scale(${scale})` }}
                 >
-                  {documentView}
+                  {previewView}
                 </div>
               </div>
             </div>
@@ -615,7 +705,7 @@ export default function Emissor() {
         </DialogContent>
       </Dialog>
 
-      <PrintPortal>{documentView}</PrintPortal>
+      {exporting && <PrintPortal>{documentView}</PrintPortal>}
     </>
   );
 }
