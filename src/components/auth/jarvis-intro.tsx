@@ -3,6 +3,10 @@ import { ShieldCheck } from "lucide-react";
 import { AUDITOR_SIGNATURE } from "@/lib/auditor";
 import { pickDailyGreeting } from "@/lib/greetings";
 
+/** Tempo mínimo na tela (leitura + foto) e fechamento automático. */
+const MINIMO_MS = 12_000;
+const FECHAR_MS = 20_000;
+
 const BOOT_LINES = [
   "conexão segura estabelecida",
   "base de fiscalização sincronizada",
@@ -18,10 +22,24 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
   const [step, setStep] = useState(0);
   const [typed, setTyped] = useState("");
   const [bar, setBar] = useState(0);
+  const [podeFechar, setPodeFechar] = useState(false);
+  const [restante, setRestante] = useState(Math.ceil(MINIMO_MS / 1000));
   const finished = useRef(false);
 
+  // Só libera a saída depois do tempo mínimo de leitura.
+  useEffect(() => {
+    const liberar = window.setTimeout(() => setPodeFechar(true), MINIMO_MS);
+    const contagem = window.setInterval(() => {
+      setRestante((valor) => Math.max(0, valor - 1));
+    }, 1000);
+    return () => {
+      window.clearTimeout(liberar);
+      window.clearInterval(contagem);
+    };
+  }, []);
+
   const close = () => {
-    if (finished.current) {
+    if (finished.current || !podeFechar) {
       return;
     }
     finished.current = true;
@@ -52,23 +70,29 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
   }, [greeting.text]);
 
   useEffect(() => {
+    const inicio = Date.now();
     const timer = window.setInterval(() => {
-      setBar((value) => Math.min(100, value + 2));
+      setBar(Math.min(100, ((Date.now() - inicio) / FECHAR_MS) * 100));
     }, 120);
-    const auto = window.setTimeout(close, 12000);
-    return () => {
-      window.clearInterval(timer);
-      window.clearTimeout(auto);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const auto = window.setTimeout(() => {
+      if (!finished.current) {
+        finished.current = true;
+        onDone();
+      }
+    }, FECHAR_MS);
+    return () => window.clearTimeout(auto);
+  }, [onDone]);
 
   useEffect(() => {
     const handler = () => close();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [podeFechar]);
 
   const primeiroNome = name.split(/[\s.@]+/)[0] ?? name;
 
@@ -86,7 +110,7 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
       <div className="jarvis-ring absolute h-[240px] w-[240px] rounded-full opacity-40" />
 
       <div className="relative z-10 w-full max-w-xl px-6 text-center">
-        <p className="jarvis-fade text-[10px] uppercase tracking-[0.55em] text-cyan-300/70">
+        <p className="jarvis-fade text-[10px] uppercase tracking-[0.38em] text-cyan-300/70">
           Qualy Flow · Núcleo Operacional
         </p>
 
@@ -101,7 +125,7 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
           {BOOT_LINES.slice(0, step).map((line) => (
             <p
               key={line}
-              className="jarvis-fade font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200/60"
+              className="jarvis-fade font-mono text-[10px] uppercase tracking-[0.1em] text-cyan-200/60"
             >
               <span className="text-emerald-300">✓</span> {line}
             </p>
@@ -133,9 +157,12 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
         <button
           type="button"
           onClick={close}
-          className="mt-4 text-[10px] uppercase tracking-[0.3em] text-cyan-200/50 transition-colors hover:text-cyan-100"
+          disabled={!podeFechar}
+          className="mt-4 text-[10px] uppercase tracking-[0.18em] text-cyan-200/55 transition-colors hover:text-cyan-100 disabled:cursor-default disabled:opacity-70"
         >
-          pressione qualquer tecla para entrar
+          {podeFechar
+            ? "pressione qualquer tecla para entrar"
+            : `leia com calma · liberando em ${restante}s`}
         </button>
 
         <p className="mt-8 text-[9px] uppercase tracking-[0.25em] text-cyan-200/25">
