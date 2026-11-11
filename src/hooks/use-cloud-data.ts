@@ -42,6 +42,9 @@ interface AnalysesCache {
 }
 
 let analysesCache: AnalysesCache | null = null;
+
+/** Mesmo cache para os relatórios do Emissor (evita recarregar ao voltar à tela). */
+let reportsCache: { userId: string; rows: ReportDraft[]; at: number } | null = null;
 const MIGRATION_FLAG = "qualyflow:cloud-migrated:v1";
 
 function errorDescription(error: unknown): string | undefined {
@@ -65,6 +68,9 @@ export function useCloudReports() {
     try {
       const rows = await fetchReports();
       setDrafts(rows);
+      if (user) {
+        reportsCache = { userId: user.id, rows, at: Date.now() };
+      }
     } catch (error) {
       toast.error("Não foi possível carregar os relatórios da nuvem", {
         description: errorDescription(error),
@@ -72,11 +78,15 @@ export function useCloudReports() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
       return;
+    }
+    if (reportsCache && reportsCache.userId === user.id) {
+      setDrafts(reportsCache.rows);
+      setLoading(false);
     }
     void refresh();
     return subscribeRefresh(() => void refresh());
@@ -87,7 +97,11 @@ export function useCloudReports() {
       const saved = await saveReport(draft);
       setDrafts((previous) => {
         const others = previous.filter((item) => item.id !== saved.id);
-        return [saved, ...others].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        const next = [saved, ...others].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        if (user) {
+          reportsCache = { userId: user.id, rows: next, at: Date.now() };
+        }
+        return next;
       });
       return saved;
     } catch (error) {
@@ -96,7 +110,7 @@ export function useCloudReports() {
       });
       return null;
     }
-  }, []);
+  }, [user]);
 
   const remove = useCallback(async (id: string) => {
     try {

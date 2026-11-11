@@ -55,6 +55,7 @@ import {
   printReport,
   saveReportPdfFile,
 } from "@/lib/report-export";
+import { lookupReportData, syncReportToAuditor } from "@/lib/report-lookup";
 import {
   getDefaultValues,
   getTemplate,
@@ -260,8 +261,37 @@ export default function Emissor() {
     setTemplateId(nextId as ReportTemplateId);
   };
 
+  const lookupTimer = useRef<number | null>(null);
+
   const handleValueChange = (fieldId: string, value: string) => {
     setValues((previous) => ({ ...previous, [fieldId]: value }));
+
+    // Protocolo SGZ, FAC ou OS: completa endereço e OS com o que já está no banco.
+    if (!["protocoloSgz", "fac", "os"].includes(fieldId)) {
+      return;
+    }
+    if (lookupTimer.current) {
+      window.clearTimeout(lookupTimer.current);
+    }
+    const termo = value.trim();
+    if (termo.length < 4) {
+      return;
+    }
+
+    lookupTimer.current = window.setTimeout(() => {
+      void lookupReportData(termo)
+        .then((achado) => {
+          if (!achado) {
+            return;
+          }
+          setValues((previous) => ({
+            ...previous,
+            os: previous.os?.trim() ? previous.os : achado.os || previous.os,
+            endereco: previous.endereco?.trim() ? previous.endereco : achado.address || previous.endereco,
+          }));
+        })
+        .catch(() => undefined);
+    }, 500);
   };
 
   const handlePhotoChange = (slotId: string, entry: PhotoEntry | null) => {
@@ -413,6 +443,14 @@ export default function Emissor() {
         });
         return;
       }
+
+      void syncReportToAuditor({
+        templateId,
+        fac: values.fac ?? "",
+        os: values.os ?? "",
+        address: values.endereco ?? "",
+        serviceType: values.servicoExda ?? "",
+      }).catch(() => undefined);
 
       const pruned = await pruneExcess(2);
       toast.success("PDF salvo com sucesso", {
