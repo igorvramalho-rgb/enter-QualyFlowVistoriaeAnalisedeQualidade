@@ -124,7 +124,7 @@ export function useCloudReports() {
   }, []);
 
   const pruneExcess = useCallback(
-    async (keep = 2) => {
+    async (keep = 1) => {
       if (!user) {
         return null;
       }

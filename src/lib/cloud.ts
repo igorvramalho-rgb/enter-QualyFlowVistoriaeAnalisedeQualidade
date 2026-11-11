@@ -412,7 +412,7 @@ export async function countAnalyses(): Promise<number> {
  */
 export async function pruneMyReports(
   userId: string,
-  keep = 2,
+  keep = 1,
 ): Promise<{ deleted: number; kept: number }> {
   const { data, error } = await supabase
     .from("qualyflow_reports")

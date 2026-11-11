@@ -592,12 +592,12 @@ export default function Emissor() {
         return;
       }
 
-      const pruned = await pruneExcess(2);
+      const pruned = await pruneExcess(1);
       toast.success("PDF salvo com sucesso", {
         description:
           pruned && pruned.deleted > 0
-            ? `${fileName} • ${pruned.deleted} relatório(s) antigo(s) removido(s), mantendo os 2 mais recentes.`
-            : `${fileName} • mantidos os 2 relatórios mais recentes.`,
+            ? `${fileName} • ${pruned.deleted} relatório(s) antigo(s) removido(s), mantendo apenas o mais recente.`
+            : `${fileName} • mantido apenas o relatório mais recente.`,
       });
     } catch (error) {
       toast.error("Não foi possível gerar o PDF", {
