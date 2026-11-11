@@ -547,3 +547,102 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
+
+/* ------------------------------------------------------------------ */
+/* Abertura estilo Jarvis (após o login)                               */
+/* ------------------------------------------------------------------ */
+.jarvis-stage {
+  background:
+    radial-gradient(ellipse at 50% 40%, hsl(200 90% 22% / 0.55), transparent 60%),
+    radial-gradient(ellipse at 50% 110%, hsl(190 90% 30% / 0.35), transparent 55%),
+    hsl(210 60% 4%);
+  animation: jarvis-in 0.5s ease-out both;
+}
+
+.jarvis-grid {
+  background-image:
+    linear-gradient(hsl(190 90% 60% / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(190 90% 60% / 0.07) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 78%);
+}
+
+.jarvis-glow {
+  background: radial-gradient(circle at 50% 45%, hsl(187 95% 55% / 0.12), transparent 45%);
+  animation: jarvis-pulse 3.4s ease-in-out infinite;
+}
+
+.jarvis-ring {
+  border: 1px solid hsl(187 95% 60% / 0.22);
+  box-shadow: inset 0 0 60px hsl(187 95% 55% / 0.08);
+}
+
+.jarvis-ring--slow {
+  animation: jarvis-spin 28s linear infinite;
+  border-style: dashed;
+}
+
+.jarvis-ring--fast {
+  animation: jarvis-spin 16s linear infinite reverse;
+  border-color: hsl(187 95% 60% / 0.35);
+}
+
+.jarvis-panel {
+  border: 1px solid hsl(187 95% 60% / 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, hsl(200 60% 10% / 0.85), hsl(205 60% 7% / 0.9));
+  box-shadow: 0 24px 60px -30px hsl(187 95% 55% / 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.jarvis-fade {
+  animation: jarvis-fade 0.7s ease-out both;
+}
+
+.jarvis-caret {
+  display: inline-block;
+  margin-left: 2px;
+  color: hsl(187 95% 65%);
+  animation: jarvis-blink 1s steps(2, start) infinite;
+}
+
+@keyframes jarvis-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes jarvis-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes jarvis-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jarvis-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes jarvis-blink {
+  to {
+    opacity: 0;
+  }
+}

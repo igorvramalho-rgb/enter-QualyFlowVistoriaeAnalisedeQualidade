@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogOut, Menu, ShieldCheck } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "@/components/layout/app-footer";
@@ -12,14 +12,31 @@ import { AccessGate } from "@/components/auth/access-gate";
 import { useAuth } from "@/hooks/auth-context";
 import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { JarvisIntro } from "@/components/auth/jarvis-intro";
 
 export default function AppShell() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
   const { user, profile, loading, profileLoading, signOut } = useAuth();
 
   useLegacyCloudMigration();
+
+  // Abertura estilo Jarvis: uma vez por sessão, após o login.
+  useEffect(() => {
+    if (!user || !profile || profile.status !== "ativo") {
+      return;
+    }
+    try {
+      if (window.sessionStorage.getItem("qualyflow:jarvis") === "1") {
+        return;
+      }
+    } catch {
+      /* sem armazenamento de sessão: mostra apenas nesta navegação */
+    }
+    setIntroOpen(true);
+  }, [user, profile]);
 
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.to));
 
@@ -52,7 +69,21 @@ export default function AppShell() {
   }
 
   return (
-    <div className="tech-mesh flex h-screen w-full overflow-hidden">
+    <>
+      {introOpen && (
+        <JarvisIntro
+          name={profile.displayName || profile.username}
+          onDone={() => {
+            setIntroOpen(false);
+            try {
+              window.sessionStorage.setItem("qualyflow:jarvis", "1");
+            } catch {
+              /* ignora */
+            }
+          }}
+        />
+      )}
+      <div className="tech-mesh flex h-screen w-full overflow-hidden">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-glass-border/40 md:flex">
         <AppSidebar />
       </aside>
@@ -119,6 +150,7 @@ export default function AppShell() {
 
         <AppFooter />
       </div>
-    </div>
+      </div>
+    </>
   );
 }
