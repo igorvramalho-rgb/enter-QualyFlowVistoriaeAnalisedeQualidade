@@ -549,64 +549,335 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
-/* Abertura estilo Jarvis (após o login)                               */
+/* Abertura 3D estilo HUD (após o login)                               */
 /* ------------------------------------------------------------------ */
-.jarvis-stage {
+.jv-stage {
   background:
-    radial-gradient(ellipse at 50% 40%, hsl(200 90% 22% / 0.55), transparent 60%),
-    radial-gradient(ellipse at 50% 110%, hsl(190 90% 30% / 0.35), transparent 55%),
-    hsl(210 60% 4%);
-  animation: jarvis-in 0.5s ease-out both;
+    radial-gradient(ellipse at 50% 42%, hsl(199 95% 26% / 0.45), transparent 62%),
+    radial-gradient(ellipse at 50% 118%, hsl(190 95% 34% / 0.4), transparent 58%),
+    linear-gradient(180deg, hsl(210 70% 3%), hsl(205 75% 5%) 55%, hsl(200 80% 7%));
+  animation: jv-in 0.6s ease-out both;
+  cursor: default;
 }
 
-.jarvis-grid {
+/* grade em perspectiva */
+.jv-grid {
+  position: absolute;
+  inset: 0;
   background-image:
-    linear-gradient(hsl(190 90% 60% / 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(190 90% 60% / 0.07) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 78%);
+    linear-gradient(hsl(187 95% 60% / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(187 95% 60% / 0.09) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 50% 45%, black 18%, transparent 72%);
+  opacity: 0.85;
 }
 
-.jarvis-glow {
-  background: radial-gradient(circle at 50% 45%, hsl(187 95% 55% / 0.12), transparent 45%);
-  animation: jarvis-pulse 3.4s ease-in-out infinite;
+.jv-floor {
+  position: absolute;
+  left: -25%;
+  right: -25%;
+  bottom: -12%;
+  height: 62%;
+  background-image:
+    linear-gradient(hsl(187 95% 60% / 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(187 95% 60% / 0.16) 1px, transparent 1px);
+  background-size: 90px 90px;
+  transform: perspective(520px) rotateX(72deg);
+  transform-origin: bottom center;
+  mask-image: linear-gradient(to top, black, transparent 78%);
+  opacity: 0.5;
 }
 
-.jarvis-ring {
-  border: 1px solid hsl(187 95% 60% / 0.22);
-  box-shadow: inset 0 0 60px hsl(187 95% 55% / 0.08);
+/* onda holográfica */
+.jv-wave {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 128%;
+  height: 340px;
+  transform: translate(-50%, -46%) perspective(900px) rotateX(62deg);
+  opacity: 0.85;
+  pointer-events: none;
 }
 
-.jarvis-ring--slow {
-  animation: jarvis-spin 28s linear infinite;
-  border-style: dashed;
+.jv-wave svg {
+  width: 100%;
+  height: 100%;
 }
 
-.jarvis-ring--fast {
-  animation: jarvis-spin 16s linear infinite reverse;
-  border-color: hsl(187 95% 60% / 0.35);
+.jv-wave-line {
+  fill: none;
+  stroke: hsl(187 96% 66%);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.28;
 }
 
-.jarvis-panel {
-  border: 1px solid hsl(187 95% 60% / 0.22);
-  border-radius: 14px;
-  background: linear-gradient(180deg, hsl(200 60% 10% / 0.85), hsl(205 60% 7% / 0.9));
-  box-shadow: 0 24px 60px -30px hsl(187 95% 55% / 0.6);
-  backdrop-filter: blur(6px);
+.jv-wave-line--1 {
+  stroke-width: 1.4;
+  stroke-dasharray: 16 7;
+  animation: jv-dash 6s linear infinite;
 }
 
-.jarvis-fade {
-  animation: jarvis-fade 0.7s ease-out both;
+.jv-wave-line--1 {
+  opacity: 0.75;
+  filter: drop-shadow(0 0 6px hsl(187 96% 60% / 0.85));
 }
 
-.jarvis-caret {
+.jv-wave-line--2 {
+  opacity: 0.42;
+}
+
+.jv-wave-line--3 {
+  opacity: 0.3;
+}
+
+.jv-wave-line--4 {
+  opacity: 0.2;
+}
+
+.jv-wave-line--5 {
+  opacity: 0.12;
+}
+
+/* anéis 3D */
+.jv-rings {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 560px;
+  height: 560px;
+  transform: translate(-50%, -50%) perspective(900px) rotateX(72deg);
+  pointer-events: none;
+}
+
+.jv-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 9999px;
+  border: 1px dashed hsl(187 95% 62% / 0.35);
+}
+
+.jv-ring--1 {
+  inset: 0;
+  border-color: hsl(187 96% 66% / 0.5);
+  box-shadow: 0 0 24px hsl(187 96% 60% / 0.25);
+  animation: jv-spin 34s linear infinite;
+}
+
+.jv-ring--2 {
+  inset: 70px;
+  border-style: solid;
+  border-color: hsl(187 95% 62% / 0.22);
+  animation: jv-spin 22s linear infinite reverse;
+}
+
+.jv-ring--3 {
+  inset: 150px;
+  border-color: hsl(187 95% 62% / 0.35);
+  animation: jv-pulse 3.6s ease-in-out infinite;
+}
+
+/* partículas */
+.jv-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: hsl(187 96% 68%);
+  box-shadow: 0 0 10px hsl(187 96% 62% / 0.9);
+  animation: jv-float 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* cantos */
+.jv-bracket {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border-color: hsl(187 95% 62% / 0.55);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.jv-bracket--tl {
+  top: 18px;
+  left: 18px;
+  border-width: 2px 0 0 2px;
+}
+
+.jv-bracket--tr {
+  top: 18px;
+  right: 18px;
+  border-width: 2px 2px 0 0;
+}
+
+.jv-bracket--bl {
+  bottom: 18px;
+  left: 18px;
+  border-width: 0 0 2px 2px;
+}
+
+.jv-bracket--br {
+  bottom: 18px;
+  right: 18px;
+  border-width: 0 2px 2px 0;
+}
+
+/* barra superior */
+.jv-topbar {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transform: translateX(-50%);
+}
+
+.jv-title {
+  text-align: center;
+}
+
+.jv-chevron {
+  width: 90px;
+  height: 20px;
+  background: linear-gradient(90deg, hsl(187 95% 62% / 0), hsl(187 95% 62% / 0.75));
+  clip-path: polygon(0 50%, 42% 0, 100% 0, 100% 100%, 42% 100%);
+}
+
+.jv-chevron--right {
+  transform: scaleX(-1);
+}
+
+/* blocos de HUD */
+.jv-hud {
+  position: absolute;
+  top: 62px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: hsl(187 95% 72% / 0.45);
+  line-height: 1.9;
+  pointer-events: none;
+}
+
+.jv-hud--left {
+  left: 34px;
+}
+
+.jv-hud--right {
+  right: 34px;
+  text-align: right;
+}
+
+/* trilhos verticais */
+.jv-rail {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  font-size: 8px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: hsl(187 95% 72% / 0.28);
+  pointer-events: none;
+}
+
+.jv-rail--left {
+  left: 26px;
+  rotate: 180deg;
+}
+
+.jv-rail--right {
+  right: 26px;
+}
+
+/* painel central */
+.jv-panel {
+  position: relative;
+  border: 1px solid hsl(187 96% 62% / 0.55);
+  border-radius: 10px;
+  background: linear-gradient(180deg, hsl(199 80% 10% / 0.92), hsl(205 85% 7% / 0.95));
+  box-shadow:
+    0 0 0 1px hsl(187 96% 62% / 0.18),
+    0 0 40px -8px hsl(187 96% 60% / 0.65),
+    inset 0 0 30px hsl(187 96% 60% / 0.12);
+  backdrop-filter: blur(4px);
+}
+
+.jv-panel-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: hsl(187 96% 70%);
+  border-style: solid;
+}
+
+.jv-panel-corner--tl {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.jv-panel-corner--tr {
+  top: -1px;
+  right: -1px;
+  border-width: 2px 2px 0 0;
+}
+
+.jv-panel-corner--bl {
+  bottom: -1px;
+  left: -1px;
+  border-width: 0 0 2px 2px;
+}
+
+.jv-panel-corner--br {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* rodapé */
+.jv-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 56px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: hsl(187 95% 72% / 0.35);
+  pointer-events: none;
+}
+
+.jv-footer-block--right {
+  text-align: right;
+}
+
+.jv-footer-sign {
+  text-align: center;
+  color: hsl(187 95% 80% / 0.45);
+}
+
+.jv-fade {
+  animation: jv-fade 0.7s ease-out both;
+}
+
+.jv-caret {
   display: inline-block;
   margin-left: 2px;
-  color: hsl(187 95% 65%);
-  animation: jarvis-blink 1s steps(2, start) infinite;
+  color: hsl(187 96% 70%);
+  animation: jv-blink 1s steps(2, start) infinite;
 }
 
-@keyframes jarvis-in {
+@keyframes jv-in {
   from {
     opacity: 0;
   }
@@ -615,10 +886,10 @@ body {
   }
 }
 
-@keyframes jarvis-fade {
+@keyframes jv-fade {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
@@ -626,23 +897,57 @@ body {
   }
 }
 
-@keyframes jarvis-spin {
+@keyframes jv-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@keyframes jarvis-pulse {
+@keyframes jv-pulse {
   0%, 100% {
-    opacity: 0.55;
+    opacity: 0.45;
   }
   50% {
     opacity: 1;
   }
 }
 
-@keyframes jarvis-blink {
+@keyframes jv-blink {
   to {
     opacity: 0;
+  }
+}
+
+@keyframes jv-dash {
+  to {
+    stroke-dashoffset: -220;
+  }
+}
+
+@keyframes jv-float {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-14px);
+    opacity: 0.9;
+  }
+}
+
+@media (max-width: 640px) {
+  .jv-hud,
+  .jv-rail,
+  .jv-footer-block {
+    display: none;
+  }
+
+  .jv-footer {
+    justify-content: center;
+    padding: 0 24px;
+  }
+
+  .jv-chevron {
+    width: 48px;
   }
 }
