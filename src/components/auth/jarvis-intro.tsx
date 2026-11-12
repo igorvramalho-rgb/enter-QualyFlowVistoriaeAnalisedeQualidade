@@ -4,8 +4,16 @@ import { AUDITOR_SIGNATURE } from "@/lib/auditor";
 import { pickDailyGreeting } from "@/lib/greetings";
 
 /** Tempo mínimo na tela (leitura + foto) e fechamento automático. */
-const MINIMO_MS = 12_000;
-const FECHAR_MS = 20_000;
+const MINIMO_MS = 7_000;
+const FECHAR_MS = 10_000;
+
+/** Saudação conforme o horário do acesso. */
+function saudacao(dia = new Date()): string {
+  const hora = dia.getHours();
+  if (hora < 12) return "BOM DIA";
+  if (hora < 18) return "BOA TARDE";
+  return "BOA NOITE";
+}
 
 const BOOT_LINES = [
   "conexão segura estabelecida",
@@ -195,7 +203,7 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
           <div className="jv-fade mt-4 flex items-center justify-center gap-3">
             <ShieldCheck className="h-6 w-6 text-cyan-300" />
             <h1 className="text-2xl font-semibold tracking-[0.16em] text-cyan-50 sm:text-3xl">
-              BEM-VINDO, {primeiroNome.toUpperCase()}
+              {saudacao()}, {primeiroNome.toUpperCase()}
             </h1>
           </div>
 

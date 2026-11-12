@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { LogOut, Menu, ShieldCheck } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "@/components/layout/app-footer";
@@ -13,13 +13,16 @@ import { useAuth } from "@/hooks/auth-context";
 import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { JarvisIntro } from "@/components/auth/jarvis-intro";
+import { isCloudDown, subscribeCloudDown } from "@/lib/offline-access";
+import { CloudOff } from "lucide-react";
 
 export default function AppShell() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
-  const { user, profile, loading, profileLoading, signOut } = useAuth();
+  const nuvemIndisponivel = useSyncExternalStore(subscribeCloudDown, isCloudDown, isCloudDown);
+  const { user, profile, loading, profileLoading, signOut, refreshProfile } = useAuth();
 
   useLegacyCloudMigration();
 
@@ -56,7 +59,11 @@ export default function AppShell() {
 
   if (!profile) {
     return (
-      <AccessGate status="sem-perfil" username={user.email ?? ""} onSignOut={signOut} />
+      <AccessGate
+        status={isCloudDown() ? "nuvem-off" : "sem-perfil"}
+        username={user.email ?? ""}
+        onSignOut={signOut}
+      />
     );
   }
 
@@ -132,6 +139,26 @@ export default function AppShell() {
             </Button>
           </div>
         </header>
+
+        {nuvemIndisponivel && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-[11px] text-foreground">
+            <p className="flex items-center gap-2">
+              <CloudOff className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                <strong>Nuvem indisponível.</strong> Você está no modo contingência: pode continuar
+                emitindo relatórios neste computador. Análises e BI voltam quando a conexão
+                retornar.
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshProfile()}
+              className="rounded-md border border-warning/50 px-2 py-1 text-[10px] font-medium"
+            >
+              Tentar reconectar
+            </button>
+          </div>
+        )}
 
         <main className="scroll-slim flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           <div className="mx-auto w-full max-w-[1500px] animate-fade-in">

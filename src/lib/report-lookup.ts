@@ -95,6 +95,8 @@ export async function syncReportToAuditor(input: {
   os: string;
   address: string;
   serviceType: string;
+  /** Célula escolhida pelo operador (Respondidos ou RPA). */
+  cell?: "respondidos" | "rpa";
 }): Promise<void> {
   if (!input.templateId.startsWith("pos_60")) {
     return;
@@ -107,6 +109,8 @@ export async function syncReportToAuditor(input: {
   }
 
   const agora = new Date().toISOString();
+  const destino = input.cell ?? "respondidos";
+  const situacao = destino === "rpa" ? "em_analise" : "resposta_enviada";
 
   const { data: existente } = await supabase
     .from("qa_cases")
@@ -119,15 +123,15 @@ export async function syncReportToAuditor(input: {
     await supabase
       .from("qa_cases")
       .update({
-        cell: "respondidos",
-        analysis_status: "resposta_enviada",
+        cell: destino,
+        analysis_status: situacao,
         updated_at: agora,
       })
       .eq("id", existente.id);
 
     await supabase.from("qa_case_events").insert({
       case_id: existente.id,
-      event_type: "resposta_enviada",
+      event_type: destino === "rpa" ? "encaminhado_rpa" : "resposta_enviada",
       payload: { origem: "emissor" } as never,
     });
   } else {
@@ -138,8 +142,8 @@ export async function syncReportToAuditor(input: {
         os,
         address: input.address.trim(),
         service_type: input.serviceType.trim(),
-        cell: "respondidos",
-        analysis_status: "resposta_enviada",
+        cell: destino,
+        analysis_status: situacao,
         outcome: "pendente",
       })
       .select("id")
@@ -148,7 +152,7 @@ export async function syncReportToAuditor(input: {
     if (criado?.id) {
       await supabase.from("qa_case_events").insert({
         case_id: criado.id,
-        event_type: "resposta_enviada",
+        event_type: destino === "rpa" ? "encaminhado_rpa" : "resposta_enviada",
         payload: { origem: "emissor" } as never,
       });
     }

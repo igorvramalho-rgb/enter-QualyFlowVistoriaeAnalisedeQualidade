@@ -1,10 +1,10 @@
-import { LogOut, ShieldX, TimerReset } from "lucide-react";
+import { CloudOff, LogOut, ShieldX, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { UserStatus } from "@/lib/users";
 
 interface AccessGateProps {
-  status: UserStatus | "sem-perfil";
+  status: UserStatus | "sem-perfil" | "nuvem-off";
   username: string;
   onSignOut: () => Promise<void>;
 }
@@ -31,6 +31,13 @@ const CONTENT: Record<
     description: "Seu acesso está ativo.",
     icon: ShieldX,
     tone: "bg-success/15 text-success",
+  },
+  "nuvem-off": {
+    title: "Nuvem indisponível",
+    description:
+      "Não foi possível validar seu acesso agora. Se você já entrou neste computador antes, a sessão volta assim que a conexão for restabelecida. Tente novamente em alguns instantes.",
+    icon: CloudOff,
+    tone: "bg-warning/15 text-warning",
   },
   "sem-perfil": {
     title: "Usuário sem perfil de acesso",

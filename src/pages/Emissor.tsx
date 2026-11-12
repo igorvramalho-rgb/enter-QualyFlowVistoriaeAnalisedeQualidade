@@ -125,6 +125,7 @@ export default function Emissor() {
     serviceType: string;
   } | null>(null);
   const [migrando, setMigrando] = useState(false);
+  const [migrarCell, setMigrarCell] = useState<"respondidos" | "rpa">("respondidos");
   const savedSignature = useRef("");
   // Id estável: evita criar dois relatórios quando o autosave dispara antes de o anterior voltar.
   const draftIdRef = useRef<string | null>(null);
@@ -539,7 +540,7 @@ export default function Emissor() {
     }
     setMigrando(true);
     try {
-      await syncReportToAuditor({ templateId, ...migrarDados });
+      await syncReportToAuditor({ templateId, ...migrarDados, cell: migrarCell });
       toast.success("Migrado para Respondidos à AlphaGeos", {
         description: [migrarDados.fac && `FV ${migrarDados.fac}`, migrarDados.os && `OS ${migrarDados.os}`]
           .filter(Boolean)
@@ -686,6 +687,7 @@ export default function Emissor() {
           address: values.endereco ?? "",
           serviceType: values.servicoExda ?? "",
         });
+        setMigrarCell("respondidos");
         setMigrarOpen(true);
       }
 
@@ -870,11 +872,21 @@ export default function Emissor() {
                   <strong>{migrarDados?.os || "—"}</strong>)
                 </>
               ) : null}
-              . Deseja mover esta FV/OS para a célula{" "}
-              <strong>Respondidos à AlphaGeos</strong> no Qualy Auditor, com a situação
-              “Resposta enviada”?
+              . Escolha para qual célula do Qualy Auditor deseja mover esta FV/OS:
             </DialogDescription>
           </DialogHeader>
+          <label className="block text-[11px] text-muted-foreground">
+            Célula de destino
+            <select
+              value={migrarCell}
+              onChange={(event) => setMigrarCell(event.target.value as "respondidos" | "rpa")}
+              className="mt-0.5 h-9 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
+            >
+              <option value="respondidos">Respondidos à AlphaGeos</option>
+              <option value="rpa">RPA / Defesas Técnicas</option>
+            </select>
+          </label>
+
           <DialogFooter>
             <Button
               type="button"

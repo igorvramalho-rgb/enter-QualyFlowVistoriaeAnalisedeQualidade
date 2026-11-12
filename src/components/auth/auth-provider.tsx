@@ -3,6 +3,12 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthContext, type AuthContextValue } from "@/hooks/auth-context";
 import { fetchProfile, usernameToEmail, type AppUser } from "@/lib/users";
+import {
+  cacheProfile,
+  clearCachedProfile,
+  readCachedProfile,
+  setCloudDown,
+} from "@/lib/offline-access";
 
 /**
  * Sessão no Enter Cloud + perfil de acesso (gestor/vistoriador e status).
@@ -45,14 +51,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void fetchProfile(user.id)
       .then((next) => {
-        if (active) {
-          setProfile(next);
+        if (!active) {
+          return;
         }
+        if (next) {
+          cacheProfile(next);
+          setCloudDown(false);
+        }
+        setProfile(next);
       })
       .catch(() => {
-        if (active) {
-          setProfile(null);
+        if (!active) {
+          return;
         }
+        // Nuvem indisponível: mantém o acesso já autenticado neste computador.
+        const cache = readCachedProfile();
+        if (cache) {
+          setCloudDown(true);
+          setProfile(cache);
+          return;
+        }
+        setCloudDown(true);
+        setProfile(null);
       })
       .finally(() => {
         if (active) {
@@ -77,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    clearCachedProfile();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
