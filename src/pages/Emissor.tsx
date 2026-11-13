@@ -64,6 +64,7 @@ import {
   type ReportTemplateId,
   mergeValuesForTemplate,
   REPORT_TEMPLATES,
+  SGZ_SITUACOES,
 } from "@/lib/report-templates";
 import { createId } from "@/lib/storage";
 
@@ -419,7 +420,7 @@ export default function Emissor() {
             }
             return;
           }
-          preencherCom(achado, false);
+          preencherCom(achado, true);
         })
         .catch(() => undefined);
     }, 500);
@@ -501,13 +502,23 @@ export default function Emissor() {
       }
     };
 
+    // O cadastro é a fonte da verdade: preenche/atualiza todo o cabeçalho.
     aplicar("fac", achado.fac);
     aplicar("os", achado.os);
-    // O endereço do cadastro é a fonte da verdade: atualiza sempre que encontrado.
-    aplicar("endereco", achado.address, true);
+    aplicar("endereco", achado.address);
     aplicar("servicoExda", achado.serviceType);
     aplicar("polo", achado.locality);
     aplicar("contratada", achado.contractor);
+    aplicar("data", achado.date);
+    aplicar("dataVistoria", achado.date);
+    aplicar("protocoloSgz", achado.protocol);
+    aplicar("prazo", achado.prazo);
+    aplicar("origemDemanda", achado.origem);
+
+    // Situação usa lista fixa no modelo SGZ: só aplica se for uma opção válida.
+    if (achado.situacao && SGZ_SITUACOES.includes(achado.situacao as (typeof SGZ_SITUACOES)[number])) {
+      aplicar("situacao", achado.situacao);
+    }
 
     if (preencheu) {
       setValues(next);

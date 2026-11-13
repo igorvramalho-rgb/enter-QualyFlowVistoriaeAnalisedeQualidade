@@ -14,6 +14,30 @@ export interface ReportLookup {
   serviceType: string;
   locality: string;
   contractor: string;
+  /** Data da fiscalização (dd/mm/aaaa), quando existir. */
+  date: string;
+  /** Protocolo SGZ, quando existir. */
+  protocol: string;
+  /** Situação atual (SGZ), quando existir. */
+  situacao: string;
+  prazo: string;
+  origem: string;
+}
+
+function limparData(valor: string): string {
+  const bruto = valor.trim();
+  if (!bruto) {
+    return "";
+  }
+  const br = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(bruto);
+  if (br) {
+    return `${br[1].padStart(2, "0")}/${br[2].padStart(2, "0")}/${br[3].length === 2 ? `20${br[3]}` : br[3]}`;
+  }
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(bruto);
+  if (iso) {
+    return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  }
+  return bruto;
 }
 
 function valor(fields: Record<string, string> | null | undefined, chave: string): string {
@@ -77,6 +101,11 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
       serviceType: (caso.service_type ?? "").trim() || valor(campos, "servico"),
       locality: (caso.locality ?? "").trim() || valor(campos, "polo") || valor(campos, "localidade"),
       contractor: (caso.contractor ?? "").trim() || valor(campos, "contratada"),
+      date: limparData(valor(campos, "data")),
+      protocol: valor(campos, "protocoloSgz"),
+      situacao: valor(campos, "situacao"),
+      prazo: valor(campos, "prazo"),
+      origem: valor(campos, "origemDemanda"),
     };
   }
 
@@ -103,6 +132,11 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
       serviceType: valor(fields, "servico"),
       locality: valor(fields, "polo") || valor(fields, "localidade"),
       contractor: valor(fields, "contratada"),
+      date: limparData(valor(fields, "data")),
+      protocol: valor(fields, "protocoloSgz"),
+      situacao: valor(fields, "situacao"),
+      prazo: valor(fields, "prazo"),
+      origem: valor(fields, "origemDemanda"),
     };
     if (resultado.os || resultado.address || resultado.fac) {
       return resultado;
