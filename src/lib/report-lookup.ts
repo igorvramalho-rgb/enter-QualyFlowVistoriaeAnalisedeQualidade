@@ -22,18 +22,37 @@ function valor(fields: Record<string, string> | null | undefined, chave: string)
 
 /** Busca os dados já conhecidos para a FV, OS ou protocolo SGZ informado. */
 export async function lookupReportData(term: string): Promise<ReportLookup | null> {
-  const value = term.trim();
-  if (value.length < 4) {
+  const bruto = term.trim();
+  if (bruto.length < 4) {
     return null;
   }
+  const apenasDigitos = bruto.replace(/\D/g, "");
+  const termos = Array.from(new Set([bruto, apenasDigitos].filter((valor) => valor.length >= 4)));
 
-  const { data: casos } = await supabase
-    .from("qa_cases")
-    .select("id, document_id, fac, os, address, service_type, locality, contractor")
-    .or(`fac.eq.${value},os.eq.${value}`)
-    .limit(1);
+  const colunas = "id, document_id, fac, os, address, service_type, locality, contractor";
 
-  const caso = casos?.[0];
+  // Consultas simples por coluna (sem filtro composto), em paralelo.
+  const consultas: PromiseLike<{ data: unknown }>[] = [];
+  for (const valor of termos) {
+    consultas.push(
+      supabase.from("qa_cases").select(colunas).eq("fac", valor).limit(1).then((r) => ({ data: r.data?.[0] ?? null })),
+      supabase.from("qa_cases").select(colunas).eq("os", valor).limit(1).then((r) => ({ data: r.data?.[0] ?? null })),
+    );
+  }
+
+  const resultados = await Promise.all(consultas);
+  const caso = resultados.find((item) => item.data)?.data as
+    | {
+        document_id: string | null;
+        fac: string | null;
+        os: string | null;
+        address: string | null;
+        service_type: string | null;
+        locality: string | null;
+        contractor: string | null;
+      }
+    | undefined;
+
   if (caso) {
     let address = caso.address ?? "";
     const campos: Record<string, string> = {};
@@ -61,18 +80,23 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
     };
   }
 
-  const consultas = await Promise.all([
-    supabase.from("qa_documents").select("fields").eq("fields->>fac", value).limit(1),
-    supabase.from("qa_documents").select("fields").eq("fields->>protocoloSgz", value).limit(1),
-    supabase.from("qa_documents").select("fields").eq("fields->>os", value).limit(1),
-  ]);
+  // Sem tratativa: procura no PDF importado (FAC, OS ou protocolo SGZ).
+  const docs: PromiseLike<{ data: unknown }>[] = [];
+  for (const valor of termos) {
+    docs.push(
+      supabase.from("qa_documents").select("fields").eq("fields->>fac", valor).limit(1).then((r) => ({ data: r.data?.[0] ?? null })),
+      supabase.from("qa_documents").select("fields").eq("fields->>os", valor).limit(1).then((r) => ({ data: r.data?.[0] ?? null })),
+      supabase.from("qa_documents").select("fields").eq("fields->>protocoloSgz", valor).limit(1).then((r) => ({ data: r.data?.[0] ?? null })),
+    );
+  }
 
-  for (const resultado of consultas) {
-    const fields = resultado.data?.[0]?.fields as Record<string, string> | undefined;
+  const achados = await Promise.all(docs);
+  for (const item of achados) {
+    const fields = (item.data as { fields?: Record<string, string> } | null)?.fields;
     if (!fields) {
       continue;
     }
-    const achado: ReportLookup = {
+    const resultado: ReportLookup = {
       fac: valor(fields, "fac"),
       os: valor(fields, "os"),
       address: valor(fields, "endereco"),
@@ -80,8 +104,8 @@ export async function lookupReportData(term: string): Promise<ReportLookup | nul
       locality: valor(fields, "polo") || valor(fields, "localidade"),
       contractor: valor(fields, "contratada"),
     };
-    if (achado.os || achado.address || achado.fac) {
-      return achado;
+    if (resultado.os || resultado.address || resultado.fac) {
+      return resultado;
     }
   }
 

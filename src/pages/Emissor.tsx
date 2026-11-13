@@ -392,6 +392,7 @@ export default function Emissor() {
   };
 
   const lookupTimer = useRef<number | null>(null);
+  const ultimoTermo = useRef("");
 
   const handleValueChange = (fieldId: string, value: string) => {
     setValues((previous) => ({ ...previous, [fieldId]: value }));
@@ -412,6 +413,10 @@ export default function Emissor() {
       void lookupReportData(termo)
         .then((achado) => {
           if (!achado) {
+            if (ultimoTermo.current !== termo) {
+              ultimoTermo.current = termo;
+              toast.info("Nenhum cadastro encontrado para este número", { description: termo });
+            }
             return;
           }
           preencherCom(achado, false);
@@ -482,11 +487,15 @@ export default function Emissor() {
     const next: ReportValues = { ...values };
     let preencheu = false;
 
-    const aplicar = (campo: string, valorNovo: string) => {
+    const aplicar = (campo: string, valorNovo: string, sempre = false) => {
       if (!valorNovo) {
         return;
       }
-      if (forcar || !next[campo]?.trim()) {
+      const atual = (next[campo] ?? "").trim();
+      if (atual === valorNovo.trim()) {
+        return;
+      }
+      if (sempre || forcar || !atual) {
         next[campo] = valorNovo;
         preencheu = true;
       }
@@ -494,7 +503,8 @@ export default function Emissor() {
 
     aplicar("fac", achado.fac);
     aplicar("os", achado.os);
-    aplicar("endereco", achado.address);
+    // O endereço do cadastro é a fonte da verdade: atualiza sempre que encontrado.
+    aplicar("endereco", achado.address, true);
     aplicar("servicoExda", achado.serviceType);
     aplicar("polo", achado.locality);
     aplicar("contratada", achado.contractor);

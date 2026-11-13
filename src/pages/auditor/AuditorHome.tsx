@@ -29,10 +29,10 @@ const TILES = [
 
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
-  const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases() ?? []);
+  const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases({ limit: 15 }) ?? []);
 
   useEffect(() => {
-    void fetchCases()
+    void fetchCases({ limit: 15 })
       .then((rows) => setCasos(rows))
       .catch(() => setCasos([]));
   }, [counts]);

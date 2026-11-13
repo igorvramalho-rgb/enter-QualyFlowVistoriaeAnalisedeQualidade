@@ -303,11 +303,20 @@ export interface CaseRow {
 
 /* Cache em memória: evita recarregar tudo a cada troca de tela. */
 const CACHE_TTL_MS = 60_000;
-let casesCache: { rows: CaseRow[]; at: number } | null = null;
+const casesCache = new Map<string, { rows: CaseRow[]; at: number }>();
 let countsCache: { data: AuditorCounts; at: number } | null = null;
 
-export function cachedCases(): CaseRow[] | null {
-  return casesCache?.rows ?? null;
+export interface CaseQuery {
+  cell?: CellKey;
+  limit?: number;
+}
+
+function chaveCasos(query: CaseQuery = {}): string {
+  return `${query.cell ?? "todas"}|${query.limit ?? "todas"}`;
+}
+
+export function cachedCases(query: CaseQuery = {}): CaseRow[] | null {
+  return casesCache.get(chaveCasos(query))?.rows ?? null;
 }
 
 export function cachedCounts(): AuditorCounts | null {
@@ -315,7 +324,7 @@ export function cachedCounts(): AuditorCounts | null {
 }
 
 export function invalidateAuditorCache(): void {
-  casesCache = null;
+  casesCache.clear();
   countsCache = null;
 }
 
@@ -350,18 +359,25 @@ function toCase(row: Record<string, unknown>): AuditorCase {
 
 /* ------------------------------------------------------------------ consultas */
 
-export async function fetchCases(force = false): Promise<CaseRow[]> {
-  if (!force && casesCache && Date.now() - casesCache.at < CACHE_TTL_MS) {
-    return casesCache.rows;
+export async function fetchCases(options: CaseQuery & { force?: boolean } = {}): Promise<CaseRow[]> {
+  const chave = chaveCasos(options);
+  const emCache = casesCache.get(chave);
+  if (!options.force && emCache && Date.now() - emCache.at < CACHE_TTL_MS) {
+    return emCache.rows;
   }
 
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("qa_cases")
     .select(
       "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, cell_data, qa_documents(file_name)",
     )
-    .order("updated_at", { ascending: false })
-    .limit(500);
+    .order("updated_at", { ascending: false });
+
+  if (options.cell) {
+    consulta = consulta.eq("cell", options.cell);
+  }
+
+  const { data, error } = await consulta.limit(options.limit ?? 500);
 
   if (error) {
     fail(error);
@@ -384,7 +400,7 @@ export async function fetchCases(force = false): Promise<CaseRow[]> {
     motive: ((row.cell_data as Record<string, string> | null)?.motivo ?? "").trim(),
   }));
 
-  casesCache = { rows, at: Date.now() };
+  casesCache.set(chave, { rows, at: Date.now() });
   return rows;
 }
 
