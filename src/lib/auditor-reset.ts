@@ -1,15 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { CellKey } from "@/lib/auditor";
-
-const CHUNK = 100;
 
 /**
  * Limpeza controlada do banco do Qualy Auditor.
  *
- * Apaga **somente** as tabelas `qa_*`. As tabelas do Analista, Emissor e
- * configurações não são tocadas. A exclusão é permitida pela RLS apenas ao
- * gestor; para outros perfis nada é apagado.
+ * Apaga **somente** as tabelas `qa_*`, e agora permite escolher o escopo:
+ * um ciclo inteiro, uma célula ou todo o módulo. As tabelas do Analista,
+ * Emissor e configurações nunca são tocadas.
  */
+
+export type ResetScopeType = "cycle" | "cell" | "all";
+
+export interface ResetScope {
+  type: ResetScopeType;
+  /** Id do ciclo ou chave da célula. */
+  value?: string;
+}
 
 export interface AuditorTotals {
   documents: number;
@@ -44,43 +49,67 @@ export async function fetchAuditorTotals(): Promise<AuditorTotals> {
   return { documents, items, cases, events, redo, reports };
 }
 
-/** Quantas FV/OS existem numa célula. */
-export async function fetchCellTotal(cell: CellKey): Promise<number> {
-  const { count, error } = await supabase
-    .from("qa_cases")
-    .select("*", { count: "exact", head: true })
-    .eq("cell", cell);
+/** Quantas FV/OS existem no escopo escolhido. */
+export async function fetchScopeTotal(scope: ResetScope): Promise<number> {
+  if (scope.type === "all") {
+    const { count, error } = await supabase
+      .from("qa_cases")
+      .select("*", { count: "exact", head: true });
+    if (error) {
+      fail(error);
+    }
+    return count ?? 0;
+  }
+
+  if (!scope.value) {
+    return 0;
+  }
+
+  const base = supabase.from("qa_cases").select("*", { count: "exact", head: true });
+  const { count, error } =
+    scope.type === "cycle"
+      ? await base.eq("cycle_id", scope.value)
+      : await base.eq("cell", scope.value);
+
   if (error) {
     fail(error);
   }
   return count ?? 0;
 }
 
-/**
- * Apaga apenas os registros de uma célula (FV/OS + etapas + movimentações +
- * refazer + relatórios daquelas tratativas). Nenhuma outra célula é afetada.
- */
-export async function clearAuditorCell(cell: CellKey): Promise<number> {
-  const { data, error } = await supabase
-    .from("qa_cases")
-    .select("id, document_id")
-    .eq("cell", cell);
+interface CaseRow {
+  id: string;
+  document_id: string | null;
+}
 
+async function casosDoEscopo(scope: ResetScope): Promise<CaseRow[]> {
+  const base = supabase.from("qa_cases").select("id, document_id");
+  const consulta =
+    scope.type === "all"
+      ? base
+      : scope.type === "cycle"
+        ? base.eq("cycle_id", scope.value ?? "")
+        : base.eq("cell", scope.value ?? "");
+
+  const { data, error } = await consulta;
   if (error) {
     fail(error);
   }
+  return data ?? [];
+}
 
-  const casos = data ?? [];
+const CHUNK = 100;
+
+/** Apaga apenas o escopo escolhido (ciclo, célula ou tudo). */
+export async function clearScope(scope: ResetScope): Promise<number> {
+  const casos = await casosDoEscopo(scope);
   if (casos.length === 0) {
     return 0;
   }
 
   const caseIds = casos.map((row) => row.id);
-  const docIds = casos
-    .map((row) => row.document_id)
-    .filter((id): id is string => Boolean(id));
+  const docIds = casos.map((row) => row.document_id).filter((id): id is string => Boolean(id));
 
-  // Cliente genérico: evita a inferência profunda de tipos com nome de tabela variável.
   const cliente = supabase as unknown as {
     from: (tabela: string) => {
       delete: () => { in: (coluna: string, valores: string[]) => Promise<{ error: unknown }> };
@@ -89,12 +118,9 @@ export async function clearAuditorCell(cell: CellKey): Promise<number> {
 
   const apagar = async (tabela: string, coluna: string, ids: string[]) => {
     for (let index = 0; index < ids.length; index += CHUNK) {
-      const { error: falha } = await cliente
-        .from(tabela)
-        .delete()
-        .in(coluna, ids.slice(index, index + CHUNK));
-      if (falha) {
-        fail(falha);
+      const { error } = await cliente.from(tabela).delete().in(coluna, ids.slice(index, index + CHUNK));
+      if (error) {
+        fail(error);
       }
     }
   };
@@ -110,7 +136,15 @@ export async function clearAuditorCell(cell: CellKey): Promise<number> {
     await apagar("qa_documents", "id", docIds);
   }
 
-  const restante = await fetchCellTotal(cell);
+  // "Todo o banco": remove também documentos/etapas que ficaram sem tratativa.
+  if (scope.type === "all") {
+    const tabelas = ["qa_case_events", "qa_reports", "qa_redo", "qa_document_items", "qa_documents"];
+    for (const tabela of tabelas) {
+      await supabase.from(tabela as "qa_documents").delete().gte("created_at", "1970-01-01");
+    }
+  }
+
+  const restante = await fetchScopeTotal(scope);
   if (restante > 0) {
     throw new Error("Os registros não foram apagados. A exclusão é permitida apenas ao gestor.");
   }
@@ -118,30 +152,7 @@ export async function clearAuditorCell(cell: CellKey): Promise<number> {
   return casos.length;
 }
 
-/** Ordem segura: filhos antes dos pais. */
+/** Mantido para compatibilidade: limpa todo o módulo. */
 export async function clearAuditorDatabase(): Promise<void> {
-  const ordem = [
-    "qa_case_events",
-    "qa_reports",
-    "qa_redo",
-    "qa_document_items",
-    "qa_cases",
-    "qa_documents",
-  ] as const;
-
-  for (const tabela of ordem) {
-    const { error } = await supabase.from(tabela).delete().gte("created_at", "1970-01-01");
-    if (error) {
-      fail(error);
-    }
-  }
-
-  // Confere o resultado: sem permissão de gestor a RLS não apaga nada.
-  const restante = await fetchAuditorTotals();
-  const sobra = Object.values(restante).reduce((total, valor) => total + valor, 0);
-  if (sobra > 0) {
-    throw new Error(
-      "Os registros não foram apagados. A exclusão é permitida apenas ao perfil de gestor.",
-    );
-  }
+  await clearScope({ type: "all" });
 }

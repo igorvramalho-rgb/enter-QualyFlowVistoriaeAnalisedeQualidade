@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DatabaseZap, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,74 +12,98 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
-import {
-  clearAuditorCell,
-  clearAuditorDatabase,
-  fetchAuditorTotals,
-  fetchCellTotal,
-} from "@/lib/auditor-reset";
+import { clearScope, fetchScopeTotal, type ResetScope } from "@/lib/auditor-reset";
 import { CELLS, invalidateAuditorCache, type CellKey } from "@/lib/auditor";
 
 /**
- * Limpeza controlada do banco do Qualy Auditor.
- * Sem `cell`, limpa tudo do módulo. Com `cell`, apaga só aquela célula.
- * Restrito ao gestor e com confirmação digitada.
+ * Limpeza controlada do Qualy Auditor.
+ * O operador escolhe o escopo: ciclo selecionado, célula atual ou todo o módulo.
  */
-export function AuditorReset({ cell, onCleared }: { cell?: CellKey; onCleared?: () => void }) {
+export function AuditorReset({
+  cell,
+  cycle,
+  onCleared,
+  label,
+}: {
+  cell?: CellKey;
+  cycle?: { id: string; name: string } | null;
+  onCleared?: () => void;
+  label?: string;
+}) {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
-  const [linhas, setLinhas] = useState<[string, number][] | null>(null);
+  const [escopo, setEscopo] = useState<ResetScope>({ type: cycle?.id ? "cycle" : cell ? "cell" : "all", value: cycle?.id ?? cell });
+  const [total, setTotal] = useState<number | null>(null);
   const [palavra, setPalavra] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const abrir = useCallback(async () => {
+  const opcoes: { valor: string; rotulo: string; escopo: ResetScope }[] = [];
+  if (cycle?.id) {
+    opcoes.push({
+      valor: "cycle",
+      rotulo: `Ciclo — ${cycle.name}`,
+      escopo: { type: "cycle", value: cycle.id },
+    });
+  }
+  if (cell) {
+    opcoes.push({
+      valor: "cell",
+      rotulo: `Célula — ${CELLS[cell].label}`,
+      escopo: { type: "cell", value: cell },
+    });
+  }
+  opcoes.push({ valor: "all", rotulo: "Todo o banco do Auditor", escopo: { type: "all" } });
+
+  const medir = useCallback(async (alvo: ResetScope) => {
+    setTotal(null);
+    try {
+      setTotal(await fetchScopeTotal(alvo));
+    } catch {
+      setTotal(null);
+    }
+  }, []);
+
+  const abrir = () => {
     setOpen(true);
     setPalavra("");
-    setLinhas(null);
-    try {
-      if (cell) {
-        const total = await fetchCellTotal(cell);
-        setLinhas([["FV/OS nesta célula", total]]);
-      } else {
-        const totais = await fetchAuditorTotals();
-        setLinhas([
-          ["FV/OS (tratativas)", totais.cases],
-          ["Documentos", totais.documents],
-          ["Etapas avaliadas", totais.items],
-          ["Movimentações", totais.events],
-          ["Controle de refazer", totais.redo],
-          ["Relatórios", totais.reports],
-        ]);
-      }
-    } catch (problem) {
-      toast.error("Não foi possível contar os registros", {
-        description: problem instanceof Error ? problem.message : undefined,
-      });
+    const inicial =
+      opcoes.find((opcao) => opcao.valor === "cycle")?.escopo ??
+      opcoes.find((opcao) => opcao.valor === "cell")?.escopo ??
+      { type: "all" as const };
+    setEscopo(inicial);
+    void medir(inicial);
+  };
+
+  const trocarEscopo = (valor: string) => {
+    const opcao = opcoes.find((item) => item.valor === valor);
+    if (!opcao) {
+      return;
     }
-  }, [cell]);
+    setEscopo(opcao.escopo);
+    void medir(opcao.escopo);
+  };
 
   const confirmar = async () => {
     setBusy(true);
     try {
-      if (cell) {
-        const apagados = await clearAuditorCell(cell);
-        toast.success(`Célula ${CELLS[cell].label} limpa`, {
-          description: `${apagados} FV/OS removida(s). As demais células não foram afetadas.`,
-        });
-      } else {
-        await clearAuditorDatabase();
-        toast.success("Banco do Qualy Auditor limpo", {
-          description: "Os PDFs permanecem no armazenamento privado (sem política de exclusão).",
-        });
-      }
+      const apagados = await clearScope(escopo);
       invalidateAuditorCache();
+      toast.success("Limpeza concluída", {
+        description: `${apagados} FV/OS removida(s) · ${
+          escopo.type === "cycle"
+            ? "apenas neste ciclo"
+            : escopo.type === "cell"
+              ? "apenas nesta célula"
+              : "todo o banco do Auditor"
+        }.`,
+      });
       setOpen(false);
       onCleared?.();
-    } catch (problem) {
+    } catch (error) {
       toast.error("Não foi possível limpar", {
         description:
-          problem instanceof Error
-            ? problem.message
+          error instanceof Error
+            ? error.message
             : "Verifique se o seu perfil tem permissão de gestor.",
       });
     } finally {
@@ -87,47 +111,64 @@ export function AuditorReset({ cell, onCleared }: { cell?: CellKey; onCleared?: 
     }
   };
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    void medir(escopo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (profile?.role !== "gestor") {
     return null;
   }
 
   return (
     <>
-      <Button type="button" variant="glass" size="sm" onClick={() => void abrir()}>
+      <Button type="button" variant="glass" size="sm" onClick={abrir}>
         <DatabaseZap className="h-3.5 w-3.5" />
-        {cell ? "Limpar célula" : "Limpar banco"}
+        {label ?? "Limpar banco"}
       </Button>
 
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : setOpen(false))}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {cell ? `Limpar ${CELLS[cell].label}` : "Limpar banco do Qualy Auditor"}
-            </DialogTitle>
+            <DialogTitle>Limpar dados do Qualy Auditor</DialogTitle>
             <DialogDescription>
-              {cell
-                ? "Apaga as FV/OS desta célula, com etapas, movimentações, refazer e relatórios vinculados. As outras células não são afetadas."
-                : "Apaga todos os registros do Qualy Auditor. Analista, Emissor e configurações não são afetados."}{" "}
-              Esta ação não pode ser desfeita.
+              Escolha exatamente o que será apagado. Analista, Emissor e configurações não são
+              afetados. Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
 
-          {!linhas ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Contando registros...
-            </div>
-          ) : (
-            <ul className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px]">
-              {linhas.map(([label, valor]) => (
-                <li key={label} className="flex justify-between">
-                  <span>{label}</span>
-                  <strong>{valor}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-
           <label className="block text-[11px] text-muted-foreground">
+            O que apagar
+            <select
+              value={escopo.type}
+              onChange={(event) => trocarEscopo(event.target.value)}
+              className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground"
+            >
+              {opcoes.map((opcao) => (
+                <option key={opcao.valor} value={opcao.valor}>
+                  {opcao.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="mt-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px]">
+            {total === null ? (
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Contando registros…
+              </span>
+            ) : (
+              <span className="flex justify-between">
+                <span>FV/OS que serão apagadas</span>
+                <strong>{total}</strong>
+              </span>
+            )}
+          </div>
+
+          <label className="mt-2 block text-[11px] text-muted-foreground">
             Digite <strong className="text-foreground">APAGAR</strong> para liberar
             <Input
               value={palavra}
@@ -138,8 +179,8 @@ export function AuditorReset({ cell, onCleared }: { cell?: CellKey; onCleared?: 
           </label>
 
           <p className="text-[10px] text-muted-foreground">
-            Os PDFs já enviados permanecem no armazenamento privado — o aplicativo não tem permissão
-            para excluir arquivos.
+            As demais FV/OS (outros ciclos e células) permanecem intactas. Os PDFs continuam no
+            armazenamento privado — o aplicativo não tem permissão para excluir arquivos.
           </p>
 
           <DialogFooter>
@@ -149,7 +190,7 @@ export function AuditorReset({ cell, onCleared }: { cell?: CellKey; onCleared?: 
             <Button
               type="button"
               variant="destructive"
-              disabled={busy || palavra.trim().toUpperCase() !== "APAGAR"}
+              disabled={busy || palavra.trim().toUpperCase() !== "APAGAR" || total === null}
               onClick={() => void confirmar()}
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

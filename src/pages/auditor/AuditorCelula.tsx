@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
-import { useActiveCycle } from "@/lib/cycles";
+import { useActiveCycle, useCycles } from "@/lib/cycles";
 import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
@@ -34,7 +34,9 @@ export default function AuditorCelula() {
   const cellKey = (CELL_KEYS.includes(cell as CellKey) ? cell : "fiscalizacao") as CellKey;
   const meta = CELLS[cellKey];
 
-  const ciclo = useActiveCycle();
+  const cicloAtivo = useActiveCycle();
+  const ciclos = useCycles();
+  const ciclo = ciclos.find((item) => item.id === cicloAtivo) ?? null;
   const [rows, setRows] = useState<CaseRow[]>(() => cachedCases({ cell: cellKey }) ?? []);
   const [loading, setLoading] = useState(() => cachedCases({ cell: cellKey }) === null);
   const [search, setSearch] = useState("");
@@ -53,11 +55,11 @@ export default function AuditorCelula() {
   const load = useCallback(async () => {
     setLoading(cachedCases({ cell: cellKey }) === null);
     try {
-      setRows(await fetchCases({ cell: cellKey, cycleId: ciclo, force: true }));
+      setRows(await fetchCases({ cell: cellKey, cycleId: cicloAtivo, force: true }));
     } finally {
       setLoading(false);
     }
-  }, [cellKey, ciclo]);
+  }, [cellKey, cicloAtivo]);
 
   useEffect(() => {
     void load();
@@ -210,6 +212,7 @@ export default function AuditorCelula() {
             />
             <AuditorReset
               cell={cellKey}
+              cycle={ciclo}
               onCleared={() => {
                 invalidateAuditorCache();
                 void load();
