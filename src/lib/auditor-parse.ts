@@ -113,6 +113,15 @@ function firstMatch(text: string, patterns: RegExp[]): string {
   return "";
 }
 
+/**
+ * Modelos de devolutiva Pós 60 (relatório fotográfico) trazem uma linha de
+ * tabela com OS, FAC, serviço, endereço e data. Usada como reforço quando os
+ * rótulos normais não aparecem (documento digitalizado, por exemplo).
+ */
+const LINHA_RELATORIO =
+  /((?:RUA|AVENIDA|AV\.?|ALAMEDA|TRAVESSA|ESTRADA|R\.)\s+[A-ZÀ-Ú0-9 .,º°-]{4,70}?)\s+(\d{2}\/\d{2}\/\d{4})/i;
+const CABECALHO_RELATORIO = /(\d{9,11})\s+(\d{5,6})\s+/;
+
 /** Localiza os campos página a página e guarda a página de origem. */
 export function extractFields(pages: PageText[]): Record<AuditorFieldKey, AuditorFieldValue> {
   const fields = Object.fromEntries(
@@ -130,6 +139,35 @@ export function extractFields(pages: PageText[]): Record<AuditorFieldKey, Audito
           value: key === "endereco" ? sanitizeAddress(value) : value,
           page: page.page,
         };
+      }
+    }
+  }
+
+  // Reforço: linha da tabela do relatório de devolutiva (endereço + data).
+  if (!fields.endereco.value) {
+    for (const page of pages) {
+      const achado = LINHA_RELATORIO.exec(page.text);
+      if (achado) {
+        fields.endereco = { value: sanitizeAddress(achado[1]), page: page.page };
+        if (!fields.data.value) {
+          fields.data = { value: achado[2], page: page.page };
+        }
+        break;
+      }
+    }
+  }
+
+  if (!fields.fac.value || !fields.os.value) {
+    for (const page of pages) {
+      const achado = CABECALHO_RELATORIO.exec(page.text);
+      if (achado) {
+        if (!fields.os.value) {
+          fields.os = { value: achado[1], page: page.page };
+        }
+        if (!fields.fac.value) {
+          fields.fac = { value: achado[2], page: page.page };
+        }
+        break;
       }
     }
   }

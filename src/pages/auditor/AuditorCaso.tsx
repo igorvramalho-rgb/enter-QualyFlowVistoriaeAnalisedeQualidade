@@ -7,6 +7,7 @@ import {
   FileText,
   Loader2,
   RotateCcw,
+  ScanText,
   Save,
   Wrench,
 } from "lucide-react";
@@ -44,6 +45,7 @@ import {
   type RedoStatus,
 } from "@/lib/auditor";
 import { signedPdfUrl } from "@/lib/auditor-save";
+import { reextractWithOcr } from "@/lib/auditor-reextract";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTimeBR } from "@/lib/fields";
 
@@ -72,6 +74,7 @@ export default function AuditorCaso() {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [cellData, setCellData] = useState<Record<string, string>>({});
+  const [ocrEtapa, setOcrEtapa] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,6 +185,29 @@ export default function AuditorCaso() {
     }
   };
 
+  const reextrair = async () => {
+    if (!caso?.documentId) {
+      toast.error("Esta tratativa não tem PDF vinculado.");
+      return;
+    }
+    setOcrEtapa("iniciando");
+    try {
+      const resultado = await reextractWithOcr(caso.documentId, setOcrEtapa);
+      if (resultado.ok) {
+        toast.success("Leitura por OCR concluída", { description: resultado.message });
+        await load();
+      } else {
+        toast.warning("OCR não concluiu", { description: resultado.message });
+      }
+    } catch (problem) {
+      toast.error("Falha na reextração", {
+        description: problem instanceof Error ? problem.message : undefined,
+      });
+    } finally {
+      setOcrEtapa("");
+    }
+  };
+
   const moverCelula = async (cell: CellKey) => {
     setBusy(true);
     try {
@@ -248,6 +274,16 @@ export default function AuditorCaso() {
               PDF original
             </Button>
           )}
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            disabled={Boolean(ocrEtapa)}
+            onClick={() => void reextrair()}
+          >
+            {ocrEtapa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanText className="h-3.5 w-3.5" />}
+            {ocrEtapa ? "Lendo..." : "Reextrair (OCR)"}
+          </Button>
           <Button asChild variant="glass" size="sm">
             <Link to={`/auditor/relatorio/${caso.id}`}>
               <FileText className="h-3.5 w-3.5" />
