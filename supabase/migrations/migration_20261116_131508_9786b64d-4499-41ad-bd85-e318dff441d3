@@ -1,0 +1,16 @@
+-- Preenche a FV (FAC) ausente usando o nome do arquivo, apenas quando isso
+-- não cria duplicidade de (FAC + OS) com uma tratativa já existente.
+update public.qa_cases c
+   set fac = sub.fac,
+       updated_at = now()
+  from public.qa_documents d
+  cross join lateral (
+    select (regexp_match(d.file_name, '^(?:FV-)?([0-9]{5,6})-[0-9]{9,11}'))[1] as fac
+  ) sub
+ where d.id = c.document_id
+   and coalesce(c.fac, '') = ''
+   and sub.fac is not null
+   and not exists (
+     select 1 from public.qa_cases k
+      where k.fac = sub.fac and k.os = c.os and k.id <> c.id
+   );

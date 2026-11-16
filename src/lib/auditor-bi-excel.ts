@@ -1,8 +1,8 @@
 import type ExcelJS from "exceljs";
-import type { AnalysisStatus, AuditorRedo, AuditorReport, CaseRow, CellKey } from "@/lib/auditor";
-import { ANALYSIS_STATUS, CELLS, REDO_STATUS } from "@/lib/auditor";
+import type { AuditorRedo, AuditorReport, CaseRow, CellKey } from "@/lib/auditor";
+import { CELLS, REDO_STATUS } from "@/lib/auditor";
 import { daysSince } from "@/lib/auditor";
-import { formatDateBR, formatDateTimeBR } from "@/lib/fields";
+import { deriveNumbersFromFileName, formatDateBR, formatDateTimeBR } from "@/lib/fields";
 
 /**
  * Excel gerencial do Painel BI — gerado 100% no navegador (nenhuma API, nenhum
@@ -31,7 +31,6 @@ const COLUNAS = [
   { header: "Localidade", key: "locality", width: 20 },
   { header: "Tipo de serviço", key: "serviceType", width: 34 },
   { header: "Célula", key: "cell", width: 24 },
-  { header: "Situação", key: "status", width: 26 },
   { header: "Resultado", key: "outcome", width: 14 },
   { header: "Devoluções", key: "devolucoes", width: 12 },
 ];
@@ -88,7 +87,7 @@ function finalizarTabela(sheet: ExcelJS.Worksheet, totalLinhas: number, ultimaCo
       cell.alignment = { vertical: "middle" };
     });
 
-    const resultado = row.getCell(9);
+    const resultado = row.getCell(8);
     const texto = String(resultado.value ?? "");
     if (texto === "conforme") {
       resultado.font = { color: { argb: GREEN }, bold: true };
@@ -105,15 +104,16 @@ function valorResultado(outcome: string): string {
 }
 
 function linhaCaso(row: CaseRow) {
+  // Sem FV/OS no cadastro, usa o que o nome do arquivo informa (mesma regra da importação).
+  const doNome = deriveNumbersFromFileName(row.fileName ?? "");
   return {
-    fac: row.fac,
-    os: row.os,
+    fac: row.fac || doNome.fac || "",
+    os: row.os || doNome.os || "",
     address: row.address,
     municipality: row.municipality,
     locality: row.locality,
     serviceType: row.serviceType,
     cell: CELLS[row.cell]?.label ?? row.cell,
-    status: ANALYSIS_STATUS[row.status as AnalysisStatus] ?? row.status,
     outcome: valorResultado(row.outcome),
     devolucoes: row.returnedCount,
   };
