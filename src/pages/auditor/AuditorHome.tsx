@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
 import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { cachedCases, fetchCases, type CaseRow } from "@/lib/auditor";
+import { useActiveCycle } from "@/lib/cycles";
 import { useEffect, useState } from "react";
 import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
@@ -29,13 +30,14 @@ const TILES = [
 
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
+  const ciclo = useActiveCycle();
   const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases({ limit: 15 }) ?? []);
 
   useEffect(() => {
-    void fetchCases({ limit: 15 })
+    void fetchCases({ limit: 15, cycleId: ciclo })
       .then((rows) => setCasos(rows))
       .catch(() => setCasos([]));
-  }, [counts]);
+  }, [counts, ciclo]);
 
   const valores: Record<(typeof TILES)[number]["key"], number> = {
     documents: counts?.documents ?? 0,

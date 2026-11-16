@@ -122,6 +122,8 @@ async function ensureCase(params: {
   fileName: string;
   cell: CellKey;
   mapa: Map<string, string>;
+  /** Ciclo de tratativa (Pós 60 por período). */
+  cycleId?: string | null;
 }): Promise<string | null> {
   const { fac, os } = resolveIdentity(params.fields, params.fileName);
   const chave = fac || os ? `${fac}|${os}` : `doc:${params.documentId}`;
@@ -145,7 +147,7 @@ async function ensureCase(params: {
     // na tratativa (endereço, serviço, município, localidade, contratada).
     const { data: atual } = await supabase
       .from("qa_cases")
-      .select("fac, os, address, municipality, locality, service_type, contractor")
+      .select("fac, os, address, municipality, locality, service_type, contractor, cycle_id")
       .eq("id", existente)
       .maybeSingle();
 
@@ -161,6 +163,10 @@ async function ensureCase(params: {
         patch[campo] = novoValor.trim();
       }
     };
+
+    if (atual?.cycle_id === null && params.cycleId) {
+      patch.cycle_id = params.cycleId;
+    }
 
     if (atual) {
       completar("fac", atual.fac, params.fields.fac ?? "");
@@ -190,6 +196,7 @@ async function ensureCase(params: {
       analysis_status: STATUS_BY_CELL[params.cell],
       outcome: OUTCOME_BY_CELL[params.cell],
       cell: params.cell,
+      cycle_id: params.cycleId ?? null,
     })
     .select("id")
     .single();
@@ -212,6 +219,8 @@ export interface ConfirmInput {
   items: AuditorItem[];
   /** Célula escolhida manualmente no momento da importação. */
   cell: CellKey;
+  /** Ciclo de tratativa. */
+  cycleId?: string | null;
 }
 
 export interface ConfirmResult {
@@ -288,6 +297,7 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
     fileName: extraction.fileName,
     cell,
     mapa: new Map<string, string>(),
+    cycleId: input.cycleId,
   });
 
   if (caseId) {
@@ -360,10 +370,11 @@ export async function importAuditorBatch(params: {
   files: File[];
   cell: CellKey;
   ocr: boolean;
+  cycleId?: string | null;
   onProgress?: (progress: BatchProgress) => void;
   shouldCancel?: () => boolean;
 }): Promise<BatchResult> {
-  const { files, cell, ocr, onProgress, shouldCancel } = params;
+  const { files, cell, ocr, onProgress, shouldCancel, cycleId } = params;
 
   const resultado: BatchResult = {
     registrados: 0,
@@ -438,6 +449,7 @@ export async function importAuditorBatch(params: {
         fileName: existente.file_name ?? file.name,
         cell,
         mapa: mapaCasos,
+        cycleId,
       });
       if (caseId) {
         await supabase.from("qa_case_events").insert({
@@ -506,6 +518,7 @@ export async function importAuditorBatch(params: {
       fileName: extraction.fileName,
       cell,
       mapa: mapaCasos,
+      cycleId,
     });
 
     if (caseId) {

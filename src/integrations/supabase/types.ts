@@ -3403,6 +3403,7 @@ export type Database = {
           contractor: string
           created_at: string
           created_by: string | null
+          cycle_id: string | null
           decided_at: string | null
           decided_by: string | null
           document_id: string | null
@@ -3427,6 +3428,7 @@ export type Database = {
           contractor?: string
           created_at?: string
           created_by?: string | null
+          cycle_id?: string | null
           decided_at?: string | null
           decided_by?: string | null
           document_id?: string | null
@@ -3451,6 +3453,7 @@ export type Database = {
           contractor?: string
           created_at?: string
           created_by?: string | null
+          cycle_id?: string | null
           decided_at?: string | null
           decided_by?: string | null
           document_id?: string | null
@@ -3469,12 +3472,48 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "qa_cases_cycle_id_fkey"
+            columns: ["cycle_id"]
+            referencedRelation: "qa_cycles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "qa_cases_document_id_fkey"
             columns: ["document_id"]
             referencedRelation: "qa_documents"
             referencedColumns: ["id"]
           },
         ]
+      }
+      qa_cycles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       qa_document_items: {
         Row: {

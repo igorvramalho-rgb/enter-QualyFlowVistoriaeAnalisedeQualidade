@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { AUDITOR_NAME, AUDITOR_SIGNATURE, AUDITOR_SUBTITLE } from "@/lib/auditor";
 import { cn } from "@/lib/utils";
+import { CycleBar } from "@/components/auditor/cycle-bar";
 
 const TABS = [
   { to: "/auditor", label: "Visão geral", end: true },
@@ -71,6 +72,8 @@ export function AuditorShell({ children }: { children: ReactNode }) {
           </NavLink>
         ))}
       </nav>
+
+      <CycleBar />
 
       {children}
 

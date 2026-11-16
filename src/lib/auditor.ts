@@ -309,10 +309,12 @@ let countsCache: { data: AuditorCounts; at: number } | null = null;
 export interface CaseQuery {
   cell?: CellKey;
   limit?: number;
+  /** Ciclo de tratativa (Pós 60 por período). */
+  cycleId?: string | null;
 }
 
 function chaveCasos(query: CaseQuery = {}): string {
-  return `${query.cell ?? "todas"}|${query.limit ?? "todas"}`;
+  return `${query.cell ?? "todas"}|${query.limit ?? "todas"}|${query.cycleId ?? "todos"}`;
 }
 
 export function cachedCases(query: CaseQuery = {}): CaseRow[] | null {
@@ -375,6 +377,10 @@ export async function fetchCases(options: CaseQuery & { force?: boolean } = {}):
 
   if (options.cell) {
     consulta = consulta.eq("cell", options.cell);
+  }
+
+  if (options.cycleId) {
+    consulta = consulta.eq("cycle_id", options.cycleId);
   }
 
   const { data, error } = await consulta.limit(options.limit ?? 500);
@@ -469,6 +475,58 @@ export async function fetchDocumentAddressSources(): Promise<
     fields: (row.fields as Record<string, string>) ?? {},
     fileName: row.file_name ?? "",
   }));
+}
+
+/** Contagens restritas a um ciclo (as células e o BI acompanham o período). */
+async function contarPorCiclo(cycleId: string): Promise<AuditorCounts> {
+  const [casos, ids] = await Promise.all([
+    supabase.from("qa_cases").select("id, analysis_status, outcome, returned_count, cell").eq("cycle_id", cycleId),
+    supabase.from("qa_cases").select("id").eq("cycle_id", cycleId),
+  ]);
+
+  const lista = casos.data ?? [];
+  const caseIds = (ids.data ?? []).map((row) => row.id);
+  const byStatus: Record<string, number> = {};
+  const byCell: Record<string, number> = {};
+  let conforme = 0;
+  let naoConforme = 0;
+  let returns = 0;
+
+  for (const row of lista) {
+    byStatus[row.analysis_status] = (byStatus[row.analysis_status] ?? 0) + 1;
+    byCell[row.cell ?? "fiscalizacao"] = (byCell[row.cell ?? "fiscalizacao"] ?? 0) + 1;
+    if (row.outcome === "conforme") conforme += 1;
+    if (row.outcome === "nao_conforme") naoConforme += 1;
+    returns += row.returned_count ?? 0;
+  }
+
+  let redoRows: { redo_status: string }[] = [];
+  let reportRows: { status: string }[] = [];
+
+  if (caseIds.length > 0) {
+    const [redo, reports] = await Promise.all([
+      supabase.from("qa_redo").select("redo_status").in("case_id", caseIds),
+      supabase.from("qa_reports").select("status").in("case_id", caseIds),
+    ]);
+    redoRows = redo.data ?? [];
+    reportRows = reports.data ?? [];
+  }
+
+  const redoDone = redoRows.filter((item) => item.redo_status === "encerrado").length;
+
+  return {
+    documents: lista.length,
+    cases: lista.length,
+    events: 0,
+    byStatus,
+    byCell,
+    conforme,
+    naoConforme,
+    redoOpen: redoRows.length - redoDone,
+    redoDone,
+    reportsSent: reportRows.filter((item) => item.status === "enviado").length,
+    returns,
+  };
 }
 
 /** Move a tratativa de célula (decisão sempre humana) e registra o evento. */
@@ -720,7 +778,11 @@ export interface AuditorCounts {
 }
 
 /** Contagens reais do módulo (etapas nunca somadas entre si). */
-export async function fetchAuditorCounts(force = false): Promise<AuditorCounts> {
+export async function fetchAuditorCounts(force = false, cycleId?: string | null): Promise<AuditorCounts> {
+  if (cycleId) {
+    return contarPorCiclo(cycleId);
+  }
+
   if (!force && countsCache && Date.now() - countsCache.at < CACHE_TTL_MS) {
     return countsCache.data;
   }

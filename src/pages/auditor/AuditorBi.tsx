@@ -39,6 +39,7 @@ import {
 import { savePdfBlob } from "@/lib/report-export";
 import { buildAuditorWorkbook } from "@/lib/auditor-bi-excel";
 import { buildAddressIndex } from "@/lib/address-index";
+import { useActiveCycle } from "@/lib/cycles";
 import { buildBiPdf } from "@/lib/auditor-bi-pdf";
 import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
@@ -65,6 +66,7 @@ function monthKey(value: string): string {
 }
 
 export default function AuditorBi() {
+  const ciclo = useActiveCycle();
   const [cases, setCases] = useState<CaseRow[]>(() => cachedCases() ?? []);
   const [redo, setRedo] = useState<AuditorRedo[]>([]);
   const [reports, setReports] = useState<AuditorReport[]>([]);
@@ -78,10 +80,10 @@ export default function AuditorBi() {
     setLoading(true);
     try {
       const [listaCasos, listaRedo, listaRelatorios, contagens] = await Promise.all([
-        fetchCases(),
+        fetchCases({ cycleId: ciclo }),
         fetchRedoQueue(),
         fetchReportsQueue(),
-        fetchAuditorCounts(),
+        fetchAuditorCounts(true, ciclo),
       ]);
       setCases(listaCasos);
       setRedo(listaRedo);
@@ -94,7 +96,7 @@ export default function AuditorBi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ciclo]);
 
   useEffect(() => {
     void load();

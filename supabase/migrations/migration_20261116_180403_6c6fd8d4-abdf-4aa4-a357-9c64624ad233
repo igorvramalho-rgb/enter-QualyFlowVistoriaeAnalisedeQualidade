@@ -1,0 +1,31 @@
+-- Ciclos de tratativa (ex.: Pós 60 de julho a setembro)
+create table if not exists public.qa_cycles (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  start_date date,
+  end_date date,
+  status text not null default 'aberto',
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+alter table public.qa_cycles enable row level security;
+
+create policy qa_cycles_select on public.qa_cycles for select to authenticated using (true);
+create policy qa_cycles_insert on public.qa_cycles for insert to authenticated with check (true);
+create policy qa_cycles_update on public.qa_cycles for update to authenticated using (true) with check (true);
+create policy qa_cycles_delete on public.qa_cycles for delete to authenticated using (public.qualyflow_is_manager());
+
+alter table public.qa_cases
+  add column if not exists cycle_id uuid references public.qa_cycles(id) on delete set null;
+
+create index if not exists qa_cases_cycle_idx on public.qa_cases (cycle_id);
+
+-- Ciclo atual: tudo que já existe é Pós 60 de julho a setembro de 2026.
+insert into public.qa_cycles (name, start_date, end_date, status)
+select 'Pós 60 · jul a set/2026', date '2026-07-01', date '2026-09-30', 'aberto'
+where not exists (select 1 from public.qa_cycles);
+
+update public.qa_cases
+   set cycle_id = (select id from public.qa_cycles order by created_at limit 1)
+ where cycle_id is null;
