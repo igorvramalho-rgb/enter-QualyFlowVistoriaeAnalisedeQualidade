@@ -36,6 +36,7 @@ import {
   type CaseRow,
 } from "@/lib/auditor";
 import { savePdfBlob } from "@/lib/report-export";
+import { buildAuditorWorkbook } from "@/lib/auditor-bi-excel";
 import { buildBiPdf } from "@/lib/auditor-bi-pdf";
 import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
@@ -291,76 +292,42 @@ export default function AuditorBi() {
   const exportarExcel = async () => {
     setBusy(true);
     try {
-      const XLSX = await import("xlsx");
-      const book = XLSX.utils.book_new();
+      const emissao = new Date();
+      const stamp = `${String(emissao.getDate()).padStart(2, "0")}-${String(
+        emissao.getMonth() + 1,
+      ).padStart(2, "0")}-${emissao.getFullYear()}`;
 
-      const resumo = [
-        ["Indicador", "Valor"],
-        ["FV/OS recebidas", kpis.recebidas],
-        ["FV/OS analisadas", kpis.analisadas],
-        ["Aguardando análise", kpis.aguardando],
-        ["Em fiscalização", kpis.fiscalizacao],
-        ["Conforme após verificação", kpis.conforme],
-        ["Não conforme confirmado", kpis.naoConforme],
-        ["Relatórios enviados", kpis.relatorios],
-        ["Serviços a refazer", kpis.refazerTotal],
-        ["Pendentes de refazer", kpis.refazerPendentes],
-        ["Corrigidos", kpis.corrigidos],
-        ["Devoluções AlphaGeos", kpis.devolucoes],
-        ["Encerradas", kpis.encerradas],
-        ["Período", `${filters.from || "início"} a ${filters.to || "hoje"}`],
-      ];
-      XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(resumo), "Resumo");
+      const blob = await buildAuditorWorkbook({
+        periodo: periodoLabel,
+        medicao: medicaoLabel,
+        emitidoEm: emissao.toLocaleString("pt-BR"),
+        kpis,
+        cells: porCelula.map((item) => ({
+          key: item.key,
+          label: item.nome,
+          total: item.total,
+          conformes: item.conformes,
+          naoConformes: item.naoConformes,
+          devolucoes: item.devolucoes,
+          pct: item.pct,
+        })),
+        cases: filtrados,
+        redo: redoFiltrado,
+        reports: reportsFiltrados,
+      });
 
-      const base = [
-        ["FV", "OS", "Endereço", "Município", "Localidade", "Serviço", "Situação", "Resultado", "Devoluções"],
-        ...filtrados.map((row) => [
-          row.fac,
-          row.os,
-          row.address,
-          row.municipality,
-          row.locality,
-          row.serviceType,
-          ANALYSIS_STATUS[row.status],
-          row.outcome,
-          row.returnedCount,
-        ]),
-      ];
-      XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(base), "Base FV-OS");
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `TRATATIVA_POS60_${stamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      const relatorios = [
-        ["FV", "OS", "Status", "Enviado em"],
-        ...reportsFiltrados.map((row) => {
-          const caso = cases.find((item) => item.id === row.caseId);
-          return [caso?.fac ?? "", caso?.os ?? "", row.status, row.sentAt ?? ""];
-        }),
-      ];
-      XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(relatorios), "Relatórios");
-
-      const refazer = [
-        ["FV", "OS", "Item", "Equipe", "Encarregado", "Situação", "Encaminhado", "Programado", "Concluído"],
-        ...redoFiltrado.map((row) => {
-          const caso = cases.find((item) => item.id === row.caseId);
-          return [
-            caso?.fac ?? "",
-            caso?.os ?? "",
-            row.itemCode,
-            row.teamType,
-            row.foreman,
-            REDO_STATUS[row.status],
-            row.sentAt ?? "",
-            row.scheduledAt ?? "",
-            row.finishedAt ?? "",
-          ];
-        }),
-      ];
-      XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(refazer), "Refazer");
-
-      XLSX.writeFile(
-        book,
-        `qualy-auditor-bi-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      );
-      toast.success("Excel gerado");
+      toast.success("Excel gerado", {
+        description: "Abas por célula, com filtro e formatação — gerado no navegador.",
+      });
     } catch (problem) {
       toast.error("Falha ao gerar o Excel", {
         description: problem instanceof Error ? problem.message : undefined,
