@@ -14,8 +14,6 @@ const NAVY = "FF0B1F3A";
 const CYAN = "FF22D3EE";
 const LINE = "FFD9E2EC";
 const ZEBRA = "FFF4F7FA";
-const GREEN = "FF047857";
-const RED = "FFB91C1C";
 
 /** O Excel não aceita * ? : \\ / [ ] no nome da aba. */
 function nomeAba(nome: string): string {
@@ -26,12 +24,9 @@ function nomeAba(nome: string): string {
 const COLUNAS = [
   { header: "FV", key: "fac", width: 12 },
   { header: "OS", key: "os", width: 16 },
-  { header: "Endereço", key: "address", width: 46 },
-  { header: "Município", key: "municipality", width: 18 },
-  { header: "Localidade", key: "locality", width: 20 },
-  { header: "Tipo de serviço", key: "serviceType", width: 34 },
-  { header: "Célula", key: "cell", width: 24 },
-  { header: "Resultado", key: "outcome", width: 14 },
+  { header: "Endereço", key: "address", width: 52 },
+  { header: "Tipo de serviço", key: "serviceType", width: 36 },
+  { header: "Célula", key: "cell", width: 26 },
   { header: "Devoluções", key: "devolucoes", width: 12 },
 ];
 
@@ -87,34 +82,38 @@ function finalizarTabela(sheet: ExcelJS.Worksheet, totalLinhas: number, ultimaCo
       cell.alignment = { vertical: "middle" };
     });
 
-    const resultado = row.getCell(8);
-    const texto = String(resultado.value ?? "");
-    if (texto === "conforme") {
-      resultado.font = { color: { argb: GREEN }, bold: true };
-    } else if (texto === "nao_conforme") {
-      resultado.font = { color: { argb: RED }, bold: true };
-    }
   }
 }
 
-function valorResultado(outcome: string): string {
-  if (outcome === "conforme") return "conforme";
-  if (outcome === "nao_conforme") return "nao_conforme";
-  return "pendente";
+const CONECTORES = new Set(["de", "da", "do", "das", "dos", "e", "del"]);
+
+/** Padroniza o endereço: espaços, vírgulas e iniciais maiúsculas. */
+export function formatarEndereco(valor: string): string {
+  const limpo = valor.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ").trim();
+  if (!limpo) {
+    return "—";
+  }
+  return limpo
+    .toLowerCase()
+    .split(" ")
+    .map((palavra, indice) => {
+      if (indice > 0 && CONECTORES.has(palavra.replace(/[,.]/g, ""))) {
+        return palavra;
+      }
+      return palavra.replace(/(^|[-.,/])([a-zà-ú])/g, (_, separador, letra) => separador + letra.toUpperCase());
+    })
+    .join(" ");
 }
 
 function linhaCaso(row: CaseRow) {
   // Sem FV/OS no cadastro, usa o que o nome do arquivo informa (mesma regra da importação).
   const doNome = deriveNumbersFromFileName(row.fileName ?? "");
   return {
-    fac: row.fac || doNome.fac || "",
-    os: row.os || doNome.os || "",
-    address: row.address,
-    municipality: row.municipality,
-    locality: row.locality,
-    serviceType: row.serviceType,
+    fac: row.fac || doNome.fac || "—",
+    os: row.os || doNome.os || "—",
+    address: formatarEndereco(row.address),
+    serviceType: row.serviceType || "—",
     cell: CELLS[row.cell]?.label ?? row.cell,
-    outcome: valorResultado(row.outcome),
     devolucoes: row.returnedCount,
   };
 }

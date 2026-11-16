@@ -168,6 +168,21 @@ export async function syncReportToAuditor(input: {
 
   const agora = new Date().toISOString();
   const destino = input.cell ?? "respondidos";
+
+  // Sem endereço no relatório? Tenta o cadastro antes de criar a tratativa.
+  let endereco = input.address.trim();
+  let servico = input.serviceType.trim();
+  if (!endereco) {
+    try {
+      const achado = await lookupReportData(fac || os);
+      if (achado) {
+        endereco = endereco || achado.address;
+        servico = servico || achado.serviceType;
+      }
+    } catch {
+      /* segue sem endereço */
+    }
+  }
   const situacao = destino === "rpa" ? "em_analise" : "resposta_enviada";
 
   const { data: existente } = await supabase
@@ -198,8 +213,8 @@ export async function syncReportToAuditor(input: {
       .insert({
         fac,
         os,
-        address: input.address.trim(),
-        service_type: input.serviceType.trim(),
+        address: endereco,
+        service_type: servico,
         cell: destino,
         analysis_status: situacao,
         outcome: "pendente",
