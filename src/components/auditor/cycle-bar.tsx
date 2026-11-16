@@ -20,6 +20,8 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
 import {
+  attachOrphanCases,
+  countOrphanCases,
   createCycle,
   loadCycles,
   setActiveCycle,
@@ -40,10 +42,28 @@ export function CycleBar() {
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [busy, setBusy] = useState(false);
+  const [orfaos, setOrfaos] = useState(0);
 
   useEffect(() => {
-    void loadCycles();
-  }, []);
+    void loadCycles().finally(() => {
+      void countOrphanCases().then(setOrfaos).catch(() => setOrfaos(0));
+    });
+  }, [ativo]);
+
+  const vincular = async () => {
+    if (!ativo) {
+      toast.error("Selecione o ciclo de destino.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const total = await attachOrphanCases(ativo);
+      setOrfaos(0);
+      toast.success("Tratativas vinculadas ao ciclo", { description: `${total} FV/OS` });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const criar = async () => {
     if (!nome.trim()) {
@@ -98,6 +118,20 @@ export function CycleBar() {
         <Button type="button" variant="glass" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setOpen(true)}>
           <Plus className="h-3 w-3" />
           Novo ciclo
+        </Button>
+      )}
+
+      {profile?.role === "gestor" && orfaos > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
+          onClick={() => void vincular()}
+          disabled={busy}
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          Vincular {orfaos} sem ciclo
         </Button>
       )}
 

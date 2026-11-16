@@ -3,6 +3,7 @@ import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
 import { STATUS_BY_CELL, type AnalysisStatus, type CaseOutcome, type CellKey } from "@/lib/auditor";
+import { getActiveCycleId } from "@/lib/cycles";
 import { deriveNumbersFromFileName } from "@/lib/fields";
 
 
@@ -297,7 +298,7 @@ export async function confirmAuditorDocument(input: ConfirmInput): Promise<Confi
     fileName: extraction.fileName,
     cell,
     mapa: new Map<string, string>(),
-    cycleId: input.cycleId,
+    cycleId: input.cycleId ?? getActiveCycleId(),
   });
 
   if (caseId) {
@@ -374,7 +375,9 @@ export async function importAuditorBatch(params: {
   onProgress?: (progress: BatchProgress) => void;
   shouldCancel?: () => boolean;
 }): Promise<BatchResult> {
-  const { files, cell, ocr, onProgress, shouldCancel, cycleId } = params;
+  const { files, cell, ocr, onProgress, shouldCancel } = params;
+  // Sem ciclo informado, usa o selecionado na tela (mesmo após recarregar a página).
+  const cycleId = params.cycleId ?? getActiveCycleId();
 
   const resultado: BatchResult = {
     registrados: 0,

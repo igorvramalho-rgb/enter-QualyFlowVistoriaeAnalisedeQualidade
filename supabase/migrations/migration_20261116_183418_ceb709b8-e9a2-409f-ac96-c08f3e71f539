@@ -1,0 +1,5 @@
+-- Vincula as importações que ficaram sem ciclo ao ciclo "junho a agosto".
+update public.qa_cases
+   set cycle_id = 'cbbd3fdc-25d0-4de2-a7bc-eddf1c67e5c0',
+       updated_at = now()
+ where cycle_id is null;

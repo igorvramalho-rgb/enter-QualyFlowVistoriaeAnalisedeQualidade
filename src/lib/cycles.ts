@@ -19,7 +19,14 @@ export interface AuditCycle {
 const STORAGE_KEY = "qualyflow:ciclo-ativo:v1";
 
 let ciclos: AuditCycle[] = [];
-let ativoId: string | null = null;
+let ativoId: string | null = (() => {
+  // Recupera a seleção mesmo antes de os ciclos carregarem da nuvem.
+  try {
+    return window.localStorage.getItem("qualyflow:ciclo-ativo:v1");
+  } catch {
+    return null;
+  }
+})();
 let carregado = false;
 const listeners = new Set<() => void>();
 
@@ -39,7 +46,14 @@ export function getCycles(): AuditCycle[] {
 }
 
 export function getActiveCycleId(): string | null {
-  return ativoId;
+  if (ativoId) {
+    return ativoId;
+  }
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function isCyclesLoaded(): boolean {
@@ -135,6 +149,29 @@ export async function createCycle(input: {
   carregado = true;
   setActiveCycle(novo.id);
   return novo;
+}
+
+/** Quantas tratativas estão sem ciclo. */
+export async function countOrphanCases(): Promise<number> {
+  const { count } = await supabase
+    .from("qa_cases")
+    .select("*", { count: "exact", head: true })
+    .is("cycle_id", null);
+  return count ?? 0;
+}
+
+/** Vincula à força as tratativas que ficaram sem ciclo (importações antigas). */
+export async function attachOrphanCases(cycleId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("qa_cases")
+    .update({ cycle_id: cycleId })
+    .is("cycle_id", null)
+    .select("id");
+
+  if (error) {
+    return 0;
+  }
+  return data?.length ?? 0;
 }
 
 /** Hook do ciclo ativo (para as telas reagirem à troca). */
