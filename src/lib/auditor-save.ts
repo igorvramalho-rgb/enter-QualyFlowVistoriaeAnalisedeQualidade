@@ -141,15 +141,38 @@ async function ensureCase(params: {
   }
 
   if (existente) {
-    await supabase
+    // Reimportação: além de religar o documento, completa o que estiver vazio
+    // na tratativa (endereço, serviço, município, localidade, contratada).
+    const { data: atual } = await supabase
       .from("qa_cases")
-      .update({
-        document_id: params.documentId,
-        cell: params.cell,
-        analysis_status: STATUS_BY_CELL[params.cell],
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existente);
+      .select("fac, os, address, municipality, locality, service_type, contractor")
+      .eq("id", existente)
+      .maybeSingle();
+
+    const patch: Record<string, string> = {
+      document_id: params.documentId,
+      cell: params.cell,
+      analysis_status: STATUS_BY_CELL[params.cell],
+      updated_at: new Date().toISOString(),
+    };
+
+    const completar = (campo: string, atualValor: string | null, novoValor: string) => {
+      if (!(atualValor ?? "").trim() && novoValor.trim()) {
+        patch[campo] = novoValor.trim();
+      }
+    };
+
+    if (atual) {
+      completar("fac", atual.fac, params.fields.fac ?? "");
+      completar("os", atual.os, params.fields.os ?? "");
+      completar("address", atual.address, params.fields.endereco ?? "");
+      completar("municipality", atual.municipality, params.fields.municipio ?? "");
+      completar("locality", atual.locality, params.fields.localidade ?? "");
+      completar("service_type", atual.service_type, params.fields.servico ?? "");
+      completar("contractor", atual.contractor, params.fields.contratada ?? "");
+    }
+
+    await supabase.from("qa_cases").update(patch as never).eq("id", existente);
     return existente;
   }
 

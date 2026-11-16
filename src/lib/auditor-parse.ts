@@ -90,6 +90,45 @@ const FIELD_PATTERNS: Record<AuditorFieldKey, RegExp[]> = {
   equipe: [/equipe(?:\s*executante)?\s*[:=]?\s*([^\n|]{2,80})/i],
 };
 
+/** Rótulos que ocupam a linha inteira — o valor vem na linha de baixo. */
+const ROTULOS_LINHA: Partial<Record<AuditorFieldKey, RegExp[]>> = {
+  fac: [/^n[ºo°]?\s*fac\s*:?$/i],
+  os: [/^os\s*n?[ºo°]?\s*:?$/i],
+  data: [/^data\s*(?:da\s*)?(?:avalia[cç][aã]o|vistoria|fiscaliza[cç][aã]o)\s*:?$/i],
+  endereco: [/^endere[cç]o\s*:?$/i],
+  municipio: [/^munic[ií]pio\s*:?$/i],
+  localidade: [/^polo\s*:?$/i, /^localidade\s*:?$/i],
+  servico: [/^servi[cç]o\s*executado\s*:?$/i, /^servi[cç]o\s*acatado\s*:?$/i, /^tipo\s*de\s*servi[cç]o\s*:?$/i],
+  contratada: [/^contratada(?:\s*auditada)?\s*:?$/i],
+  equipe: [/^equipe(?:\s*executante)?\s*:?$/i],
+};
+
+/** Valor da linha seguinte a um rótulo isolado. */
+function valorNaLinhaSeguinte(linhas: string[], key: AuditorFieldKey): string {
+  const padroes = ROTULOS_LINHA[key];
+  if (!padroes) {
+    return "";
+  }
+  for (let indice = 0; indice < linhas.length; indice += 1) {
+    const linha = linhas[indice].trim();
+    if (!padroes.some((padrao) => padrao.test(linha))) {
+      continue;
+    }
+    for (let passo = 1; passo <= 3 && indice + passo < linhas.length; passo += 1) {
+      const candidato = linhas[indice + passo].trim();
+      if (!candidato) {
+        continue;
+      }
+      // Se a próxima linha é outro rótulo, o campo está vazio no documento.
+      if (Object.values(ROTULOS_LINHA).some((lista) => lista?.some((padrao) => padrao.test(candidato)))) {
+        return "";
+      }
+      return candidato;
+    }
+  }
+  return "";
+}
+
 const STOP_LABELS =
   /\b(?:n[ºo°]?\s*fac|os\s*n?[ºo°]?|data\s*(?:da\s*)?(?:avalia|vistoria|fiscaliza)|endere[cç]o|munic[ií]pio|polo|localidade|regi[aã]o|coordenadas|categoria|contratada|servi[cç]o|auditor|resultado|unidade|\u00e1rea|protocolo)\b/i;
 
@@ -133,10 +172,11 @@ export function extractFields(pages: PageText[]): Record<AuditorFieldKey, Audito
       if (fields[key].value) {
         continue;
       }
-      const value = firstMatch(page.text, FIELD_PATTERNS[key]);
-      if (value) {
+      const valorInline = firstMatch(page.text, FIELD_PATTERNS[key]);
+      const valor = valorInline || valorNaLinhaSeguinte(page.text.split("\n"), key);
+      if (valor) {
         fields[key] = {
-          value: key === "endereco" ? sanitizeAddress(value) : value,
+          value: key === "endereco" ? sanitizeAddress(valor) : valor,
           page: page.page,
         };
       }
@@ -208,6 +248,24 @@ function readResult(block: string): { label: string; index: number; length: numb
   return best;
 }
 
+function normalizarResultado(valor: string): string {
+  const texto = valor.trim().toLowerCase();
+  if (texto === "n/a" || texto.startsWith("não avaliado") || texto.startsWith("nao avaliado")) {
+    return "N/A";
+  }
+  if (texto.startsWith("não conforme") || texto.startsWith("nao conforme")) {
+    return "Não Conforme";
+  }
+  if (texto === "conforme") {
+    return "Conforme";
+  }
+  return "Informativo";
+}
+
+const CODIGO_SOZINHO = /^(\d{1,2}\.\d{1,2})$/;
+const RESULTADO_SOZINHO =
+  /^(n\s*\/\s*a|n[ãa]o\s*conforme|conforme|informativo|nao\s*avaliado|n[ãa]o\s*avaliado)$/i;
+
 /** Etapas avaliadas da página, com a classificação original preservada. */
 export function parseItems(pageText: string, page: number): AuditorItem[] {
   const start = pageText.search(/itens\s*avaliados/i);
@@ -217,14 +275,16 @@ export function parseItems(pageText: string, page: number): AuditorItem[] {
 
   const lines = pageText.slice(start).split("\n");
   const items: AuditorItem[] = [];
-  let current: { code: string; lines: string[] } | null = null;
+  let current: { code: string; lines: string[]; resultado: string } | null = null;
 
   const flush = () => {
     if (!current) {
       return;
     }
     const block = current.lines.join(" ").replace(/\s{2,}/g, " ").trim();
-    const result = readResult(block);
+    const result = current.resultado
+      ? { label: current.resultado, index: block.length, length: 0 }
+      : readResult(block);
     const description = (result ? block.slice(0, result.index) : block)
       .replace(/\s+/g, " ")
       .trim()
@@ -233,24 +293,40 @@ export function parseItems(pageText: string, page: number): AuditorItem[] {
     items.push({
       code: current.code,
       description,
-      originalResult: result?.label ?? "",
-      complement: result ? block.slice(result.index + result.length).trim().slice(0, 220) : "",
+      originalResult: current.resultado || result?.label || "",
+      complement:
+        !current.resultado && result ? block.slice(result.index + result.length).trim().slice(0, 220) : "",
       page,
     });
     current = null;
   };
 
   for (const line of lines) {
+    const codigoSozinho = CODIGO_SOZINHO.exec(line.trim());
+    if (codigoSozinho) {
+      flush();
+      current = { code: codigoSozinho[1], lines: [], resultado: "" };
+      continue;
+    }
+
     const match = ITEM_LINE.exec(line);
     if (match) {
       flush();
-      current = { code: match[1], lines: [line.slice(match[0].length)] };
+      current = { code: match[1], lines: [line.slice(match[0].length)], resultado: "" };
       continue;
     }
+
     if (/^(item|descritivo|avalia[cç][aã]o|complemento)\b/i.test(line)) {
       continue;
     }
+
     if (current) {
+      const resultado = RESULTADO_SOZINHO.exec(line.trim());
+      if (resultado) {
+        current.resultado = normalizarResultado(resultado[1]);
+        flush();
+        continue;
+      }
       current.lines.push(line);
     }
   }
