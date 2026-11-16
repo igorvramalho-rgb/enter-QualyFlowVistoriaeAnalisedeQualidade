@@ -3,6 +3,7 @@ import type { AuditorRedo, AuditorReport, CaseRow, CellKey } from "@/lib/auditor
 import { CELLS, REDO_STATUS } from "@/lib/auditor";
 import { daysSince } from "@/lib/auditor";
 import { deriveNumbersFromFileName, formatDateBR, formatDateTimeBR } from "@/lib/fields";
+import { resolveAddress, type AddressIndex } from "@/lib/address-index";
 
 /**
  * Excel gerencial do Painel BI — gerado 100% no navegador (nenhuma API, nenhum
@@ -26,11 +27,12 @@ const COLUNAS = [
   { header: "OS", key: "os", width: 16 },
   { header: "Endereço", key: "address", width: 52 },
   { header: "Tipo de serviço", key: "serviceType", width: 36 },
-  { header: "Célula", key: "cell", width: 26 },
-  { header: "Devoluções", key: "devolucoes", width: 12 },
+  { header: "Situação", key: "cell", width: 28 },
 ];
 
 export interface BiExcelData {
+  /** Índice para completar o endereço por FV/OS quando o caso estiver sem. */
+  enderecos?: AddressIndex;
   periodo: string;
   medicao: string;
   emitidoEm: string;
@@ -105,25 +107,31 @@ export function formatarEndereco(valor: string): string {
     .join(" ");
 }
 
-function linhaCaso(row: CaseRow) {
+function linhaCaso(row: CaseRow, indice?: AddressIndex) {
   // Sem FV/OS no cadastro, usa o que o nome do arquivo informa (mesma regra da importação).
   const doNome = deriveNumbersFromFileName(row.fileName ?? "");
+  const endereco = indice ? resolveAddress(row, indice) : row.address;
   return {
     fac: row.fac || doNome.fac || "—",
     os: row.os || doNome.os || "—",
-    address: formatarEndereco(row.address),
+    address: formatarEndereco(endereco ? endereco : ""),
     serviceType: row.serviceType || "—",
     cell: CELLS[row.cell]?.label ?? row.cell,
     devolucoes: row.returnedCount,
   };
 }
 
-function abaCasos(workbook: ExcelJS.Workbook, nome: string, rows: CaseRow[]) {
+function abaCasos(
+  workbook: ExcelJS.Workbook,
+  nome: string,
+  rows: CaseRow[],
+  indice?: AddressIndex,
+) {
   const sheet = workbook.addWorksheet(nomeAba(nome), {
     properties: { defaultRowHeight: 18 },
   });
   sheet.columns = COLUNAS;
-  rows.forEach((row) => sheet.addRow(linhaCaso(row)));
+  rows.forEach((row) => sheet.addRow(linhaCaso(row, indice)));
   estiloCabecalho(sheet);
   finalizarTabela(sheet, rows.length, COLUNAS.length);
   return sheet;
@@ -245,12 +253,13 @@ export async function buildAuditorWorkbook(data: BiExcelData): Promise<Blob> {
 
   abaResumo(workbook, data);
 
-  abaCasos(workbook, "Base FV-OS", data.cases);
+  abaCasos(workbook, "Base FV-OS", data.cases, data.enderecos);
   data.cells.forEach((cell) => {
     abaCasos(
       workbook,
       cell.label,
       data.cases.filter((row) => row.cell === cell.key),
+      data.enderecos,
     );
   });
 

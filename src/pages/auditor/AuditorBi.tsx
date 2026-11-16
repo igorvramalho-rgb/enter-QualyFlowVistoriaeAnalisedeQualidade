@@ -26,6 +26,7 @@ import {
   REDO_STATUS,
   cachedCases,
   fetchAuditorCounts,
+  fetchDocumentAddressSources,
   type AuditorCounts,
   fetchCases,
   fetchRedoQueue,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/auditor";
 import { savePdfBlob } from "@/lib/report-export";
 import { buildAuditorWorkbook } from "@/lib/auditor-bi-excel";
+import { buildAddressIndex } from "@/lib/address-index";
 import { buildBiPdf } from "@/lib/auditor-bi-pdf";
 import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
@@ -297,7 +299,15 @@ export default function AuditorBi() {
         emissao.getMonth() + 1,
       ).padStart(2, "0")}-${emissao.getFullYear()}`;
 
+      const documentos = await fetchDocumentAddressSources();
+      const enderecos = buildAddressIndex({
+        cases: filtrados,
+        documents: documentos,
+        reports: reportsFiltrados,
+      });
+
       const blob = await buildAuditorWorkbook({
+        enderecos,
         periodo: periodoLabel,
         medicao: medicaoLabel,
         emitidoEm: emissao.toLocaleString("pt-BR"),

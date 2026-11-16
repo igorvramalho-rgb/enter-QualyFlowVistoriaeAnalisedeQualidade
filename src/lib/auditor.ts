@@ -452,6 +452,25 @@ export async function fetchCaseEvents(caseId: string): Promise<AuditorEvent[]> {
   }));
 }
 
+/** Campos de endereço dos PDFs importados (para completar o Excel por FV/OS). */
+export async function fetchDocumentAddressSources(): Promise<
+  { fields: Record<string, string>; fileName: string }[]
+> {
+  const { data, error } = await supabase
+    .from("qa_documents")
+    .select("fields, file_name")
+    .limit(2000);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    fields: (row.fields as Record<string, string>) ?? {},
+    fileName: row.file_name ?? "",
+  }));
+}
+
 /** Move a tratativa de célula (decisão sempre humana) e registra o evento. */
 export async function moveCaseToCell(caseId: string, cell: CellKey): Promise<void> {
   const { error } = await supabase
