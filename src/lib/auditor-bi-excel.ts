@@ -33,6 +33,17 @@ const COLUNAS = [
 export interface BiExcelData {
   /** Índice para completar o endereço por FV/OS quando o caso estiver sem. */
   enderecos?: AddressIndex;
+  /** Comparativo entre ciclos (um período por linha). */
+  comparativo?: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    casos: number;
+    conformes: number;
+    naoConformes: number;
+    devolucoes: number;
+    pctConforme: number;
+  }[];
   periodo: string;
   medicao: string;
   emitidoEm: string;
@@ -179,6 +190,41 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   return sheet;
 }
 
+function abaComparativo(workbook: ExcelJS.Workbook, data: BiExcelData) {
+  const sheet = workbook.addWorksheet(nomeAba("Comparativo de ciclos"));
+  sheet.columns = [
+    { header: "Ciclo", key: "nome", width: 28 },
+    { header: "Início", key: "inicio", width: 14 },
+    { header: "Fim", key: "fim", width: 14 },
+    { header: "FV/OS", key: "casos", width: 10 },
+    { header: "Conformes", key: "conformes", width: 12 },
+    { header: "Não conformes", key: "naoConformes", width: 14 },
+    { header: "Devoluções", key: "devolucoes", width: 12 },
+    { header: "% conforme", key: "pct", width: 12 },
+    { header: "Variação (FV/OS)", key: "variacao", width: 16 },
+  ];
+
+  const linhas = data.comparativo ?? [];
+  linhas.forEach((linha, indice) => {
+    const anterior = indice > 0 ? linhas[indice - 1] : null;
+    sheet.addRow({
+      nome: linha.name,
+      inicio: linha.startDate ? formatDateBR(linha.startDate) : "",
+      fim: linha.endDate ? formatDateBR(linha.endDate) : "",
+      casos: linha.casos,
+      conformes: linha.conformes,
+      naoConformes: linha.naoConformes,
+      devolucoes: linha.devolucoes,
+      pct: `${linha.pctConforme}%`,
+      variacao: anterior ? linha.casos - anterior.casos : "",
+    });
+  });
+
+  estiloCabecalho(sheet);
+  finalizarTabela(sheet, linhas.length, 9);
+  return sheet;
+}
+
 function abaRefazer(workbook: ExcelJS.Workbook, data: BiExcelData) {
   const sheet = workbook.addWorksheet(nomeAba("Controle de refazer"));
   sheet.columns = [
@@ -262,6 +308,10 @@ export async function buildAuditorWorkbook(data: BiExcelData): Promise<Blob> {
       data.enderecos,
     );
   });
+
+  if ((data.comparativo ?? []).length > 0) {
+    abaComparativo(workbook, data);
+  }
 
   abaRefazer(workbook, data);
   abaRelatorios(workbook, data);

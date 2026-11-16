@@ -10,6 +10,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
 import {
@@ -62,22 +69,30 @@ export function CycleBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-2 py-1 text-[11px] text-muted-foreground">
-        <CalendarRange className="h-3.5 w-3.5 text-[hsl(var(--auditor-navy-mid))]" />
-        Ciclo
-        <select
-          value={ativo ?? ""}
-          onChange={(event) => setActiveCycle(event.target.value || null)}
-          className="bg-transparent text-[11px] font-medium text-foreground outline-none"
+      <div className="flex items-center gap-2">
+        <CalendarRange className="h-4 w-4 shrink-0 text-[hsl(var(--auditor-navy-mid))]" />
+        <Select
+          value={ativo ?? undefined}
+          onValueChange={(valor) => setActiveCycle(valor)}
+          disabled={ciclos.length === 0}
         >
-          {ciclos.length === 0 && <option value="">carregando…</option>}
-          {ciclos.map((ciclo) => (
-            <option key={ciclo.id} value={ciclo.id}>
-              {ciclo.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          <SelectTrigger className="h-9 w-[260px] bg-card text-xs font-medium">
+            <SelectValue placeholder={ciclos.length === 0 ? "Carregando ciclos…" : "Selecione o ciclo"} />
+          </SelectTrigger>
+          <SelectContent>
+            {ciclos.map((ciclo) => (
+              <SelectItem key={ciclo.id} value={ciclo.id} className="text-xs">
+                <span className="font-medium">{ciclo.name}</span>
+                {ciclo.startDate && (
+                  <span className="ml-2 text-[10px] text-muted-foreground">
+                    {ciclo.startDate} → {ciclo.endDate}
+                  </span>
+                )}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {profile?.role === "gestor" && (
         <Button type="button" variant="glass" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setOpen(true)}>

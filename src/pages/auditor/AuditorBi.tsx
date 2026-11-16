@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, Loader2, RefreshCw } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, Minus, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -40,6 +40,7 @@ import { savePdfBlob } from "@/lib/report-export";
 import { buildAuditorWorkbook } from "@/lib/auditor-bi-excel";
 import { buildAddressIndex } from "@/lib/address-index";
 import { useActiveCycle } from "@/lib/cycles";
+import { fetchCycleComparison, type CycleStat } from "@/lib/cycle-compare";
 import { buildBiPdf } from "@/lib/auditor-bi-pdf";
 import { downloadCsv } from "@/lib/csv";
 import { formatDateBR } from "@/lib/fields";
@@ -74,6 +75,7 @@ export default function AuditorBi() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [totais, setTotais] = useState<AuditorCounts | null>(null);
+  const [comparativo, setComparativo] = useState<CycleStat[]>([]);
   const [medicaoInicio, setMedicaoInicio] = useState("2026-10-15");
 
   const load = useCallback(async () => {
@@ -101,6 +103,10 @@ export default function AuditorBi() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void fetchCycleComparison().then(setComparativo).catch(() => setComparativo([]));
+  }, [ciclo, cases.length]);
 
   const filtrados = useMemo(() => {
     const from = filters.from ? new Date(`${filters.from}T00:00:00`).getTime() : null;
@@ -326,6 +332,7 @@ export default function AuditorBi() {
         cases: filtrados,
         redo: redoFiltrado,
         reports: reportsFiltrados,
+        comparativo,
       });
 
       const url = URL.createObjectURL(blob);
@@ -493,6 +500,78 @@ export default function AuditorBi() {
           </div>
         ))}
       </div>
+
+      {comparativo.length > 0 && (
+        <Card className="p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold text-foreground">Comparativo entre ciclos</h3>
+            <span className="text-[10px] text-muted-foreground">
+              evolução de um período para o outro
+            </span>
+          </div>
+
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[11px]">
+              <thead>
+                <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-medium">Ciclo</th>
+                  <th className="py-1.5 pr-3 font-medium">Período</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">FV/OS</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Conformes</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Não conformes</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Devoluções</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">% conforme</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Variação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparativo.map((linha, indice) => {
+                  const anterior = indice > 0 ? comparativo[indice - 1] : null;
+                  const delta = anterior ? linha.casos - anterior.casos : 0;
+                  const ativo = linha.id === ciclo;
+
+                  return (
+                    <tr
+                      key={linha.id}
+                      className={`border-b border-border/30 ${ativo ? "bg-primary/5 font-medium" : ""}`}
+                    >
+                      <td className="py-1.5 pr-3 text-foreground">
+                        {linha.name}
+                        {ativo && <span className="ml-1 text-[9px] text-primary">(atual)</span>}
+                      </td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">
+                        {linha.startDate ? `${formatDateBR(linha.startDate)} – ${formatDateBR(linha.endDate)}` : "—"}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.casos}</td>
+                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.conformes}</td>
+                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.naoConformes}</td>
+                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.devolucoes}</td>
+                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.pctConforme}%</td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {!anterior ? (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        ) : delta === 0 ? (
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <Minus className="h-3 w-3" /> 0
+                          </span>
+                        ) : delta > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-success">
+                            <TrendingUp className="h-3 w-3" /> +{delta}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-destructive">
+                            <TrendingDown className="h-3 w-3" /> {delta}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-3">
         <h3 className="text-xs font-semibold text-foreground">Análise por célula</h3>
