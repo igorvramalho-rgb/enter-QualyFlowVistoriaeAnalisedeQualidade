@@ -47,6 +47,7 @@ const CORES: [number, number, number][] = [
   [220, 38, 38], // refazer
   [5, 150, 105], // respondidos
   [124, 58, 237], // RPA
+  [14, 116, 144], // S.A.E
   [100, 116, 139], // N/A
 ];
 
@@ -134,19 +135,8 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   });
 
   y += 34;
-  const largura2 = (W - M * 2 - 4) / 2;
-  data.cells.slice(3, 5).forEach((cell, index) => {
-    cartao(
-      doc,
-      M + index * (largura2 + 4),
-      y,
-      largura2,
-      30,
-      CORES[index + 3],
-      cell.label,
-      cell.total,
-      cell.pct,
-    );
+  data.cells.slice(3, 6).forEach((cell, index) => {
+    cartao(doc, M + index * (largura + 4), y, largura, 30, CORES[index + 3], cell.label, cell.total, cell.pct);
   });
 
   // Barra empilhada

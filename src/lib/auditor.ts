@@ -30,6 +30,13 @@ export const CELLS = {
     short: "RPA",
     description: "Contestação técnica do apontamento, com fundamentação preservada.",
   },
+  sae: {
+    key: "sae",
+    label: "S.A.E",
+    short: "S.A.E",
+    description:
+      "Serviços que não condizem com o que foi executado — avaliados de forma equivocada pela AlphaGeos.",
+  },
   nao_avaliado: {
     key: "nao_avaliado",
     label: "N/A / Serviços não avaliados",
@@ -115,6 +122,7 @@ export const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
   refazer: "encaminhado_refazer",
   respondidos: "resposta_enviada",
   rpa: "em_analise",
+  sae: "em_analise",
   nao_avaliado: "necessita_esclarecimento",
 };
 

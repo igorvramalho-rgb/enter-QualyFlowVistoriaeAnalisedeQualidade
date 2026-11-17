@@ -511,6 +511,16 @@ const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string; 
     { key: "dataEnvio", label: "Data de envio", type: "date" },
     { key: "situacao", label: "Situação atual" },
   ],
+  sae: [
+    { key: "item", label: "Item questionado" },
+    { key: "apontamento", label: "Apontamento da AlphaGeos" },
+    { key: "executado", label: "O que foi executado de fato" },
+    { key: "justificativa", label: "Justificativa técnica" },
+    { key: "documento", label: "Documento / referência" },
+    { key: "dataElaboracao", label: "Data de elaboração", type: "date" },
+    { key: "dataEnvio", label: "Data de envio", type: "date" },
+    { key: "situacao", label: "Situação atual" },
+  ],
   nao_avaliado: [
     { key: "item", label: "Item não avaliado" },
     { key: "motivo", label: "Motivo da não avaliação", type: "select", options: MOTIVOS_NA },

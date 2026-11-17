@@ -13,6 +13,7 @@ const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
   refazer: "nao_conforme",
   respondidos: "conforme",
   rpa: "pendente",
+  sae: "pendente",
   nao_avaliado: "pendente",
 };
 
