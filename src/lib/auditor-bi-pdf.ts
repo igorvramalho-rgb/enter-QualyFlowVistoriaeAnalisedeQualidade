@@ -47,7 +47,7 @@ const CORES: [number, number, number][] = [
   [220, 38, 38], // refazer
   [5, 150, 105], // respondidos
   [124, 58, 237], // RPA
-  [14, 116, 144], // S.A.E
+  [14, 116, 144], // E.F
   [100, 116, 139], // N/A
 ];
 

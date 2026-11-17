@@ -32,8 +32,8 @@ export const CELLS = {
   },
   sae: {
     key: "sae",
-    label: "S.A.E",
-    short: "S.A.E",
+    label: "E.F",
+    short: "E.F",
     description:
       "Serviços que não condizem com o que foi executado — avaliados de forma equivocada pela AlphaGeos.",
   },
