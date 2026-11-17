@@ -12,90 +12,72 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
-import { clearScope, fetchScopeTotal, type ResetScope } from "@/lib/auditor-reset";
-import { CELLS, invalidateAuditorCache, type CellKey } from "@/lib/auditor";
+import { clearScope, fetchScopeTotal } from "@/lib/auditor-reset";
+import { CELLS, CELL_KEYS, invalidateAuditorCache, type CellKey } from "@/lib/auditor";
+import { useActiveCycle, useCycles } from "@/lib/cycles";
 
 /**
- * Limpeza controlada do Qualy Auditor.
- * O operador escolhe o escopo: ciclo selecionado, célula atual ou todo o módulo.
+ * Limpeza do Qualy Auditor com dois filtros independentes:
+ * **ciclo** e **célula**. O operador escolhe exatamente o que apagar.
  */
 export function AuditorReset({
   cell,
-  cycle,
   onCleared,
   label,
 }: {
+  /** Célula pré-selecionada (quando aberto dentro de uma célula). */
   cell?: CellKey;
-  cycle?: { id: string; name: string } | null;
   onCleared?: () => void;
   label?: string;
 }) {
   const { profile } = useAuth();
+  const ciclos = useCycles();
+  const cicloAtivo = useActiveCycle();
+
   const [open, setOpen] = useState(false);
-  const [escopo, setEscopo] = useState<ResetScope>({ type: cycle?.id ? "cycle" : cell ? "cell" : "all", value: cycle?.id ?? cell });
+  const [cicloSel, setCicloSel] = useState<string>("todos");
+  const [celaSel, setCelaSel] = useState<string>(cell ?? "todas");
   const [total, setTotal] = useState<number | null>(null);
   const [palavra, setPalavra] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const opcoes: { valor: string; rotulo: string; escopo: ResetScope }[] = [];
-  if (cycle?.id) {
-    opcoes.push({
-      valor: "cycle",
-      rotulo: `Ciclo — ${cycle.name}`,
-      escopo: { type: "cycle", value: cycle.id },
-    });
-  }
-  if (cell) {
-    opcoes.push({
-      valor: "cell",
-      rotulo: `Célula — ${CELLS[cell].label}`,
-      escopo: { type: "cell", value: cell },
-    });
-  }
-  opcoes.push({ valor: "all", rotulo: "Todo o banco do Auditor", escopo: { type: "all" } });
+  const escopo = useCallback(
+    () => ({
+      cycleId: cicloSel === "todos" ? null : cicloSel,
+      cell: celaSel === "todas" ? null : (celaSel as CellKey),
+    }),
+    [cicloSel, celaSel],
+  );
 
-  const medir = useCallback(async (alvo: ResetScope) => {
+  const medir = useCallback(async () => {
     setTotal(null);
     try {
-      setTotal(await fetchScopeTotal(alvo));
+      setTotal(await fetchScopeTotal(escopo()));
     } catch {
       setTotal(null);
     }
-  }, []);
+  }, [escopo]);
+
+  useEffect(() => {
+    if (open) {
+      void medir();
+    }
+  }, [open, medir]);
 
   const abrir = () => {
     setOpen(true);
     setPalavra("");
-    const inicial =
-      opcoes.find((opcao) => opcao.valor === "cycle")?.escopo ??
-      opcoes.find((opcao) => opcao.valor === "cell")?.escopo ??
-      { type: "all" as const };
-    setEscopo(inicial);
-    void medir(inicial);
-  };
-
-  const trocarEscopo = (valor: string) => {
-    const opcao = opcoes.find((item) => item.valor === valor);
-    if (!opcao) {
-      return;
-    }
-    setEscopo(opcao.escopo);
-    void medir(opcao.escopo);
+    setCicloSel(cicloAtivo ?? "todos");
+    setCelaSel(cell ?? "todas");
   };
 
   const confirmar = async () => {
     setBusy(true);
     try {
-      const apagados = await clearScope(escopo);
+      const apagados = await clearScope(escopo());
       invalidateAuditorCache();
       toast.success("Limpeza concluída", {
-        description: `${apagados} FV/OS removida(s) · ${
-          escopo.type === "cycle"
-            ? "apenas neste ciclo"
-            : escopo.type === "cell"
-              ? "apenas nesta célula"
-              : "todo o banco do Auditor"
-        }.`,
+        description: `${apagados} FV/OS removida(s).`,
       });
       setOpen(false);
       onCleared?.();
@@ -111,17 +93,11 @@ export function AuditorReset({
     }
   };
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    void medir(escopo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
   if (profile?.role !== "gestor") {
     return null;
   }
+
+  const tudoSelecionado = cicloSel === "todos" && celaSel === "todas";
 
   return (
     <>
@@ -135,36 +111,69 @@ export function AuditorReset({
           <DialogHeader>
             <DialogTitle>Limpar dados do Qualy Auditor</DialogTitle>
             <DialogDescription>
-              Escolha exatamente o que será apagado. Analista, Emissor e configurações não são
-              afetados. Esta ação não pode ser desfeita.
+              Escolha o ciclo e a célula que deseja apagar. Você pode apagar só uma célula de um
+              ciclo, só um ciclo inteiro, ou uma célula em todos os ciclos.
             </DialogDescription>
           </DialogHeader>
 
-          <label className="block text-[11px] text-muted-foreground">
-            O que apagar
-            <select
-              value={escopo.type}
-              onChange={(event) => trocarEscopo(event.target.value)}
-              className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground"
-            >
-              {opcoes.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-[11px] text-muted-foreground">
+              Ciclo
+              <select
+                value={cicloSel}
+                onChange={(event) => setCicloSel(event.target.value)}
+                className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              >
+                <option value="todos">Todos os ciclos</option>
+                {ciclos.map((ciclo) => (
+                  <option key={ciclo.id} value={ciclo.id}>
+                    {ciclo.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="mt-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px]">
+            <label className="block text-[11px] text-muted-foreground">
+              Célula
+              <select
+                value={celaSel}
+                onChange={(event) => setCelaSel(event.target.value)}
+                className="mt-0.5 h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              >
+                <option value="todas">Todas as células</option>
+                {CELL_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {CELLS[key].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div
+            className={`mt-2 rounded-lg border px-3 py-2 text-[11px] ${
+              tudoSelecionado
+                ? "border-destructive/60 bg-destructive/10"
+                : "border-destructive/40 bg-destructive/5"
+            }`}
+          >
             {total === null ? (
               <span className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Contando registros…
               </span>
             ) : (
               <span className="flex justify-between">
-                <span>FV/OS que serão apagadas</span>
+                <span>
+                  FV/OS que serão apagadas
+                  {tudoSelecionado ? " (todo o banco do Auditor)" : ""}
+                </span>
                 <strong>{total}</strong>
               </span>
+            )}
+            {tudoSelecionado && total !== null && total > 0 && (
+              <p className="mt-1 text-[10px] font-medium">
+                Atenção: a seleção atual apaga o módulo inteiro (todos os ciclos e células).
+              </p>
             )}
           </div>
 
@@ -179,7 +188,7 @@ export function AuditorReset({
           </label>
 
           <p className="text-[10px] text-muted-foreground">
-            As demais FV/OS (outros ciclos e células) permanecem intactas. Os PDFs continuam no
+            O que não corresponder aos dois filtros permanece intacto. Os PDFs continuam no
             armazenamento privado — o aplicativo não tem permissão para excluir arquivos.
           </p>
 
@@ -190,7 +199,9 @@ export function AuditorReset({
             <Button
               type="button"
               variant="destructive"
-              disabled={busy || palavra.trim().toUpperCase() !== "APAGAR" || total === null}
+              disabled={
+                busy || palavra.trim().toUpperCase() !== "APAGAR" || total === null || total === 0
+              }
               onClick={() => void confirmar()}
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

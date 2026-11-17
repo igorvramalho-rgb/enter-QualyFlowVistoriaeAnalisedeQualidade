@@ -1,19 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { CellKey } from "@/lib/auditor";
 
 /**
  * Limpeza controlada do banco do Qualy Auditor.
  *
- * Apaga **somente** as tabelas `qa_*`, e agora permite escolher o escopo:
- * um ciclo inteiro, uma célula ou todo o módulo. As tabelas do Analista,
- * Emissor e configurações nunca são tocadas.
+ * O operador escolhe o **ciclo** e a **célula** que deseja apagar (qualquer
+ * combinação). Apaga apenas as tabelas `qa_*`; Analista, Emissor e
+ * configurações nunca são tocados.
  */
 
-export type ResetScopeType = "cycle" | "cell" | "all";
-
 export interface ResetScope {
-  type: ResetScopeType;
-  /** Id do ciclo ou chave da célula. */
-  value?: string;
+  /** null/undefined = todos os ciclos. */
+  cycleId?: string | null;
+  /** null/undefined = todas as células. */
+  cell?: CellKey | null;
 }
 
 export interface AuditorTotals {
@@ -49,28 +49,18 @@ export async function fetchAuditorTotals(): Promise<AuditorTotals> {
   return { documents, items, cases, events, redo, reports };
 }
 
-/** Quantas FV/OS existem no escopo escolhido. */
+/** Quantas FV/OS existem na combinação escolhida (ciclo × célula). */
 export async function fetchScopeTotal(scope: ResetScope): Promise<number> {
-  if (scope.type === "all") {
-    const { count, error } = await supabase
-      .from("qa_cases")
-      .select("*", { count: "exact", head: true });
-    if (error) {
-      fail(error);
-    }
-    return count ?? 0;
+  let consulta = supabase.from("qa_cases").select("*", { count: "exact", head: true });
+
+  if (scope.cycleId) {
+    consulta = consulta.eq("cycle_id", scope.cycleId);
+  }
+  if (scope.cell) {
+    consulta = consulta.eq("cell", scope.cell);
   }
 
-  if (!scope.value) {
-    return 0;
-  }
-
-  const base = supabase.from("qa_cases").select("*", { count: "exact", head: true });
-  const { count, error } =
-    scope.type === "cycle"
-      ? await base.eq("cycle_id", scope.value)
-      : await base.eq("cell", scope.value);
-
+  const { count, error } = await consulta;
   if (error) {
     fail(error);
   }
@@ -83,13 +73,14 @@ interface CaseRow {
 }
 
 async function casosDoEscopo(scope: ResetScope): Promise<CaseRow[]> {
-  const base = supabase.from("qa_cases").select("id, document_id");
-  const consulta =
-    scope.type === "all"
-      ? base
-      : scope.type === "cycle"
-        ? base.eq("cycle_id", scope.value ?? "")
-        : base.eq("cell", scope.value ?? "");
+  let consulta = supabase.from("qa_cases").select("id, document_id");
+
+  if (scope.cycleId) {
+    consulta = consulta.eq("cycle_id", scope.cycleId);
+  }
+  if (scope.cell) {
+    consulta = consulta.eq("cell", scope.cell);
+  }
 
   const { data, error } = await consulta;
   if (error) {
@@ -100,7 +91,7 @@ async function casosDoEscopo(scope: ResetScope): Promise<CaseRow[]> {
 
 const CHUNK = 100;
 
-/** Apaga apenas o escopo escolhido (ciclo, célula ou tudo). */
+/** Apaga apenas a combinação escolhida. Devolve quantas FV/OS saíram. */
 export async function clearScope(scope: ResetScope): Promise<number> {
   const casos = await casosDoEscopo(scope);
   if (casos.length === 0) {
@@ -136,8 +127,8 @@ export async function clearScope(scope: ResetScope): Promise<number> {
     await apagar("qa_documents", "id", docIds);
   }
 
-  // "Todo o banco": remove também documentos/etapas que ficaram sem tratativa.
-  if (scope.type === "all") {
+  // Sem filtro nenhum = banco inteiro: remove também as sobras sem tratativa.
+  if (!scope.cycleId && !scope.cell) {
     const tabelas = ["qa_case_events", "qa_reports", "qa_redo", "qa_document_items", "qa_documents"];
     for (const tabela of tabelas) {
       await supabase.from(tabela as "qa_documents").delete().gte("created_at", "1970-01-01");
@@ -154,5 +145,5 @@ export async function clearScope(scope: ResetScope): Promise<number> {
 
 /** Mantido para compatibilidade: limpa todo o módulo. */
 export async function clearAuditorDatabase(): Promise<void> {
-  await clearScope({ type: "all" });
+  await clearScope({});
 }

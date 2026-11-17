@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
-import { useActiveCycle, useCycles } from "@/lib/cycles";
+import { useActiveCycle } from "@/lib/cycles";
 import {
   ANALYSIS_ORDER,
   ANALYSIS_STATUS,
@@ -35,8 +35,6 @@ export default function AuditorCelula() {
   const meta = CELLS[cellKey];
 
   const cicloAtivo = useActiveCycle();
-  const ciclos = useCycles();
-  const ciclo = ciclos.find((item) => item.id === cicloAtivo) ?? null;
   const [rows, setRows] = useState<CaseRow[]>(() => cachedCases({ cell: cellKey }) ?? []);
   const [loading, setLoading] = useState(() => cachedCases({ cell: cellKey }) === null);
   const [search, setSearch] = useState("");
@@ -212,7 +210,6 @@ export default function AuditorCelula() {
             />
             <AuditorReset
               cell={cellKey}
-              cycle={ciclo}
               onCleared={() => {
                 invalidateAuditorCache();
                 void load();

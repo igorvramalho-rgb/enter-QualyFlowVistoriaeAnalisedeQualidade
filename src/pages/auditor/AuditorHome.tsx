@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuditorCounts } from "@/hooks/use-auditor";
 import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { cachedCases, fetchCases, type CaseRow } from "@/lib/auditor";
-import { useActiveCycle, useCycles } from "@/lib/cycles";
+import { useActiveCycle } from "@/lib/cycles";
 import { useEffect, useState } from "react";
 import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
@@ -31,8 +31,6 @@ const TILES = [
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
   const cicloAtivo = useActiveCycle();
-  const ciclos = useCycles();
-  const ciclo = ciclos.find((item) => item.id === cicloAtivo) ?? null;
   const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases({ limit: 15 }) ?? []);
 
   useEffect(() => {
@@ -55,7 +53,7 @@ export default function AuditorHome() {
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Visão geral</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <AuditorReset cycle={ciclo} onCleared={() => void refresh()} />
+          <AuditorReset onCleared={() => void refresh()} />
           <Button type="button" variant="glass" size="sm" onClick={() => void refresh()} disabled={loading}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Atualizar
