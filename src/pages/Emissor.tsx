@@ -670,6 +670,24 @@ export default function Emissor() {
     return false;
   };
 
+  /** Espera as fotos das folhas carregarem antes de abrir a impressão. */
+  const esperarImagens = async (limiteMs = 6000): Promise<boolean> => {
+    const inicio = Date.now();
+    while (Date.now() - inicio < limiteMs) {
+      const imagens = Array.from(
+        document.querySelectorAll<HTMLImageElement>("#print-portal img"),
+      );
+      const pendentes = imagens.filter((img) => !img.complete || img.naturalWidth === 0);
+      if (pendentes.length === 0) {
+        // Um quadro extra garante que o navegador pinte antes de imprimir.
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)));
+        return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+    }
+    return false;
+  };
+
   /** A impressão usa as mesmas folhas do PDF: monta o portal, imprime e libera. */
   const handlePrint = async () => {
     setExporting(true);
@@ -677,6 +695,12 @@ export default function Emissor() {
       if (!(await esperarFolhas())) {
         toast.error("Não foi possível preparar as folhas para impressão.");
         return;
+      }
+      const imagensOk = await esperarImagens();
+      if (!imagensOk) {
+        toast.warning("Algumas fotos ainda estão carregando", {
+          description: "A impressão será aberta mesmo assim. Se faltar alguma foto, tente novamente.",
+        });
       }
       printReport();
     } finally {

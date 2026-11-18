@@ -440,6 +440,22 @@ body,
     box-shadow: none !important;
     border-radius: 0 !important;
   }
+
+  /* Garante que as fotos saiam na impressão: usa a <img> (o navegador não
+     imprime imagem de fundo por padrão) e preserva as cores da folha. */
+  #print-portal-host,
+  #print-portal-host * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #print-portal-host .sheet-photo-img {
+    display: block !important;
+  }
+
+  #print-portal-host .sheet-photo-frame {
+    background-image: none !important;
+  }
 }
 
 @keyframes sheen {
