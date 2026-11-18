@@ -89,6 +89,12 @@ export function emptyPhotoMap(): PhotoMap {
 /** Slots que entram na impressão: têm foto ou o usuário ainda não os removeu. */
 export function includedSlots(templateId: string, photos: PhotoMap) {
   const template = getTemplate(templateId);
+
+  // "Fiscalizar Pendências" é uma única folha com as 4 fotos: não gera página por foto.
+  if (template.layout === "pendencias") {
+    return template.photoSlots;
+  }
+
   return template.photoSlots.filter((slot) => {
     const entry = photos[slot.id];
     if (!entry) {

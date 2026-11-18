@@ -1,4 +1,5 @@
 import { ReportSheetPos60 } from "@/components/report/report-sheet-pos60";
+import { ReportSheetPendencias } from "@/components/report/report-sheet-pendencias";
 import { ReportSheetSgz } from "@/components/report/report-sheet-sgz";
 import { includedSlots, type PhotoMap, type QualyflowSettings, type ReportValues } from "@/lib/report-document";
 import { getTemplate } from "@/lib/report-templates";
@@ -25,6 +26,10 @@ export function ReportDocumentView({
   settings,
 }: ReportDocumentViewProps) {
   const template = getTemplate(templateId);
+
+  if (template.layout === "pendencias") {
+    return <ReportSheetPendencias template={template} values={values} photos={photos} />;
+  }
 
   if (template.layout === "pos60") {
     return (

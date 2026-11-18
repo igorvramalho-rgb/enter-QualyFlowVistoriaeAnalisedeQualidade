@@ -1,4 +1,4 @@
-export type ReportTemplateId = "sgz_156" | "pos_60_passeio" | "pos_60_via";
+export type ReportTemplateId = "sgz_156" | "pos_60_passeio" | "pos_60_via" | "fiscalizar_pendencias";
 
 export type ReportFieldType = "text" | "date" | "textarea" | "select";
 
@@ -28,7 +28,7 @@ export interface ReportTemplate {
   title: string;
   shortTitle: string;
   description: string;
-  layout: "sgz" | "pos60";
+  layout: "sgz" | "pos60" | "pendencias";
   documentTitle: string;
   /** Título do relatório na pré-visualização/página do analista */
   objeto?: string;
@@ -136,6 +136,38 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
     photoSlots: POS60_SLOTS,
   },
 ];
+
+/** Modelo "Fiscalizar Pendências Pós 60" — 4 fotos: reclamado × executado. */
+const PENDENCIAS_TEMPLATE: ReportTemplate = {
+  id: "fiscalizar_pendencias",
+  title: "Fiscalizar Pendências Pós 60",
+  shortTitle: "Fiscalizar Pós 60",
+  description: "Relatório de campo e ficha de vistoria com 4 fotos: serviço reclamado × serviço executado.",
+  layout: "pendencias",
+  documentTitle: "FISCALIZAR PENDÊNCIAS PÓS60",
+  consortiumLogo: true,
+  fields: [
+    { id: "protocolo", label: "PROTOCOLO", placeholder: "Ex.: 2621252597" },
+    { id: "endereco", label: "ENDEREÇO / LOGRADOURO", wide: true, placeholder: "Ex.: RUA AURELIANO LEAL 256" },
+    { id: "bairro", label: "BAIRRO / REFERÊNCIA" },
+    { id: "dataFiscalizacao", label: "DATA FISCALIZAÇÃO", type: "date" },
+    {
+      id: "statusFiscalizacao",
+      label: "STATUS DA FISCALIZAÇÃO",
+      type: "select",
+      options: ["Aguardando Fiscalização", "Em Fiscalização", "Fiscalizado", "Pendência resolvida"],
+      defaultValue: "Aguardando Fiscalização",
+    },
+  ],
+  photoSlots: [
+    { id: "reclamado1", caption: "SERVIÇO RECLAMADO", hint: "Primeira foto do serviço reclamado", includeByDefault: true },
+    { id: "reclamado2", caption: "SERVIÇO RECLAMADO", hint: "Segunda foto do serviço reclamado", includeByDefault: true },
+    { id: "executado1", caption: "SERVIÇO EXECUTADO", hint: "Primeira foto do serviço executado", includeByDefault: true },
+    { id: "executado2", caption: "SERVIÇO EXECUTADO", hint: "Segunda foto do serviço executado", includeByDefault: true },
+  ],
+};
+
+REPORT_TEMPLATES.push(PENDENCIAS_TEMPLATE);
 
 export function getTemplate(templateId: string): ReportTemplate {
   return REPORT_TEMPLATES.find((template) => template.id === templateId) ?? REPORT_TEMPLATES[0];
