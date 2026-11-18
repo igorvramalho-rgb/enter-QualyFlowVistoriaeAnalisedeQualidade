@@ -172,6 +172,12 @@ const PENDENCIAS_TEMPLATE: ReportTemplate = {
     { id: "reclamado2", caption: "SERVIÇO RECLAMADO", hint: "Segunda foto do serviço reclamado", includeByDefault: true },
     { id: "executado1", caption: "SERVIÇO EXECUTADO", hint: "Primeira foto do serviço executado", includeByDefault: true },
     { id: "executado2", caption: "SERVIÇO EXECUTADO", hint: "Segunda foto do serviço executado", includeByDefault: true },
+    {
+      id: "penalidadesFoto",
+      caption: "PENALIDADES APONTADAS",
+      hint: "Print da tabela de penalidades aplicadas (página 2)",
+      includeByDefault: true,
+    },
   ],
 };
 

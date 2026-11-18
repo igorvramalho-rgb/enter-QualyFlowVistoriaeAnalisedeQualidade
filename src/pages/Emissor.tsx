@@ -135,7 +135,7 @@ export default function Emissor() {
   const template = getTemplate(templateId);
   const safeSettings = useMemo(() => normalizeSettings(settings), [settings]);
   const pages = useMemo(
-    () => (template.layout === "pendencias" ? 1 : includedSlots(templateId, photos).length),
+    () => (template.layout === "pendencias" ? 2 : includedSlots(templateId, photos).length),
     [templateId, photos, template.layout],
   );
   const filledPhotos = useMemo(() => countFilledPhotos(templateId, photos), [templateId, photos]);

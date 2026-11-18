@@ -90,7 +90,7 @@ export function emptyPhotoMap(): PhotoMap {
 export function includedSlots(templateId: string, photos: PhotoMap) {
   const template = getTemplate(templateId);
 
-  // "Fiscalizar Pendências" é uma única folha com as 4 fotos: não gera página por foto.
+  // "Fiscalizar Pendências" tem duas folhas fixas (dados + página das penalidades).
   if (template.layout === "pendencias") {
     return template.photoSlots;
   }

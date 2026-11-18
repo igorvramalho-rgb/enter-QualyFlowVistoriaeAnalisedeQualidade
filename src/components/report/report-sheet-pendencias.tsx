@@ -28,7 +28,10 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
     return { photo, legenda };
   };
 
+  const penalidadesFoto = foto("penalidadesFoto");
+
   return (
+    <>
     <article className="print-sheet mx-auto flex flex-col px-[10mm] py-[8mm] font-sheet">
       {/* Cabeçalho */}
       <div className="sheet-table">
@@ -155,5 +158,80 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
         Fiscalização de campo · Célula da Qualidade
       </p>
     </article>
+
+    {/* Página 2 — espaço amplo para a foto das penalidades apontadas */}
+    <article className="print-sheet mx-auto flex flex-col px-[10mm] py-[8mm] font-sheet">
+      <div className="sheet-table">
+        <table className="w-full border-collapse">
+          <tbody>
+            <tr>
+              <td className="border border-[hsl(var(--sheet-line))] px-[3mm] py-[2.5mm]">
+                <p className="text-center text-[13px] font-bold uppercase leading-tight">
+                  {template.documentTitle}
+                </p>
+                <p className="text-center text-[8.5px] uppercase leading-tight">
+                  RELATÓRIO DE CAMPO E FICHA DE VISTORIA COM FOTOS
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-[3mm]">
+        <table className="w-full border-collapse text-[9px]">
+          <tbody>
+            <tr>
+              <td className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]">
+                <span className="font-bold uppercase">PROTOCOLO / </span>
+                <span className="uppercase">{valor("protocolo")}</span>
+              </td>
+              <td className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]">
+                <span className="font-bold uppercase">O.S. Nº: </span>
+                <span className="uppercase">{valor("os")}</span>
+              </td>
+            </tr>
+            <tr>
+              <td
+                colSpan={2}
+                className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]"
+              >
+                <span className="font-bold uppercase">PENALIDADES APONTADAS NO SERVIÇO</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="sheet-frame relative mt-[3mm] flex-1 overflow-hidden">
+        {penalidadesFoto.photo?.dataUrl ? (
+          <div
+            role="img"
+            aria-label={penalidadesFoto.legenda}
+            className="sheet-photo-frame sheet-photo-frame--contain absolute inset-0"
+            style={{ backgroundImage: `url(${penalidadesFoto.photo.dataUrl})` }}
+          >
+            <img
+              src={penalidadesFoto.photo.dataUrl}
+              alt={penalidadesFoto.legenda}
+              crossOrigin="anonymous"
+              className="sheet-photo-img sheet-photo-img--contain"
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0">
+            <EmptyPhoto />
+            <p className="absolute inset-x-0 bottom-[6mm] text-center text-[10px] font-bold uppercase tracking-wide">
+              {penalidadesFoto.legenda}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <p className="mt-[4mm] text-center text-[7.5px] uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]">
+        Penalidades apontadas · Célula da Qualidade
+      </p>
+    </article>
+    </>
   );
 }
