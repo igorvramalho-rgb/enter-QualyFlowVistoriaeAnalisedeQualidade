@@ -153,6 +153,13 @@ const PENDENCIAS_TEMPLATE: ReportTemplate = {
     { id: "bairro", label: "BAIRRO / REFERÊNCIA" },
     { id: "dataFiscalizacao", label: "DATA FISCALIZAÇÃO", type: "date" },
     {
+      id: "penalidades",
+      label: "PENALIDADES APLICADAS NO SERVIÇO",
+      type: "textarea",
+      wide: true,
+      placeholder: "Ex.: item 1.3 — 1 penalidade; item 1.5 — 2 penalidades…",
+    },
+    {
       id: "statusFiscalizacao",
       label: "STATUS DA FISCALIZAÇÃO",
       type: "select",

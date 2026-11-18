@@ -87,6 +87,17 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
             <tr>
               <td
                 colSpan={2}
+                className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm] align-top"
+              >
+                <span className="font-bold uppercase">PENALIDADES APLICADAS NO SERVIÇO:</span>
+                <p className="mt-[1mm] min-h-[12mm] whitespace-pre-wrap text-[8.5px] uppercase">
+                  {valor("penalidades")}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td
+                colSpan={2}
                 className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]"
               >
                 <span className="font-bold uppercase">FOTOS DE REFERÊNCIA DE CAMPO</span>
@@ -100,13 +111,13 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
       <div className="mt-[3mm] grid flex-1 grid-cols-2 gap-x-[6mm]">
         {GRUPOS.map((grupo) => (
           <section key={grupo.titulo} className="flex flex-col">
-            <div className="grid grid-cols-2 gap-x-[3mm]">
+            <div className="flex flex-col gap-y-[3mm]">
               {grupo.slots.map((slotId) => {
                 const { photo, legenda } = foto(slotId);
                 return (
                   <div
                     key={slotId}
-                    className="sheet-frame relative aspect-[4/3] overflow-hidden"
+                    className="sheet-frame relative aspect-[6/5] w-full overflow-hidden"
                   >
                     {photo?.dataUrl ? (
                       <div
