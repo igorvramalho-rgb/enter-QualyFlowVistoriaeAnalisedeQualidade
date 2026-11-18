@@ -78,6 +78,15 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
               </td>
             </tr>
             <tr>
+              <td
+                colSpan={2}
+                className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]"
+              >
+                <span className="font-bold uppercase">SERVIÇO EXECUTADO: </span>
+                <span className="uppercase">{valor("servicoExecutado")}</span>
+              </td>
+            </tr>
+            <tr>
               <td className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]">
                 <span className="font-bold uppercase">DATA FISCALIZAÇÃO:</span>{" "}
                 <span>{valor("dataFiscalizacao")}</span>

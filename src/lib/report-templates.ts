@@ -151,6 +151,7 @@ const PENDENCIAS_TEMPLATE: ReportTemplate = {
     { id: "os", label: "NÚMERO DA OS", placeholder: "Ex.: 2626158964" },
     { id: "endereco", label: "ENDEREÇO / LOGRADOURO", wide: true, placeholder: "Ex.: RUA AURELIANO LEAL 256" },
     { id: "bairro", label: "BAIRRO / REFERÊNCIA" },
+    { id: "servicoExecutado", label: "SERVIÇO EXECUTADO", wide: true, placeholder: "Ex.: Pós 60 - Reposição asfáltica" },
     { id: "dataFiscalizacao", label: "DATA FISCALIZAÇÃO", type: "date" },
     {
       id: "penalidades",

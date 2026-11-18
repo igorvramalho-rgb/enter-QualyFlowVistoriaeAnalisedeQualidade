@@ -510,6 +510,7 @@ export default function Emissor() {
     aplicar("os", achado.os);
     aplicar("endereco", achado.address);
     aplicar("servicoExda", achado.serviceType);
+    aplicar("servicoExecutado", achado.serviceType);
     aplicar("polo", achado.locality);
     aplicar("contratada", achado.contractor);
     aplicar("data", achado.date);
@@ -530,12 +531,21 @@ export default function Emissor() {
       setValues(next);
     }
 
+    const resumo = [
+      achado.fac && `FV ${achado.fac}`,
+      achado.os && `OS ${achado.os}`,
+      achado.address || "endereço não consta no cadastro",
+      achado.date && `data ${achado.date}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
     if (preencheu) {
       toast.success(forcar ? "Dados atualizados" : "Dados preenchidos automaticamente", {
-        description: [achado.fac && `FAC ${achado.fac}`, achado.os && `OS ${achado.os}`, achado.address]
-          .filter(Boolean)
-          .join(" · "),
+        description: resumo,
       });
+    } else {
+      toast.info("Cadastro localizado, mas nada novo para preencher", { description: resumo });
     }
   };
 
