@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
+  ExternalLink,
   Eraser,
   FileText,
   Images,
@@ -52,10 +53,11 @@ import {
   type ReportValues,
 } from "@/lib/report-document";
 import {
+  buildReportDocument,
   buildReportFileName,
   isFilePickerAvailable,
   printReport,
-  saveReportPdfFile,
+  savePdfBlob,
 } from "@/lib/report-export";
 import { lookupReportData, syncReportToAuditor, type ReportLookup } from "@/lib/report-lookup";
 import {
@@ -117,6 +119,7 @@ export default function Emissor() {
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [preparandoImpressao, setPreparandoImpressao] = useState(false);
+  const [pdfPronto, setPdfPronto] = useState<{ url: string; nome: string } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [migrarOpen, setMigrarOpen] = useState(false);
@@ -775,7 +778,18 @@ export default function Emissor() {
         throw new Error("Não foi possível preparar as folhas do relatório para o PDF.");
       }
 
-      const result = await saveReportPdfFile(fileName);
+      const { pdf } = await buildReportDocument();
+      const blob = pdf.output("blob") as Blob;
+      const url = URL.createObjectURL(blob);
+
+      setPdfPronto((anterior) => {
+        if (anterior) {
+          URL.revokeObjectURL(anterior.url);
+        }
+        return { url, nome: fileName };
+      });
+
+      const result = await savePdfBlob(blob, fileName);
 
       if (result === "cancelled") {
         toast.info("Download cancelado", {
@@ -867,6 +881,38 @@ export default function Emissor() {
             </>
           }
         />
+
+        {pdfPronto && (
+          <Card className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">PDF pronto</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  {pdfPronto.nome} — se o download não iniciar, use os botões ou salve pelo visualizador abaixo.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="glow" size="sm">
+                  <a href={pdfPronto.url} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                    Abrir PDF
+                  </a>
+                </Button>
+                <Button asChild variant="glass" size="sm">
+                  <a href={pdfPronto.url} download={pdfPronto.nome}>
+                    <Download className="h-4 w-4" />
+                    Baixar
+                  </a>
+                </Button>
+              </div>
+            </div>
+            <iframe
+              title="Prévia do PDF do relatório"
+              src={pdfPronto.url}
+              className="mt-3 h-[70vh] w-full rounded-lg border border-border"
+            />
+          </Card>
+        )}
 
         <div className="panel-glass flex items-start gap-2 rounded-xl px-4 py-3 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
