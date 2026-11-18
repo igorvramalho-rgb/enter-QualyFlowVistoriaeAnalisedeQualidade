@@ -52,9 +52,9 @@ import {
   type ReportValues,
 } from "@/lib/report-document";
 import {
-  buildReportDocument,
   buildReportFileName,
   isFilePickerAvailable,
+  printReport,
   saveReportPdfFile,
 } from "@/lib/report-export";
 import { lookupReportData, syncReportToAuditor, type ReportLookup } from "@/lib/report-lookup";
@@ -672,11 +672,55 @@ export default function Emissor() {
   };
 
   /**
-   * Impressão a partir do próprio PDF.
-   * O caminho antigo (window.print) não renderizava as fotos em alguns
-   * navegadores; agora geramos o documento e abrimos na visualização de PDF,
-   * que é idêntica ao arquivo que o operador baixa.
+   * Impressão direta na página (sem baixar e sem janela pop-up).
+   * As fotos são embutidas como data URL antes de imprimir, o que garante que
+   * apareçam mesmo quando o navegador não carrega imagens externas na impressão.
    */
+  /** Espera as imagens das folhas carregarem. */
+  const esperarImagens = async (limiteMs = 6000): Promise<boolean> => {
+    const inicio = Date.now();
+    while (Date.now() - inicio < limiteMs) {
+      const imagens = Array.from(document.querySelectorAll<HTMLImageElement>("#print-portal img"));
+      const pendentes = imagens.filter((img) => !img.complete || img.naturalWidth === 0);
+      if (pendentes.length === 0) {
+        return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+    }
+    return false;
+  };
+
+  /** Converte as fotos em data URL para a impressão não depender da rede. */
+  const embutirFotosNaImpressao = async () => {
+    const imagens = Array.from(
+      document.querySelectorAll<HTMLImageElement>("#print-portal .sheet-photo-img"),
+    );
+
+    await Promise.all(
+      imagens.map(async (img) => {
+        if (!img.src || img.src.startsWith("data:")) {
+          return;
+        }
+        try {
+          if (!img.complete) {
+            await img.decode();
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const contexto = canvas.getContext("2d");
+          if (!contexto) {
+            return;
+          }
+          contexto.drawImage(img, 0, 0);
+          img.src = canvas.toDataURL("image/jpeg", 0.92);
+        } catch {
+          /* mantém a imagem original se não for possível converter */
+        }
+      }),
+    );
+  };
+
   const handlePrint = async () => {
     setExporting(true);
     setPreparandoImpressao(true);
@@ -686,35 +730,25 @@ export default function Emissor() {
         return;
       }
 
-      const { pdf } = await buildReportDocument();
-      const blob = pdf.output("blob") as Blob;
-      const url = URL.createObjectURL(blob);
-      const janela = window.open(url, "_blank");
+      await esperarImagens();
+      await embutirFotosNaImpressao();
 
-      if (!janela) {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = buildReportFileName(templateId, values);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.warning("Janela bloqueada pelo navegador", {
-          description: "Baixamos o PDF: abra o arquivo e use Ctrl+P para imprimir.",
-        });
-      } else {
-        toast.success("Pronto para imprimir", {
-          description: "O documento abriu em uma nova aba — use o ícone de impressão ou Ctrl+P.",
-        });
-      }
+      toast.success("Pronto para imprimir", {
+        description: "Confirme na janela de impressão do navegador.",
+      });
 
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // Deixa o navegador pintar as folhas antes de abrir a impressão.
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      printReport();
     } catch (problem) {
       toast.error("Não foi possível preparar a impressão", {
         description: problem instanceof Error ? problem.message : undefined,
       });
     } finally {
-      setExporting(false);
-      setPreparandoImpressao(false);
+      window.setTimeout(() => {
+        setExporting(false);
+        setPreparandoImpressao(false);
+      }, 800);
     }
   };
 
