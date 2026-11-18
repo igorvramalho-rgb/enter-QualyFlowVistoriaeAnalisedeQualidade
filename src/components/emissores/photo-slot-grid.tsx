@@ -553,11 +553,15 @@ export function PhotoSlotGrid({
                   onActivate={() => setActiveSlotId(slot.id)}
                   hasPhoto={Boolean(photo?.dataUrl)}
                 />
-                {photo?.dataUrl && (
+              </div>
+
+              {photo?.dataUrl && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Button
                     type="button"
                     variant="glass"
                     size="sm"
+                    className="h-8 flex-1 gap-1 px-2 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       const entry = photo;
@@ -570,15 +574,15 @@ export function PhotoSlotGrid({
                       });
                     }}
                   >
-                    <Crop className="h-4 w-4" />
+                    <Crop className="h-3.5 w-3.5" />
                     Ajustar
                   </Button>
-                )}
-                {photo?.dataUrl && (
+
                   <Button
                     type="button"
                     variant="glass"
                     size="sm"
+                    className="h-8 flex-1 gap-1 px-2 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       const entry = photo;
@@ -597,76 +601,87 @@ export function PhotoSlotGrid({
                       });
                     }}
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-3.5 w-3.5" />
                     Melhorar
                   </Button>
-                )}
 
-                {photo?.dataUrl && (photo.history?.length ?? 0) > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    title="Desfazer último ajuste"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const history = photo.history ?? [];
-                      const anterior = history[history.length - 1];
-                      if (!anterior) {
-                        return;
-                      }
-                      onChange(slot.id, { ...photo, path: anterior, history: history.slice(0, -1), dataUrl: "" });
-                      void signPhotoUrl(anterior).then((url) => {
-                        if (url) {
-                          onChange(slot.id, { ...photo, path: anterior, history: history.slice(0, -1), dataUrl: url });
+                  {(photo.history?.length ?? 0) > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 shrink-0 p-0"
+                      title="Desfazer último ajuste"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const history = photo.history ?? [];
+                        const anterior = history[history.length - 1];
+                        if (!anterior) {
+                          return;
                         }
-                      });
-                    }}
-                  >
-                    <Undo2 className="h-4 w-4" />
-                  </Button>
-                )}
+                        onChange(slot.id, {
+                          ...photo,
+                          path: anterior,
+                          history: history.slice(0, -1),
+                          dataUrl: "",
+                        });
+                        void signPhotoUrl(anterior).then((url) => {
+                          if (url) {
+                            onChange(slot.id, {
+                              ...photo,
+                              path: anterior,
+                              history: history.slice(0, -1),
+                              dataUrl: url,
+                            });
+                          }
+                        });
+                      }}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                  )}
 
-                {photo?.dataUrl && photo.originalPath && photo.path && photo.path !== photo.originalPath && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    title="Restaurar foto original"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const original = photo.originalPath;
-                      if (!original) {
-                        return;
-                      }
-                      const history = pushHistory(photo.history, photo.path);
-                      onChange(slot.id, { ...photo, path: original, history, dataUrl: "" });
-                      void signPhotoUrl(original).then((url) => {
-                        if (url) {
-                          onChange(slot.id, { ...photo, path: original, history, dataUrl: url });
+                  {photo.originalPath && photo.path && photo.path !== photo.originalPath && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 shrink-0 p-0"
+                      title="Restaurar foto original"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const original = photo.originalPath;
+                        if (!original) {
+                          return;
                         }
-                      });
-                    }}
-                  >
-                    <History className="h-4 w-4" />
-                  </Button>
-                )}
-                {photo?.dataUrl && (
+                        const history = pushHistory(photo.history, photo.path);
+                        onChange(slot.id, { ...photo, path: original, history, dataUrl: "" });
+                        void signPhotoUrl(original).then((url) => {
+                          if (url) {
+                            onChange(slot.id, { ...photo, path: original, history, dataUrl: url });
+                          }
+                        });
+                      }}
+                    >
+                      <History className="h-4 w-4" />
+                    </Button>
+                  )}
+
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+                    title="Remover foto"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onChange(slot.id, { ...(photo ?? { dataUrl: "", include: true }), dataUrl: "" });
+                      onChange(slot.id, null);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Remover
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -790,14 +805,15 @@ function DropzoneButton({ onFile, active, onActivate, hasPhoto }: DropzoneButton
         type="button"
         variant={active ? "glow" : "glass"}
         size="sm"
+        className="h-9 w-full justify-center gap-1.5 text-[11px]"
         onClick={(event) => {
           event.stopPropagation();
           onActivate();
           inputRef.current?.click();
         }}
       >
-        <ImagePlus className="h-4 w-4" />
-        {hasPhoto ? "Substituir" : "Inserir foto"}
+        <ImagePlus className="h-3.5 w-3.5" />
+        {hasPhoto ? "Substituir foto" : "Inserir foto"}
       </Button>
     </>
   );
