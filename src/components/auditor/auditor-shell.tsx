@@ -32,7 +32,7 @@ export function AuditorShell({ children }: { children: ReactNode }) {
             </span>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] auditor-hero-sub">
-                Célula da Qualidade
+                Célula de Qualidade
               </p>
               <h1 className="mt-0.5 text-xl font-semibold tracking-tight sm:text-2xl">
                 {AUDITOR_NAME}

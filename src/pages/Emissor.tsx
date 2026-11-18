@@ -402,7 +402,7 @@ export default function Emissor() {
     setValues((previous) => ({ ...previous, [fieldId]: value }));
 
     // Protocolo SGZ, FAC ou OS: completa endereço e OS com o que já está no banco.
-    if (!["protocoloSgz", "fac", "os"].includes(fieldId)) {
+    if (!["protocoloSgz", "protocolo", "fac", "os"].includes(fieldId)) {
       return;
     }
     if (lookupTimer.current) {
@@ -517,6 +517,7 @@ export default function Emissor() {
     // Fiscalizar Pendências: a data da fiscalização vem da "data de avaliação" do cadastro.
     aplicar("dataFiscalizacao", achado.date);
     aplicar("protocoloSgz", achado.protocol);
+    aplicar("protocolo", achado.protocol);
     aplicar("prazo", achado.prazo);
     aplicar("origemDemanda", achado.origem);
 

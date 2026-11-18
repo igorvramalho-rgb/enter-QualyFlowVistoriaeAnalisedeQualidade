@@ -260,7 +260,7 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
           <p>dados criptografados</p>
           <p>intrarede · segura</p>
         </div>
-        <p className="jv-footer-sign">{AUDITOR_SIGNATURE} · Célula da Qualidade</p>
+        <p className="jv-footer-sign">{AUDITOR_SIGNATURE} · Célula de Qualidade</p>
         <div className="jv-footer-block jv-footer-block--right">
           <p>sistema operacional</p>
           <p>versão 4.2 · online</p>

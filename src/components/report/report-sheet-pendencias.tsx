@@ -155,7 +155,7 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
       </div>
 
       <p className="mt-[6mm] text-center text-[7.5px] uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]">
-        Fiscalização de campo · Célula da Qualidade
+        Fiscalização de campo · Célula de Qualidade
       </p>
     </article>
 
@@ -229,7 +229,7 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
       </div>
 
       <p className="mt-[4mm] text-center text-[7.5px] uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]">
-        Penalidades apontadas · Célula da Qualidade
+        Penalidades apontadas · Célula de Qualidade
       </p>
     </article>
     </>
