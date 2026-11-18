@@ -514,6 +514,8 @@ export default function Emissor() {
     aplicar("contratada", achado.contractor);
     aplicar("data", achado.date);
     aplicar("dataVistoria", achado.date);
+    // Fiscalizar Pendências: a data da fiscalização vem da "data de avaliação" do cadastro.
+    aplicar("dataFiscalizacao", achado.date);
     aplicar("protocoloSgz", achado.protocol);
     aplicar("prazo", achado.prazo);
     aplicar("origemDemanda", achado.origem);

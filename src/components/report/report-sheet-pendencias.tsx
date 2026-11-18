@@ -53,12 +53,13 @@ export function ReportSheetPendencias({ template, values, photos }: Props) {
         <table className="w-full border-collapse text-[9px]">
           <tbody>
             <tr>
-              <td
-                colSpan={2}
-                className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]"
-              >
+              <td className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]">
                 <span className="font-bold uppercase">PROTOCOLO / </span>
                 <span className="uppercase">{valor("protocolo")}</span>
+              </td>
+              <td className="border border-[hsl(var(--sheet-line))] px-[2.5mm] py-[1.6mm]">
+                <span className="font-bold uppercase">O.S. Nº: </span>
+                <span className="uppercase">{valor("os")}</span>
               </td>
             </tr>
             <tr>

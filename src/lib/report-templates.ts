@@ -148,6 +148,7 @@ const PENDENCIAS_TEMPLATE: ReportTemplate = {
   consortiumLogo: true,
   fields: [
     { id: "protocolo", label: "PROTOCOLO", placeholder: "Ex.: 2621252597" },
+    { id: "os", label: "NÚMERO DA OS", placeholder: "Ex.: 2626158964" },
     { id: "endereco", label: "ENDEREÇO / LOGRADOURO", wide: true, placeholder: "Ex.: RUA AURELIANO LEAL 256" },
     { id: "bairro", label: "BAIRRO / REFERÊNCIA" },
     { id: "dataFiscalizacao", label: "DATA FISCALIZAÇÃO", type: "date" },
