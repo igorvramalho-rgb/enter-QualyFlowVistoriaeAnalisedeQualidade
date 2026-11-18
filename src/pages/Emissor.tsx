@@ -52,9 +52,9 @@ import {
   type ReportValues,
 } from "@/lib/report-document";
 import {
+  buildReportDocument,
   buildReportFileName,
   isFilePickerAvailable,
-  printReport,
   saveReportPdfFile,
 } from "@/lib/report-export";
 import { lookupReportData, syncReportToAuditor, type ReportLookup } from "@/lib/report-lookup";
@@ -116,6 +116,7 @@ export default function Emissor() {
   const [geotag, setGeotag] = useState<GeotagSettings>({ enabled: false, defaults: emptyGeotag() });
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [preparandoImpressao, setPreparandoImpressao] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [migrarOpen, setMigrarOpen] = useState(false);
@@ -670,41 +671,50 @@ export default function Emissor() {
     return false;
   };
 
-  /** Espera as fotos das folhas carregarem antes de abrir a impressão. */
-  const esperarImagens = async (limiteMs = 6000): Promise<boolean> => {
-    const inicio = Date.now();
-    while (Date.now() - inicio < limiteMs) {
-      const imagens = Array.from(
-        document.querySelectorAll<HTMLImageElement>("#print-portal img"),
-      );
-      const pendentes = imagens.filter((img) => !img.complete || img.naturalWidth === 0);
-      if (pendentes.length === 0) {
-        // Um quadro extra garante que o navegador pinte antes de imprimir.
-        await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)));
-        return true;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 80));
-    }
-    return false;
-  };
-
-  /** A impressão usa as mesmas folhas do PDF: monta o portal, imprime e libera. */
+  /**
+   * Impressão a partir do próprio PDF.
+   * O caminho antigo (window.print) não renderizava as fotos em alguns
+   * navegadores; agora geramos o documento e abrimos na visualização de PDF,
+   * que é idêntica ao arquivo que o operador baixa.
+   */
   const handlePrint = async () => {
     setExporting(true);
+    setPreparandoImpressao(true);
     try {
       if (!(await esperarFolhas())) {
         toast.error("Não foi possível preparar as folhas para impressão.");
         return;
       }
-      const imagensOk = await esperarImagens();
-      if (!imagensOk) {
-        toast.warning("Algumas fotos ainda estão carregando", {
-          description: "A impressão será aberta mesmo assim. Se faltar alguma foto, tente novamente.",
+
+      const { pdf } = await buildReportDocument();
+      const blob = pdf.output("blob") as Blob;
+      const url = URL.createObjectURL(blob);
+      const janela = window.open(url, "_blank");
+
+      if (!janela) {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = buildReportFileName(templateId, values);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.warning("Janela bloqueada pelo navegador", {
+          description: "Baixamos o PDF: abra o arquivo e use Ctrl+P para imprimir.",
+        });
+      } else {
+        toast.success("Pronto para imprimir", {
+          description: "O documento abriu em uma nova aba — use o ícone de impressão ou Ctrl+P.",
         });
       }
-      printReport();
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (problem) {
+      toast.error("Não foi possível preparar a impressão", {
+        description: problem instanceof Error ? problem.message : undefined,
+      });
     } finally {
-      window.setTimeout(() => setExporting(false), 1000);
+      setExporting(false);
+      setPreparandoImpressao(false);
     }
   };
 
@@ -876,9 +886,19 @@ export default function Emissor() {
                 <Badge variant="secondary" className="bg-accent/70 text-accent-foreground">
                   {template.shortTitle}
                 </Badge>
-                <Button type="button" variant="glass" size="sm" onClick={() => void handlePrint()}>
-                  <Printer className="h-4 w-4" />
-                  Imprimir
+                <Button
+                  type="button"
+                  variant="glass"
+                  size="sm"
+                  disabled={preparandoImpressao}
+                  onClick={() => void handlePrint()}
+                >
+                  {preparandoImpressao ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4" />
+                  )}
+                  {preparandoImpressao ? "Preparando..." : "Imprimir"}
                 </Button>
                 <Button
                   type="button"
