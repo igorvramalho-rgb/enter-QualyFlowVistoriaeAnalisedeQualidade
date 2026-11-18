@@ -92,8 +92,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      throw new Error(traduzErro(error.message));
+      const mensagem = error.message ?? "";
+      // Falha de rede (nuvem indisponível) não é senha errada: avisa na tela.
+      if (/failed to fetch|network|fetch failed|load failed/i.test(mensagem)) {
+        setCloudDown(true);
+        throw new Error(
+          "Não foi possível falar com a nuvem agora. Verifique a conexão e tente novamente em instantes.",
+        );
+      }
+      throw new Error(traduzErro(mensagem));
     }
+
+    setCloudDown(false);
   }, []);
 
   const signOut = useCallback(async () => {

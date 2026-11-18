@@ -540,7 +540,7 @@ export default function Emissor() {
   };
 
   const handleAtualizarDados = async () => {
-    const termo = (values.protocoloSgz || values.fac || values.os || "").trim();
+    const termo = (values.protocoloSgz || values.protocolo || values.fac || values.os || "").trim();
     if (termo.length < 4) {
       toast.info("Informe o protocolo SGZ, o FAC ou a OS para atualizar.");
       return;
