@@ -275,9 +275,9 @@ export default function AuditorBi() {
 
     return `Foram avaliadas ${unicas} FV/OS: ${valor("fiscalizacao")} em fiscalização, ${valor(
       "refazer",
-    )} em refazer, ${valor("respondidos")} respondidos à AlphaGeos, ${valor("rpa")} em RPA e ${valor(
+    )} em refazer, ${valor("respondidos")} respondidos à AlphaGeos, ${valor("rpa")} em RPA, ${valor(
       "nao_avaliado",
-    )} em análise (não avaliados).`;
+    )} em análise (não avaliados) e ${valor("nao_executado")} não executado(s).`;
   }, [filtrados.length, unicas, porCelula]);
 
   const exportarCsv = () => {

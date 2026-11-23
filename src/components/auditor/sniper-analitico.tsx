@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleCheck,
+  CircleSlash,
   Crosshair,
   Download,
   Eraser,
@@ -69,12 +70,14 @@ type Filtro = "todos" | SniperVerdict;
 
 const FILTROS: { key: Filtro; label: string }[] = [
   { key: "todos", label: "Todos" },
+  { key: "nao_executado", label: "Não executado" },
   { key: "tudo_na", label: "100% N/A" },
   { key: "na_parcial", label: "N/A parcial" },
   { key: "avaliado", label: "Avaliados" },
 ];
 
 const VERDICT_CLASS: Record<SniperVerdict, string> = {
+  nao_executado: "border-chart-5/45 bg-chart-5/10 text-chart-5",
   tudo_na: "border-destructive/45 bg-destructive/10 text-destructive",
   na_parcial: "border-warning/45 bg-warning/10 text-warning",
   avaliado: "border-success/45 bg-success/10 text-success",
@@ -237,7 +240,13 @@ export function SniperAnalitico() {
   );
 
   const contagem = useMemo(() => {
-    const base: Record<SniperVerdict, number> = { tudo_na: 0, na_parcial: 0, avaliado: 0, sem_itens: 0 };
+    const base: Record<SniperVerdict, number> = {
+      nao_executado: 0,
+      tudo_na: 0,
+      na_parcial: 0,
+      avaliado: 0,
+      sem_itens: 0,
+    };
     docs.forEach((doc) => {
       base[doc.verdict] += 1;
     });
@@ -262,6 +271,17 @@ export function SniperAnalitico() {
 
   const visiveis = filtrados.slice(0, limite);
   const selecionadas = useMemo(() => docs.filter((doc) => selecionados.has(doc.id)), [docs, selecionados]);
+
+  // Serviço não executado não vai para o N/A: a célula indicada é a própria.
+  useEffect(() => {
+    if (selecionadas.length === 0) {
+      return;
+    }
+    const todosNaoExecutados = selecionadas.every((doc) => doc.verdict === "nao_executado");
+    setDestino((atual) =>
+      todosNaoExecutados ? "nao_executado" : atual === "nao_executado" ? "nao_avaliado" : atual,
+    );
+  }, [selecionadas]);
 
   const alternar = (id: string) => {
     setSelecionados((anteriores) => {
@@ -409,9 +429,9 @@ export function SniperAnalitico() {
                 </span>
               </div>
               <p className="mt-0.5 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
-                Importa até {MAX_FILES} FVs por vez, sinaliza os serviços com todas as etapas em N/A e permite
-                selecionar os arquivos para migrar à célula desejada. A base do Sniper é separada das células e do
-                Analista BI.
+                Importa até {MAX_FILES} FVs por vez e sinaliza os serviços com todas as etapas em N/A. Serviço
+                declarado como <strong className="text-foreground">não executado</strong> não entra no N/A: recebe a
+                classificação própria e a célula Não executado. A base do Sniper é separada do Analista BI.
               </p>
             </div>
           </div>
@@ -516,7 +536,7 @@ export function SniperAnalitico() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Resumo
               label="Documentos na base"
               valor={totalBase}
@@ -525,6 +545,13 @@ export function SniperAnalitico() {
               rodape={`${docs.reduce((soma, doc) => soma + doc.total, 0)} etapas lidas${
                 totalBase > docs.length ? ` (últimos ${docs.length})` : ""
               }`}
+            />
+            <Resumo
+              label="Não executado"
+              valor={contagem.nao_executado}
+              icon={CircleSlash}
+              className="text-chart-5"
+              rodape="Fora do N/A"
             />
             <Resumo
               label="100% N/A"
@@ -662,6 +689,7 @@ export function SniperAnalitico() {
                     className={cn(
                       "overflow-hidden p-0",
                       marcado && "ring-1 ring-primary/45",
+                      doc.verdict === "nao_executado" && "border-chart-5/50",
                       doc.verdict === "tudo_na" && "border-destructive/50",
                       doc.verdict === "na_parcial" && "border-warning/45",
                     )}
@@ -677,14 +705,18 @@ export function SniperAnalitico() {
                         <span
                           className={cn(
                             "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1",
-                            doc.verdict === "tudo_na"
-                              ? "bg-destructive/10 text-destructive ring-destructive/30"
-                              : doc.verdict === "na_parcial"
-                                ? "bg-warning/10 text-warning ring-warning/30"
-                                : "bg-muted text-muted-foreground ring-glass-border/50",
+                            doc.verdict === "nao_executado"
+                              ? "bg-chart-5/10 text-chart-5 ring-chart-5/30"
+                              : doc.verdict === "tudo_na"
+                                ? "bg-destructive/10 text-destructive ring-destructive/30"
+                                : doc.verdict === "na_parcial"
+                                  ? "bg-warning/10 text-warning ring-warning/30"
+                                  : "bg-muted text-muted-foreground ring-glass-border/50",
                           )}
                         >
-                          {doc.verdict === "tudo_na" ? (
+                          {doc.verdict === "nao_executado" ? (
+                            <CircleSlash className="h-4 w-4" />
+                          ) : doc.verdict === "tudo_na" ? (
                             <TriangleAlert className="h-4 w-4" />
                           ) : (
                             <MapPin className="h-4 w-4" />
@@ -736,6 +768,13 @@ export function SniperAnalitico() {
                       <Campo rotulo="Serviço executado" valor={doc.servicoExecutado} />
                       <Campo rotulo="Serviço acatado" valor={doc.servicoAcatado} destaque />
                     </div>
+
+                    {doc.verdict === "nao_executado" && (
+                      <p className="mt-2 flex items-start gap-2 px-4 text-[11px] text-chart-5">
+                        <CircleSlash className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        Serviço não executado — classificado fora do N/A. A célula indicada é Não executado.
+                      </p>
+                    )}
 
                     {doc.verdict === "tudo_na" && doc.servicoAcatado && (
                       <p className="mt-2 flex items-start gap-2 px-4 text-[11px] text-destructive">
@@ -903,6 +942,14 @@ export function SniperAnalitico() {
             <p className="rounded-lg border border-glass-border/55 bg-glass/40 px-3 py-2 text-[11px] text-muted-foreground">
               Ciclo ativo aplicado à tratativa. {CELLS[destino].description}
             </p>
+
+            {destino !== "nao_executado" && selecionadas.some((doc) => doc.naoExecutado) && (
+              <p className="flex items-start gap-2 rounded-lg border border-chart-5/40 bg-chart-5/10 px-3 py-2 text-[11px] text-chart-5">
+                <CircleSlash className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {selecionadas.filter((doc) => doc.naoExecutado).length} documento(s) foram lidos como NÃO
+                EXECUTADO. Migrar para N/A contraria essa classificação.
+              </p>
+            )}
 
             <label className="flex items-start gap-2 text-[11px] text-foreground">
               <Checkbox

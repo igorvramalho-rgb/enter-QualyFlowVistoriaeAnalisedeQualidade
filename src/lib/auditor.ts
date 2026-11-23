@@ -43,6 +43,12 @@ export const CELLS = {
     short: "N/A",
     description: "Serviço não avaliado, não localizado ou com interferência.",
   },
+  nao_executado: {
+    key: "nao_executado",
+    label: "Não executado",
+    short: "Não executado",
+    description: "Serviço não executado pela contratada — classificação própria, fora do N/A.",
+  },
 } as const;
 
 export type CellKey = keyof typeof CELLS;
@@ -124,6 +130,7 @@ export const STATUS_BY_CELL: Record<CellKey, AnalysisStatus> = {
   rpa: "em_analise",
   sae: "em_analise",
   nao_avaliado: "necessita_esclarecimento",
+  nao_executado: "necessita_esclarecimento",
 };
 
 /** Resultado do caso decorrente da situação escolhida. */

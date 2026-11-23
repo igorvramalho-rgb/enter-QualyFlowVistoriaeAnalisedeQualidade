@@ -1,0 +1,16 @@
+-- Correção de classificação na tabela própria do Sniper: documentos com todas as
+-- etapas N/A cujo próprio texto declara serviço não executado passam para a
+-- classificação Não executado (regra pedida pelo usuário). Nenhuma outra tabela é tocada.
+update public.qa_sniper_documents
+   set verdict = 'nao_executado',
+       motivo_origem = 'nao_execucao',
+       updated_at = now()
+ where verdict = 'tudo_na'
+   and (
+        motivo ilike '%não executad%'
+     or motivo ilike '%nao executad%'
+     or motivo ilike '%sem execução%'
+     or motivo ilike '%sem execucao%'
+     or motivo ilike '%não houve execução%'
+     or motivo ilike '%nao houve execucao%'
+   );

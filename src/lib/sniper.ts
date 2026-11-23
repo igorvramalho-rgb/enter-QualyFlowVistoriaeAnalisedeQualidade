@@ -24,13 +24,14 @@ export interface SniperPage {
   lines: SniperLine[];
 }
 
-export type SniperVerdict = "tudo_na" | "na_parcial" | "avaliado" | "sem_itens";
+export type SniperVerdict = "nao_executado" | "tudo_na" | "na_parcial" | "avaliado" | "sem_itens";
 
 export type SniperMotivoOrigem =
   | "documento"
   | "observacao"
   | "servico_acatado"
   | "servico_executado"
+  | "nao_execucao"
   | "ausente";
 
 export interface SniperItem {
@@ -83,10 +84,13 @@ export interface SniperDocument {
   observacoes: SniperMotivo[];
   motivo: string;
   motivoOrigem: SniperMotivoOrigem;
+  /** Serviço declarado como não executado — fora do N/A. */
+  naoExecutado: boolean;
   verdict: SniperVerdict;
 }
 
 export const SNIPER_VERDICT_LABEL: Record<SniperVerdict, string> = {
+  nao_executado: "Não executado",
   tudo_na: "100% N/A",
   na_parcial: "N/A parcial",
   avaliado: "Avaliado",
@@ -94,6 +98,7 @@ export const SNIPER_VERDICT_LABEL: Record<SniperVerdict, string> = {
 };
 
 export const SNIPER_MOTIVO_LABEL: Record<SniperMotivoOrigem, string> = {
+  nao_execucao: "Serviço não executado no documento",
   documento: "Motivo registrado no documento",
   observacao: "Observação do documento",
   servico_acatado: "Motivo vem do serviço acatado",
@@ -239,6 +244,18 @@ interface ItemsReading {
 
 const RAZAO_N_A =
   /\bservico\s*(nao\s*executado|nao\s*realizado)|nao\s*executad|nao\s*localizad|sem\s*acesso|inspecao\s*impossibilitad|nao\s*se\s*aplica|sem\s*avaliacao/;
+
+/**
+ * "Serviço não executado" é uma classificação própria: não entra no N/A.
+ * A leitura olha o serviço executado/acatado e, quando todas as etapas estão
+ * N/A, também o motivo registrado no documento.
+ */
+const NAO_EXECUTADO =
+  /\bservico\s*nao\s*executado|\bnao\s*(?:foi\s*)?executad[oa]\b|\bsem\s*execucao\b|\bnao\s*houve\s*execucao\b|\bservico\s*nao\s*realizado\b/;
+
+export function isServicoNaoExecutado(texto: string): boolean {
+  return NAO_EXECUTADO.test(norm(texto));
+}
 
 function readItems(pages: SniperPage[]): ItemsReading {
   const items: SniperItem[] = [];
@@ -423,8 +440,27 @@ export function parseSniperDocument(
     motivoOrigem = "servico_executado";
   }
 
-  const verdict: SniperVerdict =
-    total === 0 ? "sem_itens" : na === total ? "tudo_na" : na > 0 ? "na_parcial" : "avaliado";
+  // Serviço não executado tem precedência: a ficha pode estar toda N/A porque
+  // nada foi executado, e isso não é "não avaliação".
+  const textoExecucao = norm(`${servicoExecutado} ${servicoAcatado}`);
+  const naoServico = NAO_EXECUTADO.test(textoExecucao);
+  const naoPeloMotivo = total > 0 && na === total && NAO_EXECUTADO.test(norm(motivo));
+  const naoExecutado = naoServico || naoPeloMotivo;
+
+  if (naoExecutado && naoServico) {
+    motivoOrigem = "nao_execucao";
+    motivo = `Serviço não executado — ${servicoExecutado || servicoAcatado}`;
+  }
+
+  const verdict: SniperVerdict = naoExecutado
+    ? "nao_executado"
+    : total === 0
+      ? "sem_itens"
+      : na === total
+        ? "tudo_na"
+        : na > 0
+          ? "na_parcial"
+          : "avaliado";
 
   return {
     fileName: meta.fileName,
@@ -455,13 +491,15 @@ export function parseSniperDocument(
     observacoes,
     motivo: clip(motivo, 460),
     motivoOrigem,
+    naoExecutado,
     verdict,
   };
 }
 
 export const SNIPER_ORDER: Record<SniperVerdict, number> = {
-  tudo_na: 0,
-  na_parcial: 1,
-  avaliado: 2,
-  sem_itens: 3,
+  nao_executado: 0,
+  tudo_na: 1,
+  na_parcial: 2,
+  avaliado: 3,
+  sem_itens: 4,
 };

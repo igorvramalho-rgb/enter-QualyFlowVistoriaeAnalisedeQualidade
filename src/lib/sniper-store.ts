@@ -42,6 +42,7 @@ const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
   rpa: "pendente",
   sae: "pendente",
   nao_avaliado: "pendente",
+  nao_executado: "pendente",
 };
 
 const MAX_ITEMS_POR_DOC = 120;
@@ -103,6 +104,7 @@ function toSaved(row: {
     observacoes: [],
     motivo: String(row.motivo ?? ""),
     motivoOrigem: (row.motivo_origem as SniperMotivoOrigem) ?? "ausente",
+    naoExecutado: row.verdict === "nao_executado",
     verdict: (row.verdict as SniperVerdict) ?? "sem_itens",
   };
 }

@@ -486,6 +486,15 @@ const MOTIVOS_NA = [
   "Outros",
 ];
 
+const MOTIVOS_NAO_EXECUCAO = [
+  "Serviço não executado",
+  "Execução parcial não concluída",
+  "Equipe não compareceu",
+  "Serviço cancelado pela contratante",
+  "Serviço executado por terceiros",
+  "Outros",
+];
+
 const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string; options?: string[] }[]> = {
   fiscalizacao: [
     { key: "dataEnvioFiscal", label: "Data de encaminhamento ao fiscal", type: "date" },
@@ -525,6 +534,12 @@ const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string; 
     { key: "item", label: "Item não avaliado" },
     { key: "motivo", label: "Motivo da não avaliação", type: "select", options: MOTIVOS_NA },
     { key: "dataFiscalizacao", label: "Data da fiscalização", type: "date" },
+    { key: "observacoes", label: "Observação do fiscal" },
+  ],
+  nao_executado: [
+    { key: "motivo", label: "Motivo da não execução", type: "select", options: MOTIVOS_NAO_EXECUCAO },
+    { key: "dataConstatacao", label: "Data da constatação", type: "date" },
+    { key: "comunicacao", label: "Comunicação / protocolo" },
     { key: "observacoes", label: "Observação do fiscal" },
   ],
 };

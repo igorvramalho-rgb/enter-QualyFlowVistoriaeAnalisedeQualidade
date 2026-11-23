@@ -15,6 +15,7 @@ const OUTCOME_BY_CELL: Record<CellKey, CaseOutcome> = {
   rpa: "pendente",
   sae: "pendente",
   nao_avaliado: "pendente",
+  nao_executado: "pendente",
 };
 
 /**
