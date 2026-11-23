@@ -3743,6 +3743,117 @@ export type Database = {
           },
         ]
       }
+      qa_sniper_documents: {
+        Row: {
+          auditor: string
+          categoria: string
+          conceito: string
+          conforme_items: number
+          contratada: string
+          created_at: string
+          data_avaliacao: string
+          endereco: string
+          fac: string
+          file_name: string
+          fingerprint: string
+          has_text: boolean
+          id: string
+          imported_by: string | null
+          informativo_items: number
+          items: Json
+          migrated_at: string | null
+          migrated_cell: string
+          motivo: string
+          motivo_origem: string
+          municipio: string
+          na_items: number
+          nao_conforme_items: number
+          os: string
+          pages: number
+          polo: string
+          sections: Json
+          sem_resultado_items: number
+          servico_acatado: string
+          servico_executado: string
+          total_items: number
+          unidade: string
+          updated_at: string
+          verdict: string
+        }
+        Insert: {
+          auditor?: string
+          categoria?: string
+          conceito?: string
+          conforme_items?: number
+          contratada?: string
+          created_at?: string
+          data_avaliacao?: string
+          endereco?: string
+          fac?: string
+          file_name: string
+          fingerprint: string
+          has_text?: boolean
+          id?: string
+          imported_by?: string | null
+          informativo_items?: number
+          items?: Json
+          migrated_at?: string | null
+          migrated_cell?: string
+          motivo?: string
+          motivo_origem?: string
+          municipio?: string
+          na_items?: number
+          nao_conforme_items?: number
+          os?: string
+          pages?: number
+          polo?: string
+          sections?: Json
+          sem_resultado_items?: number
+          servico_acatado?: string
+          servico_executado?: string
+          total_items?: number
+          unidade?: string
+          updated_at?: string
+          verdict?: string
+        }
+        Update: {
+          auditor?: string
+          categoria?: string
+          conceito?: string
+          conforme_items?: number
+          contratada?: string
+          created_at?: string
+          data_avaliacao?: string
+          endereco?: string
+          fac?: string
+          file_name?: string
+          fingerprint?: string
+          has_text?: boolean
+          id?: string
+          imported_by?: string | null
+          informativo_items?: number
+          items?: Json
+          migrated_at?: string | null
+          migrated_cell?: string
+          motivo?: string
+          motivo_origem?: string
+          municipio?: string
+          na_items?: number
+          nao_conforme_items?: number
+          os?: string
+          pages?: number
+          polo?: string
+          sections?: Json
+          sem_resultado_items?: number
+          servico_acatado?: string
+          servico_executado?: string
+          total_items?: number
+          unidade?: string
+          updated_at?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
       qualyflow_analyses: {
         Row: {
           analyzed_at: string
@@ -3966,7 +4077,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_13: {
+      messages_2026_11_20: {
         Row: {
           event: string | null
           extension: string
@@ -3999,7 +4110,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_14: {
+      messages_2026_11_21: {
         Row: {
           event: string | null
           extension: string
@@ -4032,7 +4143,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_15: {
+      messages_2026_11_22: {
         Row: {
           event: string | null
           extension: string
@@ -4065,7 +4176,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_16: {
+      messages_2026_11_23: {
         Row: {
           event: string | null
           extension: string
@@ -4098,7 +4209,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_17: {
+      messages_2026_11_24: {
         Row: {
           event: string | null
           extension: string
@@ -4131,7 +4242,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_18: {
+      messages_2026_11_25: {
         Row: {
           event: string | null
           extension: string
@@ -4164,7 +4275,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_19: {
+      messages_2026_11_26: {
         Row: {
           event: string | null
           extension: string

@@ -1,0 +1,55 @@
+-- Base própria do Sniper Analítico (independente de qa_cases / qualyflow_analyses).
+create table if not exists public.qa_sniper_documents (
+  id uuid primary key default gen_random_uuid(),
+  fingerprint text not null,
+  file_name text not null,
+  pages integer not null default 1,
+  has_text boolean not null default true,
+  fac text not null default '',
+  os text not null default '',
+  data_avaliacao text not null default '',
+  municipio text not null default '',
+  endereco text not null default '',
+  polo text not null default '',
+  unidade text not null default '',
+  categoria text not null default '',
+  contratada text not null default '',
+  servico_executado text not null default '',
+  servico_acatado text not null default '',
+  auditor text not null default '',
+  conceito text not null default '',
+  total_items integer not null default 0,
+  na_items integer not null default 0,
+  conforme_items integer not null default 0,
+  nao_conforme_items integer not null default 0,
+  informativo_items integer not null default 0,
+  sem_resultado_items integer not null default 0,
+  verdict text not null default 'sem_itens',
+  motivo text not null default '',
+  motivo_origem text not null default 'ausente',
+  items jsonb not null default '[]'::jsonb,
+  sections jsonb not null default '[]'::jsonb,
+  imported_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  migrated_cell text not null default '',
+  migrated_at timestamptz
+);
+
+create unique index if not exists qa_sniper_documents_fingerprint_key
+  on public.qa_sniper_documents (fingerprint);
+create index if not exists qa_sniper_documents_verdict_idx
+  on public.qa_sniper_documents (verdict);
+create index if not exists qa_sniper_documents_fac_os_idx
+  on public.qa_sniper_documents (fac, os);
+
+alter table public.qa_sniper_documents enable row level security;
+
+create policy qa_sniper_documents_select on public.qa_sniper_documents
+  for select to authenticated using (auth.uid() is not null);
+create policy qa_sniper_documents_insert on public.qa_sniper_documents
+  for insert to authenticated with check (auth.uid() is not null);
+create policy qa_sniper_documents_update on public.qa_sniper_documents
+  for update to authenticated using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy qa_sniper_documents_delete on public.qa_sniper_documents
+  for delete to authenticated using (auth.uid() is not null);
