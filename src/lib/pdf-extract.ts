@@ -19,6 +19,7 @@ import {
   tidyValue,
 } from "@/lib/fields";
 import { createId } from "@/lib/storage";
+import type { SniperPage } from "@/lib/sniper";
 
 export * from "@/lib/analysis";
 
@@ -256,6 +257,60 @@ export async function readPdfPageTexts(
       page.cleanup();
     }
     return { pages, total: document.numPages };
+  } finally {
+    try {
+      await loadingTask.destroy();
+    } catch {
+      /* liberar o worker falhou: o resultado já está pronto */
+    }
+  }
+}
+
+/**
+ * Leitura por colunas: devolve o x de cada célula da linha. É o que permite ao
+ * Sniper Analítico separar "descritivo" de "avaliação" sem confundir palavras
+ * do enunciado (ex.: "...EXECUTADO CONFORME A BAIXA?") com o veredito N/A.
+ * `readPdfPageTexts` continua sendo o leitor de texto do Qualy Auditor.
+ */
+export async function readPdfLayout(
+  file: File,
+  options: { onProgress?: (page: number, total: number) => void; shouldCancel?: () => boolean } = {},
+): Promise<{ pages: SniperPage[]; total: number; hasText: boolean }> {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = pdfjs.getDocument({ data: buffer });
+  let document: pdfjs.PDFDocumentProxy;
+
+  try {
+    document = await loadingTask.promise;
+  } catch {
+    void loadingTask.destroy();
+    throw new PdfExtractionError("Não foi possível ler este PDF. O arquivo pode estar corrompido.");
+  }
+
+  try {
+    const pages: SniperPage[] = [];
+    let caracteres = 0;
+
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      if (options.shouldCancel?.()) {
+        break;
+      }
+      options.onProgress?.(pageNumber, document.numPages);
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const lines = pageLines(content.items);
+      caracteres += lines.reduce((soma, line) => soma + line.text.length, 0);
+
+      pages.push({
+        page: pageNumber,
+        lines: lines.map((line) => ({
+          cells: line.parts.map((part) => ({ x: part.x, text: part.text.trim() })),
+        })),
+      });
+      page.cleanup();
+    }
+
+    return { pages, total: document.numPages, hasText: caracteres >= 40 };
   } finally {
     try {
       await loadingTask.destroy();
