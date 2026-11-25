@@ -307,7 +307,14 @@ export default function AuditorBi() {
         emissao.getMonth() + 1,
       ).padStart(2, "0")}-${emissao.getFullYear()}`;
 
-      const documentos = await fetchDocumentAddressSources();
+      // O endereço complementar é opcional: sem nuvem o Excel sai com os dados da tela.
+      let documentos: Awaited<ReturnType<typeof fetchDocumentAddressSources>> = [];
+      try {
+        documentos = await fetchDocumentAddressSources();
+      } catch {
+        documentos = [];
+      }
+
       const enderecos = buildAddressIndex({
         cases: filtrados,
         documents: documentos,
@@ -316,6 +323,7 @@ export default function AuditorBi() {
 
       const blob = await buildAuditorWorkbook({
         enderecos,
+        leitura: analise,
         periodo: periodoLabel,
         medicao: medicaoLabel,
         emitidoEm: emissao.toLocaleString("pt-BR"),
@@ -345,7 +353,7 @@ export default function AuditorBi() {
       URL.revokeObjectURL(url);
 
       toast.success("Excel gerado", {
-        description: "Abas por célula, com filtro e formatação — gerado no navegador.",
+        description: "Painel com gráficos, abas por célula e filtros — gerado no navegador, sem uso de nuvem.",
       });
     } catch (problem) {
       toast.error("Falha ao gerar o Excel", {

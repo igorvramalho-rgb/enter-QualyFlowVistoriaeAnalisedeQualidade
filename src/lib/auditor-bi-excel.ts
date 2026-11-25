@@ -4,6 +4,12 @@ import { CELLS, REDO_STATUS } from "@/lib/auditor";
 import { daysSince } from "@/lib/auditor";
 import { deriveNumbersFromFileName, formatDateBR, formatDateTimeBR } from "@/lib/fields";
 import { resolveAddress, type AddressIndex } from "@/lib/address-index";
+import {
+  corDaSerie,
+  graficoBarrasCelulas,
+  graficoComparativoCiclos,
+  graficoRoscaResultado,
+} from "@/lib/auditor-bi-charts";
 
 /**
  * Excel gerencial do Painel BI — gerado 100% no navegador (nenhuma API, nenhum
@@ -33,6 +39,8 @@ const COLUNAS = [
 export interface BiExcelData {
   /** Índice para completar o endereço por FV/OS quando o caso estiver sem. */
   enderecos?: AddressIndex;
+  /** Leitura gerencial do período (texto que acompanha os gráficos). */
+  leitura?: string;
   /** Comparativo entre ciclos (um período por linha). */
   comparativo?: {
     name: string;
@@ -289,6 +297,257 @@ function abaRelatorios(workbook: ExcelJS.Workbook, data: BiExcelData) {
   return sheet;
 }
 
+
+const PAINEL_NAVY = "FF0B1F3A";
+const PAINEL_NAVY_SOFT = "FF14304F";
+const PAINEL_CARD = "FFF4F8FD";
+const PAINEL_BORDER = "FFD9E2EC";
+
+/** PNG do canvas pronto para o ExcelJS (sem o prefixo data URL). */
+function pngBase64(dataUrl: string): string {
+  return dataUrl.replace(/^data:image\/png;base64,/, "");
+}
+
+function pintarBloco(
+  sheet: ExcelJS.Worksheet,
+  topo: number,
+  esquerda: number,
+  fundo: number,
+  direita: number,
+  cor: string,
+) {
+  for (let linha = topo; linha <= fundo; linha += 1) {
+    for (let coluna = esquerda; coluna <= direita; coluna += 1) {
+      sheet.getCell(linha, coluna).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: cor },
+      };
+    }
+  }
+}
+
+/**
+ * Primeira aba: painel visual para apresentação.
+ * Tudo é desenhado no navegador (canvas) e entra no arquivo como imagem —
+ * nenhuma nuvem, nenhum token, nenhum serviço externo.
+ */
+function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
+  const sheet = workbook.addWorksheet("Painel BI", {
+    properties: { defaultRowHeight: 15, tabColor: { argb: PAINEL_NAVY } },
+  });
+
+  sheet.columns = [
+    { width: 26 },
+    { width: 12 },
+    { width: 13 },
+    { width: 14 },
+    { width: 12 },
+    { width: 13 },
+    { width: 8 },
+    { width: 26 },
+    { width: 12 },
+    { width: 13 },
+    { width: 14 },
+    { width: 16 },
+  ];
+
+  // Faixa do título.
+  pintarBloco(sheet, 1, 1, 2, 12, PAINEL_NAVY);
+  sheet.mergeCells("A1:L2");
+  const titulo = sheet.getCell("A1");
+  titulo.value = "PAINEL BI · QUALY AUDITOR";
+  titulo.font = { bold: true, size: 20, color: { argb: "FFFFFFFF" } };
+  titulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  sheet.getRow(1).height = 24;
+  sheet.getRow(2).height = 16;
+
+  pintarBloco(sheet, 3, 1, 3, 12, PAINEL_NAVY_SOFT);
+  sheet.mergeCells("A3:L3");
+  const subtitulo = sheet.getCell("A3");
+  subtitulo.value = `Período: ${data.periodo}   ·   Medição iniciada em: ${data.medicao}   ·   Emitido em: ${data.emitidoEm}`;
+  subtitulo.font = { size: 10, color: { argb: "FFE2F2FB" } };
+  subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  sheet.getRow(3).height = 20;
+
+  // Cartões de indicadores.
+  const indicadores = [
+    { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez" },
+    { label: "CONFORMES", valor: data.kpis.conforme, nota: "após verificação" },
+    { label: "NÃO CONFORMES", valor: data.kpis.naoConforme, nota: "confirmadas" },
+    { label: "AGUARDANDO", valor: data.kpis.aguardando, nota: "análise pendente" },
+    { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos" },
+    { label: "A REFAZER", valor: data.kpis.refazerPendentes, nota: "pendentes de correção" },
+  ];
+
+  const colunasPorIndicador = 2;
+  indicadores.forEach((item, indice) => {
+    const esquerda = 1 + indice * colunasPorIndicador;
+    const direita = esquerda + colunasPorIndicador - 1;
+
+    sheet.mergeCells(5, esquerda, 5, direita);
+    const label = sheet.getCell(5, esquerda);
+    label.value = item.label;
+    label.font = { bold: true, size: 8, color: { argb: "FF64748B" } };
+    label.alignment = { horizontal: "center", vertical: "middle" };
+
+    sheet.mergeCells(6, esquerda, 6, direita);
+    const valor = sheet.getCell(6, esquerda);
+    valor.value = item.valor;
+    valor.font = { bold: true, size: 20, color: { argb: PAINEL_NAVY } };
+    valor.alignment = { horizontal: "center", vertical: "middle" };
+
+    sheet.mergeCells(7, esquerda, 7, direita);
+    const nota = sheet.getCell(7, esquerda);
+    nota.value = item.nota;
+    nota.font = { size: 8, color: { argb: "FF64748B" } };
+    nota.alignment = { horizontal: "center", vertical: "middle" };
+
+    pintarBloco(sheet, 5, esquerda, 7, direita, PAINEL_CARD);
+    for (let coluna = esquerda; coluna <= direita; coluna += 1) {
+      sheet.getCell(7, coluna).border = {
+        bottom: { style: "medium", color: { argb: "FF22D3EE" } },
+      };
+    }
+  });
+
+  sheet.getRow(5).height = 14;
+  sheet.getRow(6).height = 30;
+  sheet.getRow(7).height = 14;
+
+  // Gráficos.
+  let cursor = 9;
+
+  // Os gráficos são o único ponto que depende do canvas do navegador. Se algo
+  // falhar, o painel continua válido com indicadores e tabela (sem imagem).
+  let graficosOk = true;
+  try {
+    const barras = graficoBarrasCelulas({
+      titulo: "FV/OS por célula operacional",
+      subtitulo: "Volume tratado no período, com participação de cada célula",
+      series: data.cells.map((cell, indice) => ({
+        label: cell.label,
+        valor: cell.total,
+        cor: corDaSerie(indice, cell.key),
+      })),
+      rodape: `${data.kpis.recebidas} FV/OS únicas avaliadas`,
+    });
+
+    const rosca = graficoRoscaResultado({
+      titulo: "Resultado das tratativas",
+      subtitulo: "Conformidade confirmada no período",
+      series: [
+        { label: "Conformes", valor: data.kpis.conforme, cor: "FF059669" },
+        { label: "Não conformes", valor: data.kpis.naoConforme, cor: "FFDC2626" },
+        {
+          label: "Em tratativa",
+          valor: Math.max(0, data.kpis.recebidas - data.kpis.conforme - data.kpis.naoConforme),
+          cor: "FF64748B",
+        },
+      ],
+      rodape: `${data.kpis.relatorios} relatório(s) enviado(s)`,
+    });
+
+    const idBarras = workbook.addImage({ base64: pngBase64(barras), extension: "png" });
+    const idRosca = workbook.addImage({ base64: pngBase64(rosca), extension: "png" });
+
+    sheet.addImage(idBarras, {
+      tl: { col: 0, row: cursor - 1 },
+      ext: { width: 700, height: 360 },
+      editAs: "oneCell",
+    });
+    sheet.addImage(idRosca, {
+      tl: { col: 7, row: cursor - 1 },
+      ext: { width: 480, height: 360 },
+      editAs: "oneCell",
+    });
+  } catch {
+    graficosOk = false;
+  }
+
+  if (graficosOk) {
+    cursor += 19;
+  }
+
+  const ciclos = data.comparativo ?? [];
+  if (ciclos.length > 1) {
+    try {
+      const comparativo = graficoComparativoCiclos(
+        ciclos.map((ciclo) => ({
+          nome: ciclo.name,
+          casos: ciclo.casos,
+          conformes: ciclo.conformes,
+          pctConforme: ciclo.pctConforme,
+        })),
+        {
+          titulo: "Comparativo entre ciclos",
+          subtitulo: "Casos tratados e conformes por período de medição",
+          rodape: `${ciclos.length} ciclo(s) comparado(s)`,
+        },
+      );
+
+      const idComparativo = workbook.addImage({ base64: pngBase64(comparativo), extension: "png" });
+      sheet.addImage(idComparativo, {
+        tl: { col: 0, row: cursor - 1 },
+        ext: { width: 700, height: 340 },
+        editAs: "oneCell",
+      });
+      cursor += 17;
+    } catch {
+      /* segue sem o comparativo */
+    }
+  }
+
+  // Leitura gerencial.
+  if (data.leitura) {
+    pintarBloco(sheet, cursor + 1, 1, cursor + 1, 12, PAINEL_NAVY);
+    sheet.mergeCells(cursor + 1, 1, cursor + 1, 12);
+    const rotulo = sheet.getCell(cursor + 1, 1);
+    rotulo.value = "LEITURA DO PERÍODO";
+    rotulo.font = { bold: true, size: 9, color: { argb: "FFE2F2FB" } };
+    rotulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+    sheet.getRow(cursor + 1).height = 18;
+
+    sheet.mergeCells(cursor + 2, 1, cursor + 2, 12);
+    const texto = sheet.getCell(cursor + 2, 1);
+    texto.value = data.leitura;
+    texto.font = { size: 10, color: { argb: "FF1E293B" } };
+    texto.alignment = { vertical: "top", horizontal: "left", wrapText: true, indent: 1 };
+    sheet.getRow(cursor + 2).height = 58;
+    cursor += 3;
+  }
+
+  // Tabela que sustenta os gráficos.
+  const inicioTabela = cursor + 1;
+  const cabecalho = sheet.getRow(inicioTabela);
+  const colunasTabela = ["Célula", "FV/OS", "Conformes", "Não conformes", "% do total", "Devoluções"];
+  colunasTabela.forEach((valor, indice) => {
+    const cell = cabecalho.getCell(indice + 1);
+    cell.value = valor;
+    cell.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PAINEL_NAVY } };
+    cell.alignment = { vertical: "middle", horizontal: indice === 0 ? "left" : "center" };
+  });
+  cabecalho.height = 20;
+
+  data.cells.forEach((cell, indice) => {
+    const linha = sheet.getRow(inicioTabela + 1 + indice);
+    const valores = [cell.label, cell.total, cell.conformes, cell.naoConformes, `${cell.pct}%`, cell.devolucoes];
+    valores.forEach((valor, coluna) => {
+      const alvo = linha.getCell(coluna + 1);
+      alvo.value = valor;
+      alvo.font = { size: 9, color: { argb: "FF1E293B" } };
+      alvo.alignment = { vertical: "middle", horizontal: coluna === 0 ? "left" : "center" };
+      alvo.border = { bottom: { style: "thin", color: { argb: PAINEL_BORDER } } };
+      if (indice % 2 === 1) {
+        alvo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA } };
+      }
+    });
+  });
+
+  return sheet;
+}
+
 /** Monta o arquivo .xlsx com todas as abas formatadas. */
 export async function buildAuditorWorkbook(data: BiExcelData): Promise<Blob> {
   // Carregado só na exportação: não pesa na abertura do painel.
@@ -297,6 +556,7 @@ export async function buildAuditorWorkbook(data: BiExcelData): Promise<Blob> {
   workbook.creator = "Qualy Auditor";
   workbook.created = new Date();
 
+  abaPainel(workbook, data);
   abaResumo(workbook, data);
 
   abaCasos(workbook, "Base FV-OS", data.cases, data.enderecos);
