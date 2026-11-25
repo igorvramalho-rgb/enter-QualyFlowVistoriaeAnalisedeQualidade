@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, Loader2, Minus, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  FileSpreadsheet,
+  Loader2,
+  Minus,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -77,6 +86,7 @@ export default function AuditorBi() {
   const [totais, setTotais] = useState<AuditorCounts | null>(null);
   const [comparativo, setComparativo] = useState<CycleStat[]>([]);
   const [medicaoInicio, setMedicaoInicio] = useState("2026-10-15");
+  const [pdfPronto, setPdfPronto] = useState<{ url: string; nome: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -374,6 +384,7 @@ export default function AuditorBi() {
         naoConformes: kpis.naoConforme,
         pendentes: kpis.refazerPendentes,
         cells: porCelula.map((item) => ({
+          key: item.key,
           label: item.nome,
           total: item.total,
           conformes: item.conformes,
@@ -396,12 +407,24 @@ export default function AuditorBi() {
         emissao.getMonth() + 1,
       ).padStart(2, "0")}-${emissao.getFullYear()}`;
       const nome = `TRATATIVA_POS60_${stamp}.pdf`;
+
+      // Prévia sempre disponível: se o download for bloqueado (iframe/antivírus),
+      // o PDF continua acessível pelo painel abaixo.
+      setPdfPronto((anterior) => {
+        if (anterior) {
+          URL.revokeObjectURL(anterior.url);
+        }
+        return { url: URL.createObjectURL(blob), nome };
+      });
+
       const resultado = await savePdfBlob(blob, nome);
 
       if (resultado === "cancelled") {
-        toast.info("Geração cancelada");
+        toast.info("Download cancelado", { description: "O PDF segue disponível na prévia." });
       } else {
-        toast.success("Relatório gerado", { description: nome });
+        toast.success("Relatório gerado", {
+          description: `${nome} — use a prévia se o download não abrir.`,
+        });
       }
     } catch (problem) {
       toast.error("Falha ao gerar o PDF", {
@@ -487,6 +510,49 @@ export default function AuditorBi() {
           </label>
         </div>
       </Card>
+
+      {pdfPronto && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">PDF pronto</h3>
+              <p className="text-[11px] text-muted-foreground">
+                {pdfPronto.nome} — se o download não iniciar, use os botões ou salve pelo visualizador abaixo.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="glow" size="sm">
+                <a href={pdfPronto.url} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir PDF
+                </a>
+              </Button>
+              <Button asChild variant="glass" size="sm">
+                <a href={pdfPronto.url} download={pdfPronto.nome}>
+                  <Download className="h-4 w-4" />
+                  Baixar
+                </a>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  URL.revokeObjectURL(pdfPronto.url);
+                  setPdfPronto(null);
+                }}
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+          <iframe
+            title="Prévia do relatório PDF do Painel BI"
+            src={pdfPronto.url}
+            className="mt-3 h-[70vh] w-full rounded-lg border border-border"
+          />
+        </Card>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[

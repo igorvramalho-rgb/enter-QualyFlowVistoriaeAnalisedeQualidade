@@ -49,7 +49,23 @@ const CORES: [number, number, number][] = [
   [124, 58, 237], // RPA
   [14, 116, 144], // E.F
   [100, 116, 139], // N/A
+  [234, 88, 12], // não executado
 ];
+
+/** Cor estável por célula: novas células nunca deixam o PDF sem cor. */
+const COR_POR_CELULA: Record<string, [number, number, number]> = {
+  fiscalizacao: [29, 78, 216],
+  refazer: [220, 38, 38],
+  respondidos: [5, 150, 105],
+  rpa: [124, 58, 237],
+  sae: [14, 116, 144],
+  nao_avaliado: [100, 116, 139],
+  nao_executado: [234, 88, 12],
+};
+
+function corDaCelula(cell: { key?: string }, index: number): [number, number, number] {
+  return COR_POR_CELULA[cell.key ?? ""] ?? CORES[index % CORES.length] ?? CORES[0];
+}
 
 function fill(doc: jsPDF, cor: [number, number, number]) {
   doc.setFillColor(cor[0], cor[1], cor[2]);
@@ -126,21 +142,30 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   ink(doc, [148, 163, 184]);
   doc.text("VILA MARIA E SANTANA", W - M, 44, { align: "right" });
 
-  // Cartões das células
+  // Cartões das células (3 por linha, quantas linhas forem necessárias)
   let y = 62;
   const largura = (W - M * 2 - 8) / 3;
+  const porLinha = 3;
+  const linhasCartoes = Math.max(1, Math.ceil(data.cells.length / porLinha));
 
-  data.cells.slice(0, 3).forEach((cell, index) => {
-    cartao(doc, M + index * (largura + 4), y, largura, 30, CORES[index], cell.label, cell.total, cell.pct);
-  });
-
-  y += 34;
-  data.cells.slice(3, 6).forEach((cell, index) => {
-    cartao(doc, M + index * (largura + 4), y, largura, 30, CORES[index + 3], cell.label, cell.total, cell.pct);
+  data.cells.forEach((cell, index) => {
+    const linha = Math.floor(index / porLinha);
+    const coluna = index % porLinha;
+    cartao(
+      doc,
+      M + coluna * (largura + 4),
+      y + linha * 34,
+      largura,
+      30,
+      corDaCelula(cell, index),
+      cell.label,
+      cell.total,
+      cell.pct,
+    );
   });
 
   // Barra empilhada
-  y += 42;
+  y += linhasCartoes * 34 + 8;
   ink(doc, INK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -159,7 +184,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
     if (fraction <= 0) {
       return;
     }
-    fill(doc, CORES[index]);
+    fill(doc, corDaCelula(cell, index));
     doc.rect(cursor, y, barraW * fraction, 9, "F");
     cursor += barraW * fraction;
   });
@@ -167,6 +192,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   // Legenda
   y += 16;
   const colunaW = (barraW - 8) / 2;
+  const linhasLegenda = Math.max(1, Math.ceil(data.cells.length / 2));
 
   data.cells.forEach((cell, index) => {
     const coluna = index % 2;
@@ -175,7 +201,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
     const direita = x + colunaW;
     const yy = y + linha * 6.5;
 
-    fill(doc, CORES[index]);
+    fill(doc, corDaCelula(cell, index));
     doc.roundedRect(x, yy - 2.4, 3.2, 3.2, 0.8, 0.8, "F");
 
     ink(doc, INK);
@@ -191,7 +217,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   });
 
   // Análise
-  y += 26;
+  y += linhasLegenda * 6.5 + 6.5;
   ink(doc, INK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -203,7 +229,9 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   ink(doc, INK);
-  const texto = doc.splitTextToSize(data.resumo, W - M * 2) as string[];
+  // O texto nunca invade o rodapé: o que passar do espaço é resumido.
+  const linhasDisponiveis = Math.max(3, Math.floor((H - 46 - (y + 7)) / 4.2) - 12);
+  const texto = (doc.splitTextToSize(data.resumo, W - M * 2) as string[]).slice(0, linhasDisponiveis);
   doc.text(texto, M, y + 7);
 
   // Destaques
