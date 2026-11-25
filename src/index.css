@@ -565,54 +565,159 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
-/* Abertura 3D estilo HUD (após o login)                               */
+/* Abertura 3D futurista — tema GTA 6 (pôr do sol neon + grade em fuga) */
 /* ------------------------------------------------------------------ */
 .jv-stage {
+  isolation: isolate;
   background:
-    radial-gradient(ellipse at 50% 42%, hsl(199 95% 26% / 0.45), transparent 62%),
-    radial-gradient(ellipse at 50% 118%, hsl(190 95% 34% / 0.4), transparent 58%),
-    linear-gradient(180deg, hsl(210 70% 3%), hsl(205 75% 5%) 55%, hsl(200 80% 7%));
+    radial-gradient(120% 72% at 50% 114%, hsl(22 96% 60% / 0.55), transparent 62%),
+    radial-gradient(92% 56% at 50% 104%, hsl(332 92% 60% / 0.55), transparent 66%),
+    radial-gradient(82% 70% at 12% 2%, hsl(268 88% 44% / 0.5), transparent 62%),
+    radial-gradient(70% 60% at 94% 6%, hsl(198 95% 52% / 0.18), transparent 62%),
+    linear-gradient(180deg, hsl(266 62% 5%) 0%, hsl(270 56% 8%) 48%, hsl(282 58% 11%) 100%);
   animation: jv-in 0.6s ease-out both;
   cursor: default;
 }
 
-/* grade em perspectiva */
+/* Sol / horizonte neon */
+.jv-sun {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  width: min(82vw, 940px);
+  height: min(41vw, 470px);
+  transform: translateX(-50%);
+  background: radial-gradient(
+    closest-side,
+    hsl(22 98% 64% / 0.92) 0%,
+    hsl(332 96% 62% / 0.55) 46%,
+    transparent 74%
+  );
+  mask-image: linear-gradient(to top, black 58%, transparent 100%);
+  animation: jv-sun-breathe 9s ease-in-out infinite;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.jv-sun::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -2%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(28 100% 72% / 0.95), transparent);
+  box-shadow: 0 0 26px hsl(332 96% 64% / 0.85);
+}
+
+/* Grade em perspectiva (fundo) */
 .jv-grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(hsl(187 95% 60% / 0.09) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(187 95% 60% / 0.09) 1px, transparent 1px);
+    linear-gradient(hsl(320 95% 66% / 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(268 95% 68% / 0.1) 1px, transparent 1px);
   background-size: 64px 64px;
-  mask-image: radial-gradient(circle at 50% 45%, black 18%, transparent 72%);
-  opacity: 0.85;
+  mask-image: radial-gradient(circle at 50% 45%, black 16%, transparent 74%);
+  opacity: 0.9;
 }
 
+/* Piso em fuga com movimento contínuo */
 .jv-floor {
   position: absolute;
-  left: -25%;
-  right: -25%;
-  bottom: -12%;
-  height: 62%;
+  left: -35%;
+  right: -35%;
+  bottom: -14%;
+  height: 70%;
   background-image:
-    linear-gradient(hsl(187 95% 60% / 0.16) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(187 95% 60% / 0.16) 1px, transparent 1px);
-  background-size: 90px 90px;
-  transform: perspective(520px) rotateX(72deg);
+    linear-gradient(hsl(320 96% 68% / 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(272 96% 70% / 0.18) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px;
+  transform: perspective(560px) rotateX(74deg);
   transform-origin: bottom center;
-  mask-image: linear-gradient(to top, black, transparent 78%);
-  opacity: 0.5;
+  mask-image: linear-gradient(to top, black 10%, hsl(0 0% 0% / 0.55) 46%, transparent 84%);
+  opacity: 0.9;
+  animation: jv-floor-flow 2.6s linear infinite;
 }
 
-/* onda holográfica */
+/* Scanlines + varredura */
+.jv-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    hsl(0 0% 100% / 0.035) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.65;
+}
+
+.jv-scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24%;
+  top: -25%;
+  background: linear-gradient(180deg, transparent, hsl(332 96% 66% / 0.12), transparent);
+  animation: jv-scan-sweep 7s linear infinite;
+}
+
+/* Riscos de velocidade */
+.jv-streaks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.jv-streaks span {
+  position: absolute;
+  left: -32%;
+  width: 26%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(332 96% 70% / 0.85), transparent);
+  filter: drop-shadow(0 0 6px hsl(332 96% 64% / 0.8));
+  animation: jv-streak 5.4s linear infinite;
+}
+
+.jv-streaks span:nth-child(1) {
+  top: 27%;
+}
+
+.jv-streaks span:nth-child(2) {
+  top: 45%;
+  width: 18%;
+  animation-delay: 1.6s;
+  animation-duration: 4.3s;
+}
+
+.jv-streaks span:nth-child(3) {
+  top: 63%;
+  width: 33%;
+  animation-delay: 3.1s;
+  animation-duration: 6.2s;
+}
+
+.jv-streaks span:nth-child(4) {
+  top: 15%;
+  width: 14%;
+  animation-delay: 4.2s;
+  animation-duration: 5s;
+  background: linear-gradient(90deg, transparent, hsl(28 100% 66% / 0.85), transparent);
+}
+
+/* Onda holográfica */
 .jv-wave {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 128%;
+  width: 132%;
   height: 340px;
-  transform: translate(-50%, -46%) perspective(900px) rotateX(62deg);
-  opacity: 0.85;
+  transform: translate(-50%, -46%) perspective(900px) rotateX(64deg);
+  opacity: 0.8;
   pointer-events: none;
 }
 
@@ -623,47 +728,46 @@ body {
 
 .jv-wave-line {
   fill: none;
-  stroke: hsl(187 96% 66%);
+  stroke: hsl(320 96% 70%);
   stroke-width: 0.9;
   vector-effect: non-scaling-stroke;
-  opacity: 0.28;
+  opacity: 0.26;
 }
 
 .jv-wave-line--1 {
   stroke-width: 1.4;
   stroke-dasharray: 16 7;
+  opacity: 0.7;
   animation: jv-dash 6s linear infinite;
-}
-
-.jv-wave-line--1 {
-  opacity: 0.75;
-  filter: drop-shadow(0 0 6px hsl(187 96% 60% / 0.85));
+  filter: drop-shadow(0 0 6px hsl(332 96% 64% / 0.85));
 }
 
 .jv-wave-line--2 {
-  opacity: 0.42;
+  opacity: 0.4;
+  stroke: hsl(272 96% 72%);
 }
 
 .jv-wave-line--3 {
-  opacity: 0.3;
+  opacity: 0.28;
+  stroke: hsl(28 96% 68%);
 }
 
 .jv-wave-line--4 {
-  opacity: 0.2;
+  opacity: 0.18;
 }
 
 .jv-wave-line--5 {
-  opacity: 0.12;
+  opacity: 0.1;
 }
 
-/* anéis 3D */
+/* Anéis 3D */
 .jv-rings {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 560px;
-  height: 560px;
-  transform: translate(-50%, -50%) perspective(900px) rotateX(72deg);
+  width: 620px;
+  height: 620px;
+  transform: translate(-50%, -50%) perspective(1000px) rotateX(72deg);
   pointer-events: none;
 }
 
@@ -672,45 +776,49 @@ body {
   inset: 0;
   margin: auto;
   border-radius: 9999px;
-  border: 1px dashed hsl(187 95% 62% / 0.35);
+  border: 1px dashed hsl(320 96% 68% / 0.32);
 }
 
 .jv-ring--1 {
-  inset: 0;
-  border-color: hsl(187 96% 66% / 0.5);
-  box-shadow: 0 0 24px hsl(187 96% 60% / 0.25);
-  animation: jv-spin 34s linear infinite;
+  border-color: hsl(332 96% 68% / 0.55);
+  box-shadow: 0 0 30px hsl(332 96% 60% / 0.35);
+  animation: jv-spin 30s linear infinite;
 }
 
 .jv-ring--2 {
-  inset: 70px;
+  inset: 74px;
   border-style: solid;
-  border-color: hsl(187 95% 62% / 0.22);
-  animation: jv-spin 22s linear infinite reverse;
+  border-color: hsl(272 96% 72% / 0.3);
+  animation: jv-spin 20s linear infinite reverse;
 }
 
 .jv-ring--3 {
-  inset: 150px;
-  border-color: hsl(187 95% 62% / 0.35);
-  animation: jv-pulse 3.6s ease-in-out infinite;
+  inset: 160px;
+  border-color: hsl(28 96% 68% / 0.45);
+  animation: jv-pulse 3.4s ease-in-out infinite;
 }
 
-/* partículas */
+/* Partículas */
 .jv-particle {
   position: absolute;
   border-radius: 9999px;
-  background: hsl(187 96% 68%);
-  box-shadow: 0 0 10px hsl(187 96% 62% / 0.9);
+  background: hsl(332 96% 70%);
+  box-shadow: 0 0 10px hsl(332 96% 64% / 0.9);
   animation: jv-float 7s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* cantos */
+.jv-particle:nth-of-type(even) {
+  background: hsl(28 98% 68%);
+  box-shadow: 0 0 10px hsl(28 98% 62% / 0.9);
+}
+
+/* Cantos */
 .jv-bracket {
   position: absolute;
   width: 58px;
   height: 58px;
-  border-color: hsl(187 95% 62% / 0.55);
+  border-color: hsl(332 96% 70% / 0.55);
   border-style: solid;
   pointer-events: none;
 }
@@ -739,7 +847,7 @@ body {
   border-width: 0 2px 2px 0;
 }
 
-/* barra superior */
+/* Barra superior */
 .jv-topbar {
   position: absolute;
   top: 22px;
@@ -757,7 +865,7 @@ body {
 .jv-chevron {
   width: 90px;
   height: 20px;
-  background: linear-gradient(90deg, hsl(187 95% 62% / 0), hsl(187 95% 62% / 0.75));
+  background: linear-gradient(90deg, hsl(332 96% 64% / 0), hsl(332 96% 64% / 0.8));
   clip-path: polygon(0 50%, 42% 0, 100% 0, 100% 100%, 42% 100%);
 }
 
@@ -765,7 +873,7 @@ body {
   transform: scaleX(-1);
 }
 
-/* blocos de HUD */
+/* Blocos de HUD */
 .jv-hud {
   position: absolute;
   top: 62px;
@@ -773,7 +881,7 @@ body {
   font-size: 8px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: hsl(187 95% 72% / 0.45);
+  color: hsl(320 96% 76% / 0.48);
   line-height: 1.9;
   pointer-events: none;
 }
@@ -787,7 +895,7 @@ body {
   text-align: right;
 }
 
-/* trilhos verticais */
+/* Trilhos verticais */
 .jv-rail {
   position: absolute;
   top: 50%;
@@ -796,7 +904,7 @@ body {
   font-size: 8px;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: hsl(187 95% 72% / 0.28);
+  color: hsl(28 96% 74% / 0.3);
   pointer-events: none;
 }
 
@@ -809,24 +917,68 @@ body {
   right: 26px;
 }
 
-/* painel central */
+/* Título com gradiente neon */
+.jv-headline {
+  background-image: linear-gradient(
+    96deg,
+    hsl(330 100% 96%) 0%,
+    hsl(332 96% 72%) 30%,
+    hsl(28 100% 72%) 62%,
+    hsl(272 100% 84%) 82%,
+    hsl(330 100% 94%) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 22px hsl(332 96% 62% / 0.45));
+  animation: jv-shine 9s ease-in-out infinite;
+}
+
+/* Painel central em 3D */
 .jv-panel {
   position: relative;
-  border: 1px solid hsl(187 96% 62% / 0.55);
-  border-radius: 10px;
-  background: linear-gradient(180deg, hsl(199 80% 10% / 0.92), hsl(205 85% 7% / 0.95));
+  border: 1px solid hsl(332 96% 64% / 0.45);
+  border-radius: 16px;
+  background:
+    linear-gradient(158deg, hsl(276 55% 12% / 0.92) 0%, hsl(286 62% 7% / 0.96) 56%, hsl(322 62% 13% / 0.94) 100%);
   box-shadow:
-    0 0 0 1px hsl(187 96% 62% / 0.18),
-    0 0 40px -8px hsl(187 96% 60% / 0.65),
-    inset 0 0 30px hsl(187 96% 60% / 0.12);
-  backdrop-filter: blur(4px);
+    0 0 0 1px hsl(332 96% 64% / 0.16),
+    0 26px 64px -28px hsl(332 96% 50% / 0.8),
+    0 0 48px -14px hsl(268 96% 62% / 0.6),
+    inset 0 1px 0 hsl(0 0% 100% / 0.12),
+    inset 0 0 44px hsl(332 96% 60% / 0.08);
+  backdrop-filter: blur(6px);
+  transform: perspective(1100px) rotateX(2.5deg) rotateY(-1.5deg);
+  animation: jv-card3d 11s ease-in-out infinite;
+  will-change: transform;
+}
+
+.jv-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(332 96% 68% / 0.7), hsl(272 96% 70% / 0.35) 48%, hsl(28 98% 66% / 0.7));
+}
+
+.jv-panel::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 32%, hsl(0 0% 100% / 0.1) 48%, transparent 62%);
+  background-size: 220% 100%;
+  animation: jv-sheen 6.5s linear infinite;
+  pointer-events: none;
 }
 
 .jv-panel-corner {
   position: absolute;
   width: 12px;
   height: 12px;
-  border-color: hsl(187 96% 70%);
+  border-color: hsl(28 98% 72%);
   border-style: solid;
 }
 
@@ -854,7 +1006,18 @@ body {
   border-width: 0 2px 2px 0;
 }
 
-/* rodapé */
+/* Barra de progresso */
+.jv-progress-track {
+  background: hsl(332 96% 64% / 0.16);
+  box-shadow: inset 0 0 8px hsl(332 96% 60% / 0.25);
+}
+
+.jv-progress-fill {
+  background-image: linear-gradient(90deg, hsl(272 96% 66%), hsl(332 96% 66%) 48%, hsl(28 98% 62%));
+  box-shadow: 0 0 14px hsl(332 96% 62% / 0.75);
+}
+
+/* Rodapé */
 .jv-footer {
   position: absolute;
   left: 0;
@@ -869,7 +1032,7 @@ body {
   font-size: 8px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: hsl(187 95% 72% / 0.35);
+  color: hsl(320 96% 76% / 0.38);
   pointer-events: none;
 }
 
@@ -879,7 +1042,7 @@ body {
 
 .jv-footer-sign {
   text-align: center;
-  color: hsl(187 95% 80% / 0.45);
+  color: hsl(28 96% 80% / 0.5);
 }
 
 .jv-fade {
@@ -889,7 +1052,8 @@ body {
 .jv-caret {
   display: inline-block;
   margin-left: 2px;
-  color: hsl(187 96% 70%);
+  color: hsl(332 96% 74%);
+  text-shadow: 0 0 12px hsl(332 96% 64% / 0.9);
   animation: jv-blink 1s steps(2, start) infinite;
 }
 
@@ -920,7 +1084,8 @@ body {
 }
 
 @keyframes jv-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.45;
   }
   50% {
@@ -941,13 +1106,104 @@ body {
 }
 
 @keyframes jv-float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
     opacity: 0.35;
   }
   50% {
     transform: translateY(-14px);
     opacity: 0.9;
+  }
+}
+
+@keyframes jv-floor-flow {
+  to {
+    background-position: 0 96px, 0 0;
+  }
+}
+
+@keyframes jv-sun-breathe {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.04);
+  }
+}
+
+@keyframes jv-streak {
+  0% {
+    transform: translateX(0) scaleX(0.4);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(520%) scaleX(1);
+    opacity: 0;
+  }
+}
+
+@keyframes jv-scan-sweep {
+  from {
+    top: -25%;
+  }
+  to {
+    top: 105%;
+  }
+}
+
+@keyframes jv-shine {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes jv-card3d {
+  0%,
+  100% {
+    transform: perspective(1100px) rotateX(2.5deg) rotateY(-1.5deg) translateY(0);
+  }
+  50% {
+    transform: perspective(1100px) rotateX(-1.5deg) rotateY(1.5deg) translateY(-6px);
+  }
+}
+
+@keyframes jv-sheen {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jv-floor,
+  .jv-streaks span,
+  .jv-scan::after,
+  .jv-panel,
+  .jv-headline,
+  .jv-panel::after,
+  .jv-sun,
+  .jv-ring--1,
+  .jv-ring--2,
+  .jv-ring--3,
+  .jv-particle,
+  .jv-wave-line--1 {
+    animation: none;
   }
 }
 
@@ -965,5 +1221,15 @@ body {
 
   .jv-chevron {
     width: 48px;
+  }
+
+  .jv-rings {
+    width: 420px;
+    height: 420px;
+  }
+
+  .jv-sun {
+    bottom: 18%;
+    opacity: 0.8;
   }
 }

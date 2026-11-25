@@ -129,8 +129,17 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
 
   return (
     <div className="jv-stage fixed inset-0 z-[120] overflow-hidden" onClick={close} role="presentation">
+      <div className="jv-sun" aria-hidden />
       <div className="jv-grid" />
       <div className="jv-floor" />
+      <div className="jv-scan" aria-hidden />
+
+      <div className="jv-streaks" aria-hidden>
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
 
       <div className="jv-wave hidden sm:block" aria-hidden>
         <svg viewBox="0 0 1800 160" preserveAspectRatio="none">
@@ -170,10 +179,10 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
       <header className="jv-topbar">
         <span className="jv-chevron" />
         <div className="jv-title">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-cyan-100">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-rose-50">
             Qualy Flow
           </p>
-          <p className="text-[8px] uppercase tracking-[0.42em] text-cyan-300/60">
+          <p className="text-[8px] uppercase tracking-[0.42em] text-fuchsia-300/60">
             núcleo operacional
           </p>
         </div>
@@ -196,13 +205,13 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
 
       <div className="relative z-10 flex h-full items-center justify-center px-5">
         <div className="w-full max-w-2xl text-center">
-          <p className="jv-fade text-[9px] uppercase tracking-[0.5em] text-cyan-300/60">
+          <p className="jv-fade text-[9px] uppercase tracking-[0.5em] text-fuchsia-300/60">
             núcleo operacional
           </p>
 
           <div className="jv-fade mt-4 flex items-center justify-center gap-3">
-            <ShieldCheck className="h-6 w-6 text-cyan-300" />
-            <h1 className="text-2xl font-semibold tracking-[0.16em] text-cyan-50 sm:text-3xl">
+            <ShieldCheck className="h-6 w-6 text-fuchsia-300 drop-shadow-[0_0_10px_hsl(332_96%_64%/0.7)]" />
+            <h1 className="jv-headline text-2xl font-semibold tracking-[0.14em] sm:text-3xl">
               {saudacao()}, {primeiroNome.toUpperCase()}
             </h1>
           </div>
@@ -211,9 +220,9 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
             {BOOT_LINES.slice(0, step).map((line) => (
               <p
                 key={line}
-                className="jv-fade font-mono text-[9px] uppercase tracking-[0.08em] text-cyan-200/55"
+                className="jv-fade font-mono text-[9px] uppercase tracking-[0.08em] text-fuchsia-200/60"
               >
-                <span className="text-emerald-300">✓</span> {line}
+                <span className="text-amber-300">✓</span> {line}
               </p>
             ))}
           </div>
@@ -224,29 +233,29 @@ export function JarvisIntro({ name, onDone }: { name: string; onDone: () => void
             <span className="jv-panel-corner jv-panel-corner--bl" />
             <span className="jv-panel-corner jv-panel-corner--br" />
 
-            <p className="text-[8px] uppercase tracking-[0.4em] text-cyan-300/70">
+            <p className="text-[8px] uppercase tracking-[0.4em] text-fuchsia-300/70">
               {greeting.kind === "biblica" ? "palavra do dia" : "mensagem do dia"}
             </p>
-            <p className="mt-2 min-h-[64px] text-[15px] leading-relaxed text-cyan-50 sm:text-lg">
+            <p className="mt-2 min-h-[64px] text-[15px] leading-relaxed text-rose-50 sm:text-lg">
               {typed}
               <span className="jv-caret">|</span>
             </p>
             {greeting.source && (
-              <p className="mt-1 text-[9px] uppercase tracking-[0.25em] text-cyan-300/55">
+              <p className="mt-1 text-[9px] uppercase tracking-[0.25em] text-orange-200/60">
                 {greeting.source}
               </p>
             )}
           </div>
 
-          <div className="mx-auto mt-5 h-[2px] w-64 overflow-hidden rounded-full bg-cyan-400/15">
-            <div className="h-full rounded-full bg-cyan-300/80" style={{ width: `${bar}%` }} />
+          <div className="jv-progress-track mx-auto mt-5 h-[3px] w-64 overflow-hidden rounded-full">
+            <div className="jv-progress-fill h-full rounded-full" style={{ width: `${bar}%` }} />
           </div>
 
           <button
             type="button"
             onClick={close}
             disabled={!podeFechar}
-            className="mt-3 text-[9px] uppercase tracking-[0.28em] text-cyan-200/50 transition-colors hover:text-cyan-100 disabled:cursor-default"
+            className="mt-3 text-[9px] uppercase tracking-[0.28em] text-fuchsia-200/55 transition-colors hover:text-rose-100 disabled:cursor-default"
           >
             {podeFechar
               ? "pressione qualquer tecla para entrar"
