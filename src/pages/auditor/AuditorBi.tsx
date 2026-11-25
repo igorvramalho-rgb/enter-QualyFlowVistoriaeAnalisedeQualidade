@@ -233,9 +233,9 @@ export default function AuditorBi() {
     };
   });
 
-  // Devolutivas = E.F + Respondidos à AlphaGeos (as células seguem separadas).
+  // Devolutivas = E.F + Respondidos à AlphaGeos + RPA (as células seguem separadas).
   const devolutivas = porCelula
-    .filter((item) => item.key === "sae" || item.key === "respondidos")
+    .filter((item) => item.key === "sae" || item.key === "respondidos" || item.key === "rpa")
     .reduce((soma, item) => soma + item.total, 0);
 
   const motivos = useMemo(() => {
@@ -568,8 +568,8 @@ export default function AuditorBi() {
           ["Conforme", kpis.conforme],
           ["Não conforme", kpis.naoConforme],
           ["Relatórios enviados", kpis.relatorios],
+          ["Devolutivas (E.F + Respondidos + RPA)", devolutivas],
           ["Devoluções", kpis.devolucoes],
-          ["Devolutivas (E.F + Respondidos)", devolutivas],
           ["FV/OS únicas", unicas],
           ["Documentos", totais?.documents ?? 0],
           ["Movimentações", totais?.events ?? 0],

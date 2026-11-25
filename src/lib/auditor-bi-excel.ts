@@ -4,12 +4,7 @@ import { CELLS, REDO_STATUS } from "@/lib/auditor";
 import { daysSince } from "@/lib/auditor";
 import { deriveNumbersFromFileName, formatDateBR, formatDateTimeBR } from "@/lib/fields";
 import { resolveAddress, type AddressIndex } from "@/lib/address-index";
-import {
-  corDaSerie,
-  graficoBarrasCelulas,
-  graficoComparativoCiclos,
-  graficoRoscaResultado,
-} from "@/lib/auditor-bi-charts";
+import { corDaSerie, graficoBarrasCelulas } from "@/lib/auditor-bi-charts";
 
 /**
  * Excel gerencial do Painel BI — gerado 100% no navegador (nenhuma API, nenhum
@@ -175,9 +170,9 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Conformes", valor: data.kpis.conforme, obs: "" });
   sheet.addRow({ indicador: "Não conformes", valor: data.kpis.naoConforme, obs: "" });
   sheet.addRow({
-    indicador: "Devolutivas (E.F + Respondidos)",
+    indicador: "Devolutivas (E.F + Respondidos + RPA)",
     valor: devolutivasDe(data.cells),
-    obs: "soma das células E.F e Respondidos; elas seguem separadas",
+    obs: "soma das células E.F, Respondidos e RPA; elas seguem separadas",
   });
   sheet.addRow({ indicador: "Relatórios enviados", valor: data.kpis.relatorios, obs: "" });
   sheet.addRow({ indicador: "Serviços a refazer", valor: data.kpis.refazerTotal, obs: "" });
@@ -303,10 +298,10 @@ function abaRelatorios(workbook: ExcelJS.Workbook, data: BiExcelData) {
 }
 
 
-/** Devolutivas = soma das células E.F + Respondidos à AlphaGeos (elas seguem separadas). */
+/** Devolutivas = E.F + Respondidos + RPA (as células seguem separadas). */
 function devolutivasDe(cells: BiExcelData["cells"]): number {
   return cells
-    .filter((cell) => cell.key === "sae" || cell.key === "respondidos")
+    .filter((cell) => cell.key === "sae" || cell.key === "respondidos" || cell.key === "rpa")
     .reduce((soma, cell) => soma + cell.total, 0);
 }
 
@@ -382,18 +377,16 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(3).height = 20;
 
-  // Cartões de indicadores (Devolutivas = E.F + Respondidos).
+  // Cartões de indicadores (Devolutivas = E.F + Respondidos + RPA).
   const indicadores = [
-    { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 2 },
-    { label: "CONFORMES", valor: data.kpis.conforme, nota: "após verificação", colunas: 2 },
-    { label: "NÃO CONFORMES", valor: data.kpis.naoConforme, nota: "confirmadas", colunas: 2 },
-    { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 3 },
+    { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 4 },
     {
       label: "DEVOLUTIVAS",
       valor: devolutivasDe(data.cells),
-      nota: "E.F + Respondidos",
-      colunas: 3,
+      nota: "E.F + Respondidos + RPA",
+      colunas: 4,
     },
+    { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 4 },
   ];
 
   let colunaIndicador = 1;
@@ -432,87 +425,35 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.getRow(6).height = 30;
   sheet.getRow(7).height = 14;
 
-  // Gráficos.
+  // Gráfico principal (barras por célula). É o único ponto que depende do
+  // canvas do navegador: se falhar, o painel continua válido sem a imagem.
   let cursor = 9;
 
-  // Os gráficos são o único ponto que depende do canvas do navegador. Se algo
-  // falhar, o painel continua válido com indicadores e tabela (sem imagem).
-  let graficosOk = true;
   try {
-    const barras = graficoBarrasCelulas({
-      titulo: "FV/OS por célula operacional",
-      subtitulo: "Volume tratado no período, com participação de cada célula",
-      series: data.cells.map((cell, indice) => ({
-        label: cell.label,
-        valor: cell.total,
-        cor: corDaSerie(indice, cell.key),
-      })),
-      rodape: `${data.kpis.recebidas} FV/OS únicas avaliadas`,
-    });
-
-    const rosca = graficoRoscaResultado({
-      titulo: "Resultado das tratativas",
-      subtitulo: "Conformidade confirmada no período",
-      series: [
-        { label: "Conformes", valor: data.kpis.conforme, cor: "FF059669" },
-        { label: "Não conformes", valor: data.kpis.naoConforme, cor: "FFDC2626" },
-        {
-          label: "Em tratativa",
-          valor: Math.max(0, data.kpis.recebidas - data.kpis.conforme - data.kpis.naoConforme),
-          cor: "FF64748B",
-        },
-      ],
-      rodape: `${data.kpis.relatorios} relatório(s) enviado(s)`,
-    });
+    const barras = graficoBarrasCelulas(
+      {
+        titulo: "FV/OS por célula operacional",
+        subtitulo: "Volume tratado no período, com participação de cada célula",
+        series: data.cells.map((cell, indice) => ({
+          label: cell.label,
+          valor: cell.total,
+          cor: corDaSerie(indice, cell.key),
+        })),
+        rodape: `${data.kpis.recebidas} FV/OS únicas avaliadas`,
+      },
+      1000,
+      380,
+    );
 
     const idBarras = workbook.addImage({ base64: pngBase64(barras), extension: "png" });
-    const idRosca = workbook.addImage({ base64: pngBase64(rosca), extension: "png" });
-
     sheet.addImage(idBarras, {
       tl: { col: 0, row: cursor - 1 },
-      ext: { width: 700, height: 360 },
+      ext: { width: 1000, height: 380 },
       editAs: "oneCell",
     });
-    sheet.addImage(idRosca, {
-      tl: { col: 7, row: cursor - 1 },
-      ext: { width: 480, height: 360 },
-      editAs: "oneCell",
-    });
+    cursor += 20;
   } catch {
-    graficosOk = false;
-  }
-
-  if (graficosOk) {
-    cursor += 19;
-  }
-
-  const ciclos = data.comparativo ?? [];
-  if (ciclos.length > 1) {
-    try {
-      const comparativo = graficoComparativoCiclos(
-        ciclos.map((ciclo) => ({
-          nome: ciclo.name,
-          casos: ciclo.casos,
-          conformes: ciclo.conformes,
-          pctConforme: ciclo.pctConforme,
-        })),
-        {
-          titulo: "Comparativo entre ciclos",
-          subtitulo: "Casos tratados e conformes por período de medição",
-          rodape: `${ciclos.length} ciclo(s) comparado(s)`,
-        },
-      );
-
-      const idComparativo = workbook.addImage({ base64: pngBase64(comparativo), extension: "png" });
-      sheet.addImage(idComparativo, {
-        tl: { col: 0, row: cursor - 1 },
-        ext: { width: 700, height: 340 },
-        editAs: "oneCell",
-      });
-      cursor += 17;
-    } catch {
-      /* segue sem o comparativo */
-    }
+    /* segue sem o gráfico */
   }
 
   // Leitura gerencial.
@@ -537,7 +478,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   // Tabela que sustenta os gráficos.
   const inicioTabela = cursor + 1;
   const cabecalho = sheet.getRow(inicioTabela);
-  const colunasTabela = ["Célula", "FV/OS", "Conformes", "Não conformes", "% do total", "Devoluções"];
+  const colunasTabela = ["Célula", "FV/OS", "% do total", "Devoluções"];
   colunasTabela.forEach((valor, indice) => {
     const cell = cabecalho.getCell(indice + 1);
     cell.value = valor;
@@ -549,7 +490,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
 
   data.cells.forEach((cell, indice) => {
     const linha = sheet.getRow(inicioTabela + 1 + indice);
-    const valores = [cell.label, cell.total, cell.conformes, cell.naoConformes, `${cell.pct}%`, cell.devolucoes];
+    const valores = [cell.label, cell.total, `${cell.pct}%`, cell.devolucoes];
     valores.forEach((valor, coluna) => {
       const alvo = linha.getCell(coluna + 1);
       alvo.value = valor;
