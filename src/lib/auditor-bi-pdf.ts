@@ -111,6 +111,10 @@ function cartao(
 
 export function buildBiPdf(data: BiPdfData): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  // Devolutivas = E.F + Respondidos (as duas células continuam separadas).
+  const devolutivas = data.cells
+    .filter((cell) => cell.key === "sae" || cell.key === "respondidos")
+    .reduce((soma, cell) => soma + cell.total, 0);
 
   // Faixa superior
   fill(doc, NAVY);
@@ -135,12 +139,25 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setFontSize(13);
   doc.text("FV/OS", M + larguraNumero + 3, 42);
 
+  // Métrica agregada pedida pelo usuário (E.F + Respondidos).
+  ink(doc, [148, 163, 184]);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.text("DEVOLUTIVAS (E.F + RESPONDIDOS)", W - M, 22, { align: "right" });
+  ink(doc, WHITE);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(String(devolutivas), W - M - 10, 30, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text("FV/OS", W - M, 30, { align: "right" });
+
   doc.setFontSize(7.5);
   ink(doc, [203, 213, 225]);
-  doc.text(`PERÍODO DE EMISSÃO: ${data.periodo}`, W - M, 34, { align: "right" });
-  doc.text(`MEDIÇÃO INICIADA EM ${data.medicaoInicio}`, W - M, 39, { align: "right" });
+  doc.text(`PERÍODO DE EMISSÃO: ${data.periodo}`, W - M, 38, { align: "right" });
+  doc.text(`MEDIÇÃO INICIADA EM ${data.medicaoInicio}`, W - M, 43, { align: "right" });
   ink(doc, [148, 163, 184]);
-  doc.text("VILA MARIA E SANTANA", W - M, 44, { align: "right" });
+  doc.text("VILA MARIA E SANTANA", W - M, 47.5, { align: "right" });
 
   // Cartões das células (3 por linha, quantas linhas forem necessárias)
   let y = 62;
@@ -245,6 +262,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
 
   const maior = [...data.cells].sort((a, b) => b.total - a.total)[0];
   const destaques: [string, string][] = [
+    ["Devolutivas (E.F + Respondidos)", `${devolutivas} FV/OS`],
     ["Célula com maior volume", maior ? `${maior.label} — ${maior.total} (${maior.pct}%)` : "—"],
     ["Conformidades confirmadas", `${data.conformes} FV/OS`],
     ["Não conformidades confirmadas", `${data.naoConformes} FV/OS`],

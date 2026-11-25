@@ -233,6 +233,11 @@ export default function AuditorBi() {
     };
   });
 
+  // Devolutivas = E.F + Respondidos à AlphaGeos (as células seguem separadas).
+  const devolutivas = porCelula
+    .filter((item) => item.key === "sae" || item.key === "respondidos")
+    .reduce((soma, item) => soma + item.total, 0);
+
   const motivos = useMemo(() => {
     const mapa = new Map<string, number>();
     filtrados
@@ -564,6 +569,7 @@ export default function AuditorBi() {
           ["Não conforme", kpis.naoConforme],
           ["Relatórios enviados", kpis.relatorios],
           ["Devoluções", kpis.devolucoes],
+          ["Devolutivas (E.F + Respondidos)", devolutivas],
           ["FV/OS únicas", unicas],
           ["Documentos", totais?.documents ?? 0],
           ["Movimentações", totais?.events ?? 0],

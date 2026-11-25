@@ -174,6 +174,11 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Em fiscalização", valor: data.kpis.fiscalizacao, obs: "" });
   sheet.addRow({ indicador: "Conformes", valor: data.kpis.conforme, obs: "" });
   sheet.addRow({ indicador: "Não conformes", valor: data.kpis.naoConforme, obs: "" });
+  sheet.addRow({
+    indicador: "Devolutivas (E.F + Respondidos)",
+    valor: devolutivasDe(data.cells),
+    obs: "soma das células E.F e Respondidos; elas seguem separadas",
+  });
   sheet.addRow({ indicador: "Relatórios enviados", valor: data.kpis.relatorios, obs: "" });
   sheet.addRow({ indicador: "Serviços a refazer", valor: data.kpis.refazerTotal, obs: "" });
   sheet.addRow({ indicador: "Pendentes de refazer", valor: data.kpis.refazerPendentes, obs: "" });
@@ -298,6 +303,13 @@ function abaRelatorios(workbook: ExcelJS.Workbook, data: BiExcelData) {
 }
 
 
+/** Devolutivas = soma das células E.F + Respondidos à AlphaGeos (elas seguem separadas). */
+function devolutivasDe(cells: BiExcelData["cells"]): number {
+  return cells
+    .filter((cell) => cell.key === "sae" || cell.key === "respondidos")
+    .reduce((soma, cell) => soma + cell.total, 0);
+}
+
 const PAINEL_NAVY = "FF0B1F3A";
 const PAINEL_NAVY_SOFT = "FF14304F";
 const PAINEL_CARD = "FFF4F8FD";
@@ -370,20 +382,25 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(3).height = 20;
 
-  // Cartões de indicadores.
+  // Cartões de indicadores (Devolutivas = E.F + Respondidos).
   const indicadores = [
-    { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez" },
-    { label: "CONFORMES", valor: data.kpis.conforme, nota: "após verificação" },
-    { label: "NÃO CONFORMES", valor: data.kpis.naoConforme, nota: "confirmadas" },
-    { label: "AGUARDANDO", valor: data.kpis.aguardando, nota: "análise pendente" },
-    { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos" },
-    { label: "A REFAZER", valor: data.kpis.refazerPendentes, nota: "pendentes de correção" },
+    { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 2 },
+    { label: "CONFORMES", valor: data.kpis.conforme, nota: "após verificação", colunas: 2 },
+    { label: "NÃO CONFORMES", valor: data.kpis.naoConforme, nota: "confirmadas", colunas: 2 },
+    { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 3 },
+    {
+      label: "DEVOLUTIVAS",
+      valor: devolutivasDe(data.cells),
+      nota: "E.F + Respondidos",
+      colunas: 3,
+    },
   ];
 
-  const colunasPorIndicador = 2;
-  indicadores.forEach((item, indice) => {
-    const esquerda = 1 + indice * colunasPorIndicador;
-    const direita = esquerda + colunasPorIndicador - 1;
+  let colunaIndicador = 1;
+  indicadores.forEach((item) => {
+    const esquerda = colunaIndicador;
+    const direita = esquerda + item.colunas - 1;
+    colunaIndicador = direita + 1;
 
     sheet.mergeCells(5, esquerda, 5, direita);
     const label = sheet.getCell(5, esquerda);
