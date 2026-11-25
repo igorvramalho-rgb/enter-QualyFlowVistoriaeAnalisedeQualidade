@@ -111,8 +111,14 @@ function cartao(
 
 export function buildBiPdf(data: BiPdfData): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  // "Não executado" fica fora do relatório apresentado.
+  const visiveis = data.cells.filter((cell) => cell.key !== "nao_executado");
+  const totalVisivel = visiveis.reduce((soma, cell) => soma + cell.total, 0);
+  const cells = totalVisivel > 0
+    ? visiveis.map((cell) => ({ ...cell, pct: Math.round((cell.total / totalVisivel) * 100) }))
+    : visiveis;
   // Devolutivas = E.F + Respondidos + RPA (as células continuam separadas).
-  const devolutivas = data.cells
+  const devolutivas = cells
     .filter((cell) => cell.key === "sae" || cell.key === "respondidos" || cell.key === "rpa")
     .reduce((soma, cell) => soma + cell.total, 0);
 
@@ -163,9 +169,9 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   let y = 62;
   const largura = (W - M * 2 - 8) / 3;
   const porLinha = 3;
-  const linhasCartoes = Math.max(1, Math.ceil(data.cells.length / porLinha));
+  const linhasCartoes = Math.max(1, Math.ceil(cells.length / porLinha));
 
-  data.cells.forEach((cell, index) => {
+  cells.forEach((cell, index) => {
     const linha = Math.floor(index / porLinha);
     const coluna = index % porLinha;
     cartao(
@@ -190,13 +196,13 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
 
   y += 4;
   const barraW = W - M * 2;
-  const total = data.cells.reduce((soma, cell) => soma + cell.total, 0) || 1;
+  const total = cells.reduce((soma, cell) => soma + cell.total, 0) || 1;
   let cursor = M;
 
   fill(doc, LINE);
   doc.rect(M, y, barraW, 9, "F");
 
-  data.cells.forEach((cell, index) => {
+  cells.forEach((cell, index) => {
     const fraction = cell.total / total;
     if (fraction <= 0) {
       return;
@@ -209,9 +215,9 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   // Legenda
   y += 16;
   const colunaW = (barraW - 8) / 2;
-  const linhasLegenda = Math.max(1, Math.ceil(data.cells.length / 2));
+  const linhasLegenda = Math.max(1, Math.ceil(cells.length / 2));
 
-  data.cells.forEach((cell, index) => {
+  cells.forEach((cell, index) => {
     const coluna = index % 2;
     const linha = Math.floor(index / 2);
     const x = M + coluna * (colunaW + 8);
@@ -260,7 +266,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
   doc.line(M, y + 1.5, W - M, y + 1.5);
 
-  const maior = [...data.cells].sort((a, b) => b.total - a.total)[0];
+  const maior = [...cells].sort((a, b) => b.total - a.total)[0];
   const destaques: [string, string][] = [
     ["Devolutivas (E.F + Respondidos + RPA)", `${devolutivas} FV/OS`],
     ["Célula com maior volume", maior ? `${maior.label} — ${maior.total} (${maior.pct}%)` : "—"],

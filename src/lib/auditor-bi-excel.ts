@@ -182,7 +182,7 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Tratativas encerradas", valor: data.kpis.encerradas, obs: "" });
   sheet.addRow({});
   sheet.addRow({ indicador: "Por célula", valor: "", obs: "" });
-  data.cells.forEach((cell) => {
+  celulasDoRelatorio(data.cells).forEach((cell) => {
     sheet.addRow({ indicador: cell.label, valor: cell.total, obs: `${cell.pct}% do total` });
   });
 
@@ -297,6 +297,18 @@ function abaRelatorios(workbook: ExcelJS.Workbook, data: BiExcelData) {
   return sheet;
 }
 
+
+/**
+ * Células que entram no relatório (Não executado fica fora da apresentação).
+ * O percentual é recalculado sobre o que é exibido, então a coluna fecha em 100%.
+ */
+function celulasDoRelatorio(cells: BiExcelData["cells"]): BiExcelData["cells"] {
+  const visiveis = cells.filter((cell) => cell.key !== "nao_executado");
+  const total = visiveis.reduce((soma, cell) => soma + cell.total, 0);
+  return total > 0
+    ? visiveis.map((cell) => ({ ...cell, pct: Math.round((cell.total / total) * 100) }))
+    : visiveis;
+}
 
 /** Devolutivas = E.F + Respondidos + RPA (as células seguem separadas). */
 function devolutivasDe(cells: BiExcelData["cells"]): number {
@@ -427,6 +439,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
 
   // Gráfico principal (barras por célula). É o único ponto que depende do
   // canvas do navegador: se falhar, o painel continua válido sem a imagem.
+  const cellsRelatorio = celulasDoRelatorio(data.cells);
   let cursor = 9;
 
   try {
@@ -434,7 +447,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
       {
         titulo: "FV/OS por célula operacional",
         subtitulo: "Volume tratado no período, com participação de cada célula",
-        series: data.cells.map((cell, indice) => ({
+        series: cellsRelatorio.map((cell, indice) => ({
           label: cell.label,
           valor: cell.total,
           cor: corDaSerie(indice, cell.key),
@@ -488,7 +501,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   });
   cabecalho.height = 20;
 
-  data.cells.forEach((cell, indice) => {
+  cellsRelatorio.forEach((cell, indice) => {
     const linha = sheet.getRow(inicioTabela + 1 + indice);
     const valores = [cell.label, cell.total, `${cell.pct}%`, cell.devolucoes];
     valores.forEach((valor, coluna) => {
@@ -518,7 +531,7 @@ export async function buildAuditorWorkbook(data: BiExcelData): Promise<Blob> {
   abaResumo(workbook, data);
 
   abaCasos(workbook, "Base FV-OS", data.cases, data.enderecos);
-  data.cells.forEach((cell) => {
+  celulasDoRelatorio(data.cells).forEach((cell) => {
     abaCasos(
       workbook,
       cell.label,
