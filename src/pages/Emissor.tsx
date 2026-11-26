@@ -582,7 +582,7 @@ export default function Emissor() {
     setMigrando(true);
     try {
       await syncReportToAuditor({ templateId, ...migrarDados, cell: migrarCell });
-      toast.success("Migrado para Respondidos à AlphaGeos", {
+      toast.success("Migrado para Executados e Respondidos", {
         description: [migrarDados.fac && `FV ${migrarDados.fac}`, migrarDados.os && `OS ${migrarDados.os}`]
           .filter(Boolean)
           .join(" · "),
@@ -798,7 +798,7 @@ export default function Emissor() {
         return;
       }
 
-      // Pós 60: pergunta se o operador quer levar a FV/OS para "Respondidos".
+      // Pós 60: pergunta se o operador quer levar a FV/OS para "Executados e Respondidos".
       if (templateId.startsWith("pos_60") && (values.fac?.trim() || values.os?.trim())) {
         setMigrarDados({
           fac: values.fac ?? "",
@@ -1023,7 +1023,7 @@ export default function Emissor() {
       >
         <DialogContent className="panel-glass rounded-2xl sm:max-w-[460px]">
           <DialogHeader>
-            <DialogTitle className="text-base">Migrar para Respondidos?</DialogTitle>
+            <DialogTitle className="text-base">Migrar para Executados e Respondidos?</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
               Relatório Pós 60 emitido
               {migrarDados?.fac || migrarDados?.os ? (
@@ -1043,7 +1043,7 @@ export default function Emissor() {
               onChange={(event) => setMigrarCell(event.target.value as "respondidos" | "rpa")}
               className="mt-0.5 h-9 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
             >
-              <option value="respondidos">Respondidos à AlphaGeos</option>
+              <option value="respondidos">Executados e Respondidos</option>
               <option value="rpa">RPA / Defesas Técnicas</option>
             </select>
           </label>

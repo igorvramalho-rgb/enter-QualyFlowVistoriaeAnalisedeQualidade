@@ -117,7 +117,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   const cells = totalVisivel > 0
     ? visiveis.map((cell) => ({ ...cell, pct: Math.round((cell.total / totalVisivel) * 100) }))
     : visiveis;
-  // Devolutivas = E.F + Respondidos + RPA (as células continuam separadas).
+  // Devolutivas = E.F + Executados e Respondidos + RPA (as células continuam separadas).
   const devolutivas = cells
     .filter((cell) => cell.key === "sae" || cell.key === "respondidos" || cell.key === "rpa")
     .reduce((soma, cell) => soma + cell.total, 0);
@@ -145,11 +145,11 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setFontSize(13);
   doc.text("FV/OS", M + larguraNumero + 3, 42);
 
-  // Métrica agregada pedida pelo usuário (E.F + Respondidos).
+  // Métrica agregada pedida pelo usuário (E.F + Executados e Respondidos).
   ink(doc, [148, 163, 184]);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
-  doc.text("DEVOLUTIVAS (E.F + RESPONDIDOS + RPA)", W - M, 22, { align: "right" });
+  doc.text("DEVOLUTIVAS (E.F + EXECUTADOS E RESPONDIDOS + RPA)", W - M, 22, { align: "right" });
   ink(doc, WHITE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
@@ -268,7 +268,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
 
   const maior = [...cells].sort((a, b) => b.total - a.total)[0];
   const destaques: [string, string][] = [
-    ["Devolutivas (E.F + Respondidos + RPA)", `${devolutivas} FV/OS`],
+    ["Devolutivas (E.F + Executados e Respondidos + RPA)", `${devolutivas} FV/OS`],
     ["Célula com maior volume", maior ? `${maior.label} — ${maior.total} (${maior.pct}%)` : "—"],
     ["FV/OS únicas no período", `${data.totalUnicas}`],
   ];

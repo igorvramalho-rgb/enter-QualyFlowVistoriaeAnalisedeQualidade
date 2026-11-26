@@ -170,9 +170,9 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Conformes", valor: data.kpis.conforme, obs: "" });
   sheet.addRow({ indicador: "Não conformes", valor: data.kpis.naoConforme, obs: "" });
   sheet.addRow({
-    indicador: "Devolutivas (E.F + Respondidos + RPA)",
+    indicador: "Devolutivas (E.F + Executados e Respondidos + RPA)",
     valor: devolutivasDe(data.cells),
-    obs: "soma das células E.F, Respondidos e RPA; elas seguem separadas",
+    obs: "soma de E.F + Executados e Respondidos + RPA; as células seguem separadas",
   });
   sheet.addRow({ indicador: "Relatórios enviados", valor: data.kpis.relatorios, obs: "" });
   sheet.addRow({ indicador: "Serviços a refazer", valor: data.kpis.refazerTotal, obs: "" });
@@ -310,7 +310,7 @@ function celulasDoRelatorio(cells: BiExcelData["cells"]): BiExcelData["cells"] {
     : visiveis;
 }
 
-/** Devolutivas = E.F + Respondidos + RPA (as células seguem separadas). */
+/** Devolutivas = E.F + Executados e Respondidos + RPA (as células seguem separadas). */
 function devolutivasDe(cells: BiExcelData["cells"]): number {
   return cells
     .filter((cell) => cell.key === "sae" || cell.key === "respondidos" || cell.key === "rpa")
@@ -389,13 +389,13 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(3).height = 20;
 
-  // Cartões de indicadores (Devolutivas = E.F + Respondidos + RPA).
+  // Cartões de indicadores (Devolutivas = E.F + Executados e Respondidos + RPA).
   const indicadores = [
     { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 4 },
     {
       label: "DEVOLUTIVAS",
       valor: devolutivasDe(data.cells),
-      nota: "E.F + Respondidos + RPA",
+      nota: "E.F + Executados e Respondidos + RPA",
       colunas: 4,
     },
     { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 4 },
