@@ -383,28 +383,49 @@ export async function fetchCases(options: CaseQuery & { force?: boolean } = {}):
     return emCache.rows;
   }
 
-  let consulta = supabase
-    .from("qa_cases")
-    .select(
-      "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, cell_data, qa_documents(file_name)",
-    )
-    .order("updated_at", { ascending: false });
+  const montar = () => {
+    let consulta = supabase
+      .from("qa_cases")
+      .select(
+        "id, fac, os, address, municipality, locality, service_type, analysis_status, outcome, updated_at, returned_count, cell, cell_data, qa_documents(file_name)",
+      )
+      .order("updated_at", { ascending: false });
 
-  if (options.cell) {
-    consulta = consulta.eq("cell", options.cell);
+    if (options.cell) {
+      consulta = consulta.eq("cell", options.cell);
+    }
+
+    if (options.cycleId) {
+      consulta = consulta.eq("cycle_id", options.cycleId);
+    }
+    return consulta;
+  };
+
+  // A célula pagina na tela; aqui buscamos todas as linhas do ciclo, em páginas,
+  // porque a API entrega no máximo 1.000 por consulta.
+  const PASSO = 1000;
+  const alvo = options.limit ?? 5000;
+  const primeira = await montar().range(0, Math.min(PASSO, alvo) - 1);
+
+  if (primeira.error) {
+    fail(primeira.error);
   }
 
-  if (options.cycleId) {
-    consulta = consulta.eq("cycle_id", options.cycleId);
+  const data = [...(primeira.data ?? [])];
+  while (data.length < alvo && data.length % PASSO === 0) {
+    const inicio = data.length;
+    const { data: pagina, error } = await montar().range(inicio, Math.min(inicio + PASSO, alvo) - 1);
+    if (error) {
+      fail(error);
+    }
+    const lote = pagina ?? [];
+    data.push(...lote);
+    if (lote.length < PASSO) {
+      break;
+    }
   }
 
-  const { data, error } = await consulta.limit(options.limit ?? 500);
-
-  if (error) {
-    fail(error);
-  }
-
-  const rows = (data ?? []).map((row) => ({
+  const rows = data.map((row) => ({
     id: row.id,
     fac: row.fac,
     os: row.os,
@@ -477,16 +498,30 @@ export async function fetchCaseEvents(caseId: string): Promise<AuditorEvent[]> {
 export async function fetchDocumentAddressSources(): Promise<
   { fields: Record<string, string>; fileName: string }[]
 > {
-  const { data, error } = await supabase
-    .from("qa_documents")
-    .select("fields, file_name")
-    .limit(2000);
+  const linhas: { fields: unknown; file_name: string }[] = [];
+  const PASSO = 1000;
 
-  if (error) {
-    return [];
+  for (let inicio = 0; ; inicio += PASSO) {
+    const { data, error } = await supabase
+      .from("qa_documents")
+      .select("fields, file_name")
+      .range(inicio, inicio + PASSO - 1);
+
+    if (error) {
+      return linhas.map((row) => ({
+        fields: (row.fields as Record<string, string>) ?? {},
+        fileName: row.file_name,
+      }));
+    }
+
+    const pagina = data ?? [];
+    linhas.push(...pagina);
+    if (pagina.length < PASSO) {
+      break;
+    }
   }
 
-  return (data ?? []).map((row) => ({
+  return linhas.map((row) => ({
     fields: (row.fields as Record<string, string>) ?? {},
     fileName: row.file_name ?? "",
   }));
@@ -494,13 +529,32 @@ export async function fetchDocumentAddressSources(): Promise<
 
 /** Contagens restritas a um ciclo (as células e o BI acompanham o período). */
 async function contarPorCiclo(cycleId: string): Promise<AuditorCounts> {
-  const [casos, ids] = await Promise.all([
-    supabase.from("qa_cases").select("id, analysis_status, outcome, returned_count, cell").eq("cycle_id", cycleId),
-    supabase.from("qa_cases").select("id").eq("cycle_id", cycleId),
-  ]);
+  const lista: {
+    id: string;
+    analysis_status: string;
+    outcome: string;
+    returned_count: number | null;
+    cell: string | null;
+  }[] = [];
+  const PASSO = 1000;
 
-  const lista = casos.data ?? [];
-  const caseIds = (ids.data ?? []).map((row) => row.id);
+  for (let inicio = 0; ; inicio += PASSO) {
+    const { data, error } = await supabase
+      .from("qa_cases")
+      .select("id, analysis_status, outcome, returned_count, cell")
+      .eq("cycle_id", cycleId)
+      .range(inicio, inicio + PASSO - 1);
+    if (error) {
+      fail(error);
+    }
+    const pagina = data ?? [];
+    lista.push(...pagina);
+    if (pagina.length < PASSO) {
+      break;
+    }
+  }
+
+  const caseIds = lista.map((row) => row.id);
   const byStatus: Record<string, number> = {};
   const byCell: Record<string, number> = {};
   let conforme = 0;
@@ -518,13 +572,14 @@ async function contarPorCiclo(cycleId: string): Promise<AuditorCounts> {
   let redoRows: { redo_status: string }[] = [];
   let reportRows: { status: string }[] = [];
 
-  if (caseIds.length > 0) {
+  for (let inicio = 0; inicio < caseIds.length; inicio += 500) {
+    const lote = caseIds.slice(inicio, inicio + 500);
     const [redo, reports] = await Promise.all([
-      supabase.from("qa_redo").select("redo_status").in("case_id", caseIds),
-      supabase.from("qa_reports").select("status").in("case_id", caseIds),
+      supabase.from("qa_redo").select("redo_status").in("case_id", lote),
+      supabase.from("qa_reports").select("status").in("case_id", lote),
     ]);
-    redoRows = redo.data ?? [];
-    reportRows = reports.data ?? [];
+    redoRows = [...redoRows, ...(redo.data ?? [])];
+    reportRows = [...reportRows, ...(reports.data ?? [])];
   }
 
   const redoDone = redoRows.filter((item) => item.redo_status === "encerrado").length;

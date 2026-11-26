@@ -47,11 +47,44 @@ export function originalPdfPath(documentId: string): string {
 
 /** Fingerprints já registrados — deduplicação em lote com uma única consulta. */
 export async function fetchAllFingerprints(): Promise<Set<string>> {
-  const { data, error } = await supabase.from("qa_documents").select("fingerprint").limit(5000);
-  if (error) {
-    fail(error);
+  const digitais = new Set<string>();
+  const PASSO = 1000;
+
+  for (let inicio = 0; ; inicio += PASSO) {
+    const { data, error } = await supabase
+      .from("qa_documents")
+      .select("fingerprint")
+      .range(inicio, inicio + PASSO - 1);
+    if (error) {
+      fail(error);
+    }
+    const linhas = data ?? [];
+    linhas.forEach((row) => digitais.add(String(row.fingerprint)));
+    if (linhas.length < PASSO) {
+      return digitais;
+    }
   }
-  return new Set((data ?? []).map((row) => String(row.fingerprint)));
+}
+
+/** Identidade (FV|OS) de todas as tratativas, sem teto de linhas. */
+async function fetchCaseIdentityMap(): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  const PASSO = 1000;
+
+  for (let inicio = 0; ; inicio += PASSO) {
+    const { data, error } = await supabase
+      .from("qa_cases")
+      .select("id, fac, os")
+      .range(inicio, inicio + PASSO - 1);
+    if (error) {
+      fail(error);
+    }
+    const linhas = data ?? [];
+    linhas.forEach((row) => mapa.set(`${row.fac}|${row.os}`, row.id));
+    if (linhas.length < PASSO) {
+      return mapa;
+    }
+  }
 }
 
 export async function findDocumentByFingerprint(
@@ -353,6 +386,11 @@ export interface BatchProgress {
   name: string;
 }
 
+export interface BatchFalha {
+  fileName: string;
+  error: string;
+}
+
 export interface BatchResult {
   registrados: number;
   duplicados: number;
@@ -360,9 +398,18 @@ export interface BatchResult {
   falhas: number;
   pendentes: number;
   primeiroErro: string;
+  /** Até 100 arquivos que não entraram, com o motivo. */
+  falhasDetalhe: BatchFalha[];
 }
 
 const CONCURRENCY = 3;
+
+/** Erros que valem uma nova tentativa (rede instável, nuvem pausada, timeout). */
+const TRANSITORIO = /fetch|network|rede|timeout|timed out|tempor|429|500|502|503|504|jwt|conex/i;
+
+function pareceTransitorio(mensagem: string): boolean {
+  return TRANSITORIO.test(mensagem);
+}
 
 /**
  * Importa vários PDFs. Cada arquivo é concluído de ponta a ponta (documento,
@@ -388,28 +435,19 @@ export async function importAuditorBatch(params: {
     falhas: 0,
     pendentes: 0,
     primeiroErro: "",
+    falhasDetalhe: [],
   };
 
-  const [fingerprints, casos] = await Promise.all([
-    fetchAllFingerprints(),
-    supabase.from("qa_cases").select("id, fac, os").limit(5000),
-  ]);
-
-  if (casos.error) {
-    fail(casos.error);
-  }
+  const [fingerprints, mapaCasos] = await Promise.all([fetchAllFingerprints(), fetchCaseIdentityMap()]);
 
   const vistos = new Set(fingerprints);
-  const mapaCasos = new Map<string, string>();
-  for (const row of casos.data ?? []) {
-    mapaCasos.set(`${row.fac}|${row.os}`, row.id);
-  }
-
-  const fila = [...files];
+  /** Fingerprint de cada arquivo, para desfazer a marca quando o arquivo falha. */
+  const marcas = new Map<File, string>();
   let concluidos = 0;
 
   const registrar = async (file: File): Promise<void> => {
     const extraction = await extractAuditorDocument(file, { ocr });
+    marcas.set(file, extraction.fingerprint);
     const fields = Object.fromEntries(
       AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
     );
@@ -538,32 +576,63 @@ export async function importAuditorBatch(params: {
     if (!uploadOk) resultado.pendentes += 1;
   };
 
-  const trabalhar = async (): Promise<void> => {
-    for (;;) {
-      if (shouldCancel?.()) {
-        return;
-      }
-      const file = fila.shift();
-      if (!file) {
-        return;
-      }
-      try {
-        await registrar(file);
-      } catch (problem) {
-        resultado.falhas += 1;
-        if (!resultado.primeiroErro) {
-          resultado.primeiroErro = `${file.name}: ${
-            problem instanceof Error ? problem.message : "erro desconhecido"
-          }`;
+  const processar = async (entrada: File[]): Promise<File[]> => {
+    const fila = [...entrada];
+    const paraRepetir: File[] = [];
+
+    const trabalhar = async (): Promise<void> => {
+      for (;;) {
+        if (shouldCancel?.()) {
+          return;
         }
-      } finally {
-        concluidos += 1;
-        onProgress?.({ done: concluidos, total: files.length, name: file.name });
+        const file = fila.shift();
+        if (!file) {
+          return;
+        }
+        try {
+          await registrar(file);
+        } catch (problem) {
+          const mensagem = problem instanceof Error ? problem.message : "erro desconhecido";
+
+          // O arquivo não pode continuar marcado como "já visto": se ele falhou
+          // antes de gravar, a nova tentativa precisa registrá-lo de verdade.
+          const marca = marcas.get(file);
+          if (marca) {
+            vistos.delete(marca);
+          }
+
+          resultado.falhas += 1;
+          if (!resultado.primeiroErro) {
+            resultado.primeiroErro = `${file.name}: ${mensagem}`;
+          }
+          if (resultado.falhasDetalhe.length < 100) {
+            resultado.falhasDetalhe.push({ fileName: file.name, error: mensagem });
+          }
+          if (pareceTransitorio(mensagem)) {
+            paraRepetir.push(file);
+          }
+        } finally {
+          concluidos = Math.min(files.length, concluidos + 1);
+          onProgress?.({ done: concluidos, total: files.length, name: file.name });
+        }
       }
-    }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, fila.length) }, () => trabalhar()));
+    return paraRepetir;
   };
 
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, fila.length) }, () => trabalhar()));
+  // Uma oscilação de rede não pode custar 125 arquivos: repete as falhas
+  // temporárias antes de devolver o resultado.
+  let restantes = await processar(files);
+
+  for (let rodada = 1; rodada <= 2 && restantes.length > 0 && !shouldCancel?.(); rodada += 1) {
+    await new Promise((resolver) => setTimeout(resolver, 700 * rodada));
+    resultado.falhas = 0;
+    resultado.falhasDetalhe = [];
+    resultado.primeiroErro = "";
+    restantes = await processar(restantes);
+  }
 
   return resultado;
 }

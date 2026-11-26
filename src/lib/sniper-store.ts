@@ -261,19 +261,27 @@ export async function migrateSniperToCell(
   const outcome = OUTCOME_BY_CELL[cell];
   const cycleId = getActiveCycleId();
 
-  const { data: existentes, error: erroConsulta } = await supabase
-    .from("qa_cases")
-    .select("id, fac, os")
-    .limit(5000);
-
-  if (erroConsulta) {
-    fail(erroConsulta);
-  }
-
+  // Lê todas as tratativas em páginas: o mapa não pode parar em 5.000 linhas.
   const porIdentidade = new Map<string, string>();
-  (existentes ?? []).forEach((row) => {
-    porIdentidade.set(`${String(row.fac).trim()}|${String(row.os).trim()}`, row.id);
-  });
+  const PASSO = 1000;
+  for (let inicio = 0; ; inicio += PASSO) {
+    const { data: pagina, error: erroConsulta } = await supabase
+      .from("qa_cases")
+      .select("id, fac, os")
+      .range(inicio, inicio + PASSO - 1);
+
+    if (erroConsulta) {
+      fail(erroConsulta);
+    }
+
+    const linhas = pagina ?? [];
+    linhas.forEach((row) => {
+      porIdentidade.set(`${String(row.fac).trim()}|${String(row.os).trim()}`, row.id);
+    });
+    if (linhas.length < PASSO) {
+      break;
+    }
+  }
 
   const moverIds: string[] = [];
   const criar: {

@@ -47,7 +47,7 @@ export function PoloUploadGrid({ summaries, busy, progress, onFiles }: PoloUploa
         </div>
         <span className="chip-tech">
           <ShieldAlert className="h-3.5 w-3.5 text-warning" />
-          1 a 500 arquivos por envio • sem limite de páginas
+          1 a 1000 arquivos por envio • sem limite de páginas
         </span>
       </div>
 

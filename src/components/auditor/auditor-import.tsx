@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { FileUp, Loader2, StopCircle } from "lucide-react";
+import { Download, FileUp, FileWarning, Loader2, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -10,10 +11,11 @@ import {
   subscribeQueue,
 } from "@/lib/auditor-queue";
 import { CELLS, type CellKey } from "@/lib/auditor";
+import { downloadCsv } from "@/lib/csv";
 import type { BatchResult } from "@/lib/auditor-save";
 
 /** Limite operacional por importação. */
-const MAX_FILES = 420;
+const MAX_FILES = 1000;
 
 const isPdf = (file: File) => /\.pdf$/i.test(file.name) || file.type === "application/pdf";
 
@@ -24,6 +26,7 @@ const isPdf = (file: File) => /\.pdf$/i.test(file.name) || file.type === "applic
 export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [ocr, setOcr] = useState(false);
+  const [abrirFalhas, setAbrirFalhas] = useState(false);
   const estado = useSyncExternalStore(subscribeQueue, getQueueState, getQueueState);
   const ultimo = useRef<BatchResult | null>(null);
 
@@ -54,6 +57,19 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
       toast.error("Falha na importação", { description: estado.error });
     }
   }, [estado.error]);
+
+  // Lote grande (até 1000 PDFs): evita perder o progresso por um F5 acidental.
+  useEffect(() => {
+    if (!estado.running) {
+      return;
+    }
+    const avisar = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [estado.running]);
 
   const enviar = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
@@ -135,7 +151,72 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
           <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentual}%` }} />
           </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Falhas de rede são repetidas automaticamente. Mantenha esta aba aberta até concluir.
+          </p>
         </div>
+      )}
+
+      {!estado.running && estado.result && (
+        <Card className="mt-2 space-y-2 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <FileWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-[11px] font-semibold text-foreground">Última importação</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {[
+                    `${estado.result.registrados} novo(s)`,
+                    estado.result.movidos > 0 ? `${estado.result.movidos} já existiam e foram movidos` : null,
+                    estado.result.duplicados > 0 ? `${estado.result.duplicados} duplicado(s)` : null,
+                    estado.result.pendentes > 0 ? `${estado.result.pendentes} com PDF pendente` : null,
+                    estado.result.falhas > 0 ? `${estado.result.falhas} com falha` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+            </div>
+            {estado.result.falhasDetalhe.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="glass"
+                  onClick={() =>
+                    downloadCsv(
+                      `falhas-importacao-${new Date().toISOString().slice(0, 10)}.csv`,
+                      ["Arquivo", "Motivo"],
+                      estado.result!.falhasDetalhe.map((item) => [item.fileName, item.error]),
+                    )
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Falhas (CSV)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setAbrirFalhas((anterior) => !anterior)}
+                >
+                  {abrirFalhas ? "Ocultar motivos" : "Ver motivos"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {abrirFalhas && estado.result.falhasDetalhe.length > 0 && (
+            <ul className="max-h-44 space-y-1 overflow-auto rounded-md border border-glass-border/50 bg-glass/30 p-2 text-[11px]">
+              {estado.result.falhasDetalhe.map((item) => (
+                <li key={`${item.fileName}-${item.error.slice(0, 20)}`} className="flex gap-1">
+                  <span className="font-medium text-foreground">{item.fileName}</span>
+                  <span className="text-muted-foreground">— {item.error}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       )}
     </div>
   );

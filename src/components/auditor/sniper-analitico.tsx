@@ -63,7 +63,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /** Limite operacional da importação em lote. */
-const MAX_FILES = 400;
+const MAX_FILES = 1000;
 const PAGINA = 40;
 
 type Filtro = "todos" | SniperVerdict;
@@ -161,8 +161,24 @@ export function SniperAnalitico() {
     let semTexto = 0;
     let falhas = 0;
     let gravados = 0;
+    let naoGravados = 0;
     let tudoNa = 0;
     let pendentes: SniperImportEntry[] = [];
+
+    // Uma oscilação de nuvem não pode derrubar o lote inteiro: tenta de novo.
+    const gravarLote = async (lote: SniperImportEntry[]) => {
+      for (let tentativa = 1; tentativa <= 3; tentativa += 1) {
+        try {
+          return await importSniperDocuments(lote);
+        } catch (erro) {
+          if (tentativa === 3) {
+            throw erro;
+          }
+          await new Promise((resolver) => setTimeout(resolver, 600 * tentativa));
+        }
+      }
+      return 0;
+    };
 
     try {
       const { readPdfLayout } = await import("@/lib/pdf-extract");
@@ -193,13 +209,21 @@ export function SniperAnalitico() {
         }
 
         if (pendentes.length >= 40) {
-          gravados += await importSniperDocuments(pendentes);
+          try {
+            gravados += await gravarLote(pendentes);
+          } catch {
+            naoGravados += pendentes.length;
+          }
           pendentes = [];
         }
       }
 
       if (pendentes.length > 0) {
-        gravados += await importSniperDocuments(pendentes);
+        try {
+          gravados += await gravarLote(pendentes);
+        } catch {
+          naoGravados += pendentes.length;
+        }
       }
     } catch (error) {
       toast.error("Falha ao gravar a base do Sniper", {
@@ -218,7 +242,8 @@ export function SniperAnalitico() {
         description: [
           `${tudoNa} com todas as etapas em N/A`,
           semTexto > 0 ? `${semTexto} sem camada de texto` : null,
-          falhas > 0 ? `${falhas} com falha` : null,
+          falhas > 0 ? `${falhas} com falha de leitura` : null,
+          naoGravados > 0 ? `${naoGravados} não gravado(s) na base` : null,
           cancelarRef.current ? "importação interrompida" : null,
         ]
           .filter(Boolean)
