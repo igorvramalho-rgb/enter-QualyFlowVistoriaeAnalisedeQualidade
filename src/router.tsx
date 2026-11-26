@@ -13,6 +13,7 @@ const AuditorRefazer = lazy(() => import("./pages/auditor/AuditorRefazer"));
 const AuditorRelatorios = lazy(() => import("./pages/auditor/AuditorRelatorios"));
 const AuditorBi = lazy(() => import("./pages/auditor/AuditorBi"));
 const AuditorAnalises = lazy(() => import("./pages/auditor/AuditorAnalises"));
+const AuditorDuplicados = lazy(() => import("./pages/auditor/AuditorDuplicados"));
 const AuditorCaso = lazy(() => import("./pages/auditor/AuditorCaso"));
 const AuditorRelatorioEditor = lazy(() => import("./pages/auditor/AuditorRelatorioEditor"));
 const RelatorioBi = lazy(() => import("./pages/RelatorioBi"));
@@ -148,6 +149,15 @@ export const routers = [
         element: (
           <Suspense fallback={<RouteFallback />}>
             <AuditorAnalises />
+          </Suspense>
+        ),
+      },
+      {
+        path: "auditor/duplicados",
+        name: "auditor-duplicados",
+        element: (
+          <Suspense fallback={<RouteFallback />}>
+            <AuditorDuplicados />
           </Suspense>
         ),
       },

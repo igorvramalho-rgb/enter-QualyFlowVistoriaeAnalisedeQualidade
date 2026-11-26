@@ -16,6 +16,7 @@ const TABS = [
   { to: "/auditor/celula/nao_executado", label: "Não executado" },
   { to: "/auditor/analises", label: "Análises" },
   { to: "/auditor/bi", label: "Painel BI" },
+  { to: "/auditor/duplicados", label: "Duplicados" },
 ];
 
 /**

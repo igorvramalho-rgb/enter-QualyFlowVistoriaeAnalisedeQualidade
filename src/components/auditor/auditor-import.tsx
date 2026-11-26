@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Link } from "react-router-dom";
 import { Download, FileUp, FileWarning, Loader2, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,8 +39,7 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
 
     const r = estado.result;
     const partes = [`${r.registrados} registrado(s)`];
-    if (r.movidos) partes.push(`${r.movidos} movido(s) para esta célula`);
-    if (r.duplicados) partes.push(`${r.duplicados} já existente(s)`);
+    if (r.duplicados) partes.push(`${r.duplicados} duplicado(s) — ver aba Duplicados`);
     if (r.pendentes) partes.push(`${r.pendentes} com PDF pendente`);
     if (r.falhas) partes.push(`${r.falhas} falha(s)`);
     const descricao = r.primeiroErro ? `${partes.join(" · ")} — ${r.primeiroErro}` : partes.join(" · ");
@@ -167,8 +167,7 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
                 <p className="text-[11px] text-muted-foreground">
                   {[
                     `${estado.result.registrados} novo(s)`,
-                    estado.result.movidos > 0 ? `${estado.result.movidos} já existiam e foram movidos` : null,
-                    estado.result.duplicados > 0 ? `${estado.result.duplicados} duplicado(s)` : null,
+                    estado.result.duplicados > 0 ? `${estado.result.duplicados} duplicado(s) — ver aba Duplicados` : null,
                     estado.result.pendentes > 0 ? `${estado.result.pendentes} com PDF pendente` : null,
                     estado.result.falhas > 0 ? `${estado.result.falhas} com falha` : null,
                   ]
@@ -177,33 +176,40 @@ export function AuditorImport({ cell, onSaved }: { cell: CellKey; onSaved: () =>
                 </p>
               </div>
             </div>
-            {estado.result.falhasDetalhe.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="glass"
-                  onClick={() =>
-                    downloadCsv(
-                      `falhas-importacao-${new Date().toISOString().slice(0, 10)}.csv`,
-                      ["Arquivo", "Motivo"],
-                      estado.result!.falhasDetalhe.map((item) => [item.fileName, item.error]),
-                    )
-                  }
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Falhas (CSV)
+            <div className="flex flex-wrap gap-2">
+              {estado.result.duplicados > 0 && (
+                <Button asChild size="sm" variant="glass">
+                  <Link to="/auditor/duplicados">Ver aba Duplicados</Link>
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setAbrirFalhas((anterior) => !anterior)}
-                >
-                  {abrirFalhas ? "Ocultar motivos" : "Ver motivos"}
-                </Button>
-              </div>
-            )}
+              )}
+              {estado.result.falhasDetalhe.length > 0 && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="glass"
+                    onClick={() =>
+                      downloadCsv(
+                        `falhas-importacao-${new Date().toISOString().slice(0, 10)}.csv`,
+                        ["Arquivo", "Motivo"],
+                        estado.result!.falhasDetalhe.map((item) => [item.fileName, item.error]),
+                      )
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Falhas (CSV)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAbrirFalhas((anterior) => !anterior)}
+                  >
+                    {abrirFalhas ? "Ocultar motivos" : "Ver motivos"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {abrirFalhas && estado.result.falhasDetalhe.length > 0 && (

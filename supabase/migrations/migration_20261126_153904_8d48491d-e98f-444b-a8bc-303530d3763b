@@ -1,0 +1,34 @@
+-- Registro de tentativas duplicadas na importação (log próprio, não apaga documentos).
+create table if not exists public.qa_duplicate_uploads (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null default gen_random_uuid(),
+  fingerprint text not null,
+  file_name text not null,
+  existing_document_id uuid references public.qa_documents(id) on delete set null,
+  existing_file_name text not null default '',
+  existing_cell text not null default '',
+  existing_imported_at timestamptz,
+  fac text not null default '',
+  os text not null default '',
+  origin text not null default 'base',
+  imported_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists qa_duplicate_uploads_created_idx
+  on public.qa_duplicate_uploads (created_at desc);
+create index if not exists qa_duplicate_uploads_fingerprint_idx
+  on public.qa_duplicate_uploads (fingerprint);
+create index if not exists qa_duplicate_uploads_batch_idx
+  on public.qa_duplicate_uploads (batch_id);
+
+alter table public.qa_duplicate_uploads enable row level security;
+
+create policy qa_duplicate_uploads_select on public.qa_duplicate_uploads
+  for select to authenticated using (auth.uid() is not null);
+create policy qa_duplicate_uploads_insert on public.qa_duplicate_uploads
+  for insert to authenticated with check (auth.uid() is not null);
+create policy qa_duplicate_uploads_update on public.qa_duplicate_uploads
+  for update to authenticated using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy qa_duplicate_uploads_delete on public.qa_duplicate_uploads
+  for delete to authenticated using (auth.uid() is not null);

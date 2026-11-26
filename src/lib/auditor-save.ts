@@ -441,6 +441,21 @@ export async function importAuditorBatch(params: {
   const [fingerprints, mapaCasos] = await Promise.all([fetchAllFingerprints(), fetchCaseIdentityMap()]);
 
   const vistos = new Set(fingerprints);
+  const presentesNaBase = new Set(fingerprints);
+  /** Arquivo deste lote que introduziu cada digital (para repetidos no lote). */
+  const origemNoLote = new Map<string, string>();
+  /** Tentativas duplicadas: registradas para a aba Duplicados, sem mexer na célula. */
+  const duplicadosLote: {
+    fingerprint: string;
+    file_name: string;
+    existing_document_id: string | null;
+    existing_file_name: string;
+    existing_cell: string;
+    existing_imported_at: string | null;
+    fac: string;
+    os: string;
+    origin: "base" | "lote";
+  }[] = [];
   /** Fingerprint de cada arquivo, para desfazer a marca quando o arquivo falha. */
   const marcas = new Map<File, string>();
   let concluidos = 0;
@@ -452,60 +467,32 @@ export async function importAuditorBatch(params: {
       AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
     );
 
-    // Já existe: garante a tratativa e move para a célula escolhida.
+    // Já existe: entra para o log de duplicados e NÃO é migrado para a célula.
     if (vistos.has(extraction.fingerprint)) {
+      const naBase = presentesNaBase.has(extraction.fingerprint);
       const { data: existente } = await supabase
         .from("qa_documents")
-        .select("id, fields, file_name")
+        .select("id, file_name, cell, imported_at")
         .eq("fingerprint", extraction.fingerprint)
         .maybeSingle();
 
-      if (!existente) {
-        resultado.duplicados += 1;
-        return;
-      }
-
-      await supabase.from("qa_documents").update({ cell }).eq("id", existente.id);
-
-      // Documento antigo pode ter ficado sem etapas: completa agora.
-      const { count: itensExistentes } = await supabase
-        .from("qa_document_items")
-        .select("*", { count: "exact", head: true })
-        .eq("document_id", existente.id);
-
-      if ((itensExistentes ?? 0) === 0 && extraction.items.length > 0) {
-        await supabase.from("qa_document_items").insert(
-          extraction.items.map((item) => ({
-            document_id: existente.id,
-            code: item.code,
-            description: item.description,
-            original_result: item.originalResult,
-            complement: item.complement,
-            page_number: item.page,
-          })),
-        );
-      }
-
-      const caseId = await ensureCase({
-        documentId: existente.id,
-        fields: (existente.fields as Record<string, string>) ?? {},
-        fileName: existente.file_name ?? file.name,
-        cell,
-        mapa: mapaCasos,
-        cycleId,
+      duplicadosLote.push({
+        fingerprint: extraction.fingerprint,
+        file_name: file.name,
+        existing_document_id: existente?.id ?? null,
+        existing_file_name: existente?.file_name ?? origemNoLote.get(extraction.fingerprint) ?? "",
+        existing_cell: existente?.cell ?? "",
+        existing_imported_at: existente?.imported_at ?? null,
+        fac: extraction.fields.fac.value,
+        os: extraction.fields.os.value,
+        origin: naBase ? "base" : "lote",
       });
-      if (caseId) {
-        await supabase.from("qa_case_events").insert({
-          case_id: caseId,
-          event_type: "recebimento",
-          payload: { documentId: existente.id, fileName: existente.file_name } as never,
-        });
-      }
-      resultado.movidos += 1;
+      resultado.duplicados += 1;
       return;
     }
 
     vistos.add(extraction.fingerprint);
+    origemNoLote.set(extraction.fingerprint, file.name);
 
     const documentId = crypto.randomUUID();
     const { error: docError } = await supabase.from("qa_documents").insert({
@@ -632,6 +619,17 @@ export async function importAuditorBatch(params: {
     resultado.falhasDetalhe = [];
     resultado.primeiroErro = "";
     restantes = await processar(restantes);
+  }
+
+  // Log de duplicados (best-effort): nunca derruba a importação.
+  if (duplicadosLote.length > 0) {
+    const batchId = crypto.randomUUID();
+    for (let indice = 0; indice < duplicadosLote.length; indice += 100) {
+      const lote = duplicadosLote
+        .slice(indice, indice + 100)
+        .map((item) => ({ ...item, batch_id: batchId }));
+      await supabase.from("qa_duplicate_uploads").insert(lote as never);
+    }
   }
 
   return resultado;

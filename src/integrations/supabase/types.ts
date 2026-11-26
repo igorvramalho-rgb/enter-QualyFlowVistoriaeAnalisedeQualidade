@@ -3621,6 +3621,61 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_duplicate_uploads: {
+        Row: {
+          batch_id: string
+          created_at: string
+          existing_cell: string
+          existing_document_id: string | null
+          existing_file_name: string
+          existing_imported_at: string | null
+          fac: string
+          file_name: string
+          fingerprint: string
+          id: string
+          imported_by: string | null
+          origin: string
+          os: string
+        }
+        Insert: {
+          batch_id?: string
+          created_at?: string
+          existing_cell?: string
+          existing_document_id?: string | null
+          existing_file_name?: string
+          existing_imported_at?: string | null
+          fac?: string
+          file_name: string
+          fingerprint: string
+          id?: string
+          imported_by?: string | null
+          origin?: string
+          os?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          existing_cell?: string
+          existing_document_id?: string | null
+          existing_file_name?: string
+          existing_imported_at?: string | null
+          fac?: string
+          file_name?: string
+          fingerprint?: string
+          id?: string
+          imported_by?: string | null
+          origin?: string
+          os?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_duplicate_uploads_existing_document_id_fkey"
+            columns: ["existing_document_id"]
+            referencedRelation: "qa_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qa_redo: {
         Row: {
           case_id: string
@@ -4077,72 +4132,6 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_20: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_11_21: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       messages_2026_11_22: {
         Row: {
           event: string | null
@@ -4276,6 +4265,72 @@ export type Database = {
         Relationships: []
       }
       messages_2026_11_26: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_11_27: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_11_28: {
         Row: {
           event: string | null
           extension: string
