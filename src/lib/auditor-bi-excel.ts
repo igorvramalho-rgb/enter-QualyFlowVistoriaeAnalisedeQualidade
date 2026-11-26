@@ -42,10 +42,7 @@ export interface BiExcelData {
     startDate: string;
     endDate: string;
     casos: number;
-    conformes: number;
-    naoConformes: number;
     devolucoes: number;
-    pctConforme: number;
   }[];
   periodo: string;
   medicao: string;
@@ -55,8 +52,6 @@ export interface BiExcelData {
     analisadas: number;
     aguardando: number;
     fiscalizacao: number;
-    conforme: number;
-    naoConforme: number;
     relatorios: number;
     refazerTotal: number;
     refazerPendentes: number;
@@ -64,7 +59,7 @@ export interface BiExcelData {
     devolucoes: number;
     encerradas: number;
   };
-  cells: { key: CellKey; label: string; total: number; conformes: number; naoConformes: number; devolucoes: number; pct: number }[];
+  cells: { key: CellKey; label: string; total: number; devolucoes: number; pct: number }[];
   cases: CaseRow[];
   redo: AuditorRedo[];
   reports: AuditorReport[];
@@ -167,13 +162,17 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Analisadas", valor: data.kpis.analisadas, obs: "" });
   sheet.addRow({ indicador: "Aguardando análise", valor: data.kpis.aguardando, obs: "" });
   sheet.addRow({ indicador: "Em fiscalização", valor: data.kpis.fiscalizacao, obs: "" });
-  sheet.addRow({ indicador: "Conformes", valor: data.kpis.conforme, obs: "" });
-  sheet.addRow({ indicador: "Não conformes", valor: data.kpis.naoConforme, obs: "" });
-  sheet.addRow({
-    indicador: "Devolutivas (E.F + Respondidos + RPA)",
-    valor: devolutivasDe(data.cells),
-    obs: "soma das células E.F, Respondidos e RPA; elas seguem separadas",
-  });
+  {
+    const devolutivas = devolutivasDetalhe(data.cells);
+    sheet.addRow({ indicador: "Respondidos / Executados", valor: devolutivas.respondidos, obs: "célula Respondidos / Executados" });
+    sheet.addRow({ indicador: "E.F", valor: devolutivas.ef, obs: "fiscalização especial" });
+    sheet.addRow({ indicador: "RPA / Defesas técnicas", valor: devolutivas.rpa, obs: "" });
+    sheet.addRow({
+      indicador: "Devolutivas (soma das três)",
+      valor: devolutivas.total,
+      obs: "Respondidos / Executados + E.F + RPA",
+    });
+  }
   sheet.addRow({ indicador: "Relatórios enviados", valor: data.kpis.relatorios, obs: "" });
   sheet.addRow({ indicador: "Serviços a refazer", valor: data.kpis.refazerTotal, obs: "" });
   sheet.addRow({ indicador: "Pendentes de refazer", valor: data.kpis.refazerPendentes, obs: "" });
@@ -205,10 +204,7 @@ function abaComparativo(workbook: ExcelJS.Workbook, data: BiExcelData) {
     { header: "Início", key: "inicio", width: 14 },
     { header: "Fim", key: "fim", width: 14 },
     { header: "FV/OS", key: "casos", width: 10 },
-    { header: "Conformes", key: "conformes", width: 12 },
-    { header: "Não conformes", key: "naoConformes", width: 14 },
     { header: "Devoluções", key: "devolucoes", width: 12 },
-    { header: "% conforme", key: "pct", width: 12 },
     { header: "Variação (FV/OS)", key: "variacao", width: 16 },
   ];
 
@@ -220,16 +216,13 @@ function abaComparativo(workbook: ExcelJS.Workbook, data: BiExcelData) {
       inicio: linha.startDate ? formatDateBR(linha.startDate) : "",
       fim: linha.endDate ? formatDateBR(linha.endDate) : "",
       casos: linha.casos,
-      conformes: linha.conformes,
-      naoConformes: linha.naoConformes,
       devolucoes: linha.devolucoes,
-      pct: `${linha.pctConforme}%`,
       variacao: anterior ? linha.casos - anterior.casos : "",
     });
   });
 
   estiloCabecalho(sheet);
-  finalizarTabela(sheet, linhas.length, 9);
+  finalizarTabela(sheet, linhas.length, 6);
   return sheet;
 }
 
@@ -310,11 +303,20 @@ function celulasDoRelatorio(cells: BiExcelData["cells"]): BiExcelData["cells"] {
     : visiveis;
 }
 
-/** Devolutivas = E.F + Respondidos + RPA (as células seguem separadas). */
-function devolutivasDe(cells: BiExcelData["cells"]): number {
-  return cells
-    .filter((cell) => cell.key === "sae" || cell.key === "respondidos" || cell.key === "rpa")
-    .reduce((soma, cell) => soma + cell.total, 0);
+interface DevolutivasDetalhe {
+  respondidos: number;
+  ef: number;
+  rpa: number;
+  total: number;
+}
+
+/** Devolutivas = Respondidos / Executados + E.F + RPA (as células seguem separadas). */
+function devolutivasDetalhe(cells: BiExcelData["cells"]): DevolutivasDetalhe {
+  const totalDe = (key: CellKey) => cells.find((cell) => cell.key === key)?.total ?? 0;
+  const respondidos = totalDe("respondidos");
+  const ef = totalDe("sae");
+  const rpa = totalDe("rpa");
+  return { respondidos, ef, rpa, total: respondidos + ef + rpa };
 }
 
 const PAINEL_NAVY = "FF0B1F3A";
@@ -389,13 +391,13 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(3).height = 20;
 
-  // Cartões de indicadores (Devolutivas = E.F + Respondidos + RPA).
+  // Cartões de indicadores (Devolutivas = Respondidos / Executados + E.F + RPA).
   const indicadores = [
     { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 4 },
     {
       label: "DEVOLUTIVAS",
-      valor: devolutivasDe(data.cells),
-      nota: "E.F + Respondidos + RPA",
+      valor: devolutivasDetalhe(data.cells).total,
+      nota: "Respondidos / Executados + E.F + RPA",
       colunas: 4,
     },
     { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 4 },
@@ -515,6 +517,30 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
       }
     });
   });
+
+  // Fechamento: mostra a composição e a soma de Devolutivas.
+  const devolutivas = devolutivasDetalhe(data.cells);
+  const linhaComposicao = inicioTabela + cellsRelatorio.length + 1;
+  sheet.mergeCells(linhaComposicao, 1, linhaComposicao, 4);
+  const composicao = sheet.getCell(linhaComposicao, 1);
+  composicao.value = `Devolutivas = Respondidos / Executados (${devolutivas.respondidos}) + E.F (${devolutivas.ef}) + RPA (${devolutivas.rpa})`;
+  composicao.font = { size: 9, color: { argb: "FF64748B" } };
+  composicao.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  sheet.getRow(linhaComposicao).height = 16;
+
+  const linhaTotal = linhaComposicao + 1;
+  sheet.mergeCells(linhaTotal, 1, linhaTotal, 3);
+  const rotuloTotal = sheet.getCell(linhaTotal, 1);
+  rotuloTotal.value = "DEVOLUTIVAS (SOMA DAS TRÊS)";
+  rotuloTotal.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+  rotuloTotal.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  rotuloTotal.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PAINEL_NAVY } };
+  const celulaTotal = sheet.getCell(linhaTotal, 4);
+  celulaTotal.value = devolutivas.total;
+  celulaTotal.font = { bold: true, size: 12, color: { argb: PAINEL_NAVY } };
+  celulaTotal.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PAINEL_CARD } };
+  celulaTotal.alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getRow(linhaTotal).height = 20;
 
   return sheet;
 }

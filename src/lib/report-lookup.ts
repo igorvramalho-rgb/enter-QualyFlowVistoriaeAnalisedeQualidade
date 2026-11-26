@@ -178,7 +178,7 @@ export async function syncReportToAuditor(input: {
   os: string;
   address: string;
   serviceType: string;
-  /** Célula escolhida pelo operador (Respondidos ou RPA). */
+  /** Célula escolhida pelo operador (Respondidos / Executados ou RPA). */
   cell?: "respondidos" | "rpa";
 }): Promise<void> {
   if (!input.templateId.startsWith("pos_60")) {

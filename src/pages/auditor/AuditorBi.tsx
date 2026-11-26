@@ -13,7 +13,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -148,8 +147,6 @@ export default function AuditorBi() {
       analisadas: filtrados.filter((row) => row.status !== "aguardando_analise").length,
       aguardando: porStatus("aguardando_analise"),
       fiscalizacao: porStatus("encaminhado_fiscalizacao") + porStatus("aguardando_retorno_fiscal"),
-      conforme: filtrados.filter((row) => row.outcome === "conforme").length,
-      naoConforme: filtrados.filter((row) => row.outcome === "nao_conforme").length,
       relatorios: reportsFiltrados.filter((row) => row.status === "enviado").length,
       refazerTotal: redoFiltrado.length,
       refazerPendentes: pendentes.length,
@@ -170,12 +167,6 @@ export default function AuditorBi() {
       .map(([mes, total]) => ({ mes, total }));
   }, [filtrados]);
 
-  const conformidade = [
-    { nome: "Conforme", total: kpis.conforme, cor: "hsl(var(--success))" },
-    { nome: "Não conforme", total: kpis.naoConforme, cor: "hsl(var(--destructive))" },
-    { nome: "Pendente", total: kpis.recebidas - kpis.conforme - kpis.naoConforme, cor: "hsl(var(--muted-foreground))" },
-  ];
-
   const pendentesVsConcluidos = [
     { nome: "Pendentes", total: kpis.refazerPendentes },
     { nome: "Corrigidos", total: kpis.corrigidos },
@@ -195,8 +186,6 @@ export default function AuditorBi() {
 
   const porCelula = CELL_KEYS.map((key) => {
     const daCelula = filtrados.filter((row) => row.cell === key);
-    const conformes = daCelula.filter((row) => row.outcome === "conforme").length;
-    const naoConformes = daCelula.filter((row) => row.outcome === "nao_conforme").length;
     const devolucoes = daCelula.reduce((total, row) => total + row.returnedCount, 0);
     const pct = kpisBase(filtrados.length, daCelula.length);
 
@@ -213,7 +202,7 @@ export default function AuditorBi() {
     const frase =
       daCelula.length === 0
         ? `Sem registros nesta célula no período.`
-        : `${daCelula.length} FV/OS (${pct}% do total), com ${conformes} conformidade(s) e ${naoConformes} não conformidade(s) confirmada(s)${
+        : `${daCelula.length} FV/OS (${pct}% do total)${
             devolucoes > 0 ? ` e ${devolucoes} devolução(ões) da AlphaGeos` : ""
           }. Serviço predominante: ${topServicos[0]?.nome ?? "não informado"}.`;
 
@@ -222,18 +211,14 @@ export default function AuditorBi() {
       nome: CELLS[key].label,
       short: CELLS[key].short,
       total: daCelula.length,
-      conformes,
-      naoConformes,
       devolucoes,
       pct,
       topServicos,
       frase,
-      pctConforme: kpisBase(daCelula.length, conformes),
-      pctNaoConforme: kpisBase(daCelula.length, naoConformes),
     };
   });
 
-  // Devolutivas = E.F + Respondidos à AlphaGeos + RPA (as células seguem separadas).
+  // Devolutivas = Respondidos / Executados + E.F + RPA (as células seguem separadas).
   const devolutivas = porCelula
     .filter((item) => item.key === "sae" || item.key === "respondidos" || item.key === "rpa")
     .reduce((soma, item) => soma + item.total, 0);
@@ -263,7 +248,7 @@ export default function AuditorBi() {
     const naoAvaliados = porCelula.find((item) => item.key === "nao_avaliado")?.total ?? 0;
     const motivoTop = motivos[0];
 
-    return `Foram tratadas ${unicas} FV/OS no período, com ${kpis.conforme} conformidade(s) confirmada(s) e ${kpis.naoConforme} não conformidade(s). As células Em fiscalização (${fiscalizacao}) e Refazer (${refazer}) concentram as ações em andamento.${
+    return `Foram tratadas ${unicas} FV/OS no período. As células Em fiscalização (${fiscalizacao}) e Refazer (${refazer}) concentram as ações em andamento.${
       naoAvaliados > 0
         ? ` Há ${naoAvaliados} serviço(s) não avaliado(s)${motivoTop ? `, sendo o motivo mais frequente "${motivoTop.motivo}" (${motivoTop.total})` : ""}.`
         : ""
@@ -290,7 +275,7 @@ export default function AuditorBi() {
 
     return `Foram avaliadas ${unicas} FV/OS: ${valor("fiscalizacao")} em fiscalização, ${valor(
       "refazer",
-    )} em refazer, ${valor("respondidos")} respondidos à AlphaGeos, ${valor("rpa")} em RPA, ${valor(
+    )} em refazer, ${valor("respondidos")} respondidos / executados, ${valor("rpa")} em RPA, ${valor(
       "nao_avaliado",
     )} em análise (não avaliados) e ${valor("nao_executado")} não executado(s).`;
   }, [filtrados.length, unicas, porCelula]);
@@ -347,8 +332,6 @@ export default function AuditorBi() {
           key: item.key,
           label: item.nome,
           total: item.total,
-          conformes: item.conformes,
-          naoConformes: item.naoConformes,
           devolucoes: item.devolucoes,
           pct: item.pct,
         })),
@@ -385,15 +368,10 @@ export default function AuditorBi() {
       const doc = buildBiPdf({
         periodo: periodoLabel,
         totalUnicas: unicas,
-        conformes: kpis.conforme,
-        naoConformes: kpis.naoConforme,
-        pendentes: kpis.refazerPendentes,
         cells: porCelula.map((item) => ({
           key: item.key,
           label: item.nome,
           total: item.total,
-          conformes: item.conformes,
-          naoConformes: item.naoConformes,
           devolucoes: item.devolucoes,
           pct: item.pct,
           servicos: item.topServicos.map((servico) => servico.nome),
@@ -565,10 +543,8 @@ export default function AuditorBi() {
           ["Analisadas", kpis.analisadas],
           ["Aguardando análise", kpis.aguardando],
           ["Em fiscalização", kpis.fiscalizacao],
-          ["Conforme", kpis.conforme],
-          ["Não conforme", kpis.naoConforme],
           ["Relatórios enviados", kpis.relatorios],
-          ["Devolutivas (E.F + Respondidos + RPA)", devolutivas],
+          ["Devolutivas (Respondidos / Executados + E.F + RPA)", devolutivas],
           ["Devoluções", kpis.devolucoes],
           ["FV/OS únicas", unicas],
           ["Documentos", totais?.documents ?? 0],
@@ -597,10 +573,7 @@ export default function AuditorBi() {
                   <th className="py-1.5 pr-3 font-medium">Ciclo</th>
                   <th className="py-1.5 pr-3 font-medium">Período</th>
                   <th className="py-1.5 pr-3 text-right font-medium">FV/OS</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">Conformes</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">Não conformes</th>
                   <th className="py-1.5 pr-3 text-right font-medium">Devoluções</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">% conforme</th>
                   <th className="py-1.5 pr-3 text-right font-medium">Variação</th>
                 </tr>
               </thead>
@@ -623,10 +596,7 @@ export default function AuditorBi() {
                         {linha.startDate ? `${formatDateBR(linha.startDate)} – ${formatDateBR(linha.endDate)}` : "—"}
                       </td>
                       <td className="py-1.5 pr-3 text-right text-foreground">{linha.casos}</td>
-                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.conformes}</td>
-                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.naoConformes}</td>
                       <td className="py-1.5 pr-3 text-right text-foreground">{linha.devolucoes}</td>
-                      <td className="py-1.5 pr-3 text-right text-foreground">{linha.pctConforme}%</td>
                       <td className="py-1.5 pr-3 text-right">
                         {!anterior ? (
                           <span className="text-[10px] text-muted-foreground">—</span>
@@ -660,11 +630,9 @@ export default function AuditorBi() {
             <div key={item.key} className="flex items-center gap-2">
               <span className="w-44 shrink-0 truncate text-[11px] text-foreground">{item.nome}</span>
               <div className="flex h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                <div className="h-full bg-success" style={{ width: `${item.pctConforme}%` }} />
-                <div className="h-full bg-destructive" style={{ width: `${item.pctNaoConforme}%` }} />
                 <div
                   className="h-full bg-[hsl(var(--auditor-navy-mid))]"
-                  style={{ width: `${Math.max(0, 100 - item.pctConforme - item.pctNaoConforme)}%` }}
+                  style={{ width: `${item.pct}%` }}
                 />
               </div>
               <span className="auditor-num w-10 text-right text-[11px] font-semibold text-foreground">
@@ -709,25 +677,6 @@ export default function AuditorBi() {
                   <Tooltip />
                   <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} />
                 </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card className="p-3">
-            <h3 className="text-xs font-semibold text-foreground">Conforme × não conforme</h3>
-            <div className="mt-2 h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={conformidade}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="total">
-                    {conformidade.map((item) => (
-                      <Cell key={item.nome} fill={item.cor} />
-                    ))}
-                  </Bar>
-                </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>

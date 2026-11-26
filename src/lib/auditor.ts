@@ -20,9 +20,9 @@ export const CELLS = {
   },
   respondidos: {
     key: "respondidos",
-    label: "Respondidos à AlphaGeos",
+    label: "Respondidos / Executados",
     short: "Respondidos",
-    description: "Resposta efetivamente encaminhada à AlphaGeos.",
+    description: "Serviço respondido à AlphaGeos e/ou executado.",
   },
   rpa: {
     key: "rpa",

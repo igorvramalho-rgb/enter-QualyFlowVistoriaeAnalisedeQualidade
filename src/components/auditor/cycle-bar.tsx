@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarRange, Loader2, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { CalendarRange, Link2, Loader2, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
   countOrphanCases,
   createCycle,
   deleteCycle,
+  deleteOrphanCases,
   loadCycles,
   setActiveCycle,
   updateCycle,
@@ -63,6 +64,7 @@ export function CycleBar() {
   const [edicaoFim, setEdicaoFim] = useState("");
 
   const [excluirOpen, setExcluirOpen] = useState(false);
+  const [excluirOrfaosOpen, setExcluirOrfaosOpen] = useState(false);
   const [casosCiclo, setCasosCiclo] = useState(0);
   const [carregandoCasos, setCarregandoCasos] = useState(false);
   const [destinoCiclo, setDestinoCiclo] = useState<string>(SEM_CICLO);
@@ -83,6 +85,38 @@ export function CycleBar() {
       const total = await attachOrphanCases(ativo);
       setOrfaos(0);
       toast.success("Tratativas vinculadas ao ciclo", { description: `${total} FV/OS` });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const excluirOrfaos = async () => {
+    setBusy(true);
+    try {
+      const resultado = await deleteOrphanCases();
+      setOrfaos(await countOrphanCases());
+
+      if (!resultado.ok) {
+        toast.error("Tratativas não foram excluídas", {
+          description: [
+            resultado.deleted > 0 ? `${resultado.deleted} removida(s) antes da falha` : null,
+            resultado.error,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        });
+        return;
+      }
+
+      setExcluirOrfaosOpen(false);
+      toast.success("Tratativas sem ciclo excluídas", {
+        description: `${resultado.deleted} FV/OS removida(s) definitivamente.`,
+      });
+      await loadCycles(true);
+    } catch (problema) {
+      toast.error("Falha ao excluir", {
+        description: problema instanceof Error ? problema.message : undefined,
+      });
     } finally {
       setBusy(false);
     }
@@ -276,17 +310,32 @@ export function CycleBar() {
       )}
 
       {profile?.role === "gestor" && orfaos > 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-[11px]"
-          onClick={() => void vincular()}
-          disabled={busy}
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          Vincular {orfaos} sem ciclo
-        </Button>
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            onClick={() => void vincular()}
+            disabled={busy}
+            title="Vincular as tratativas sem ciclo ao ciclo selecionado"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
+            Vincular {orfaos} sem ciclo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+            onClick={() => setExcluirOrfaosOpen(true)}
+            disabled={busy}
+            title="Excluir definitivamente as tratativas sem ciclo"
+          >
+            <Trash2 className="h-3 w-3" />
+            Excluir {orfaos} sem ciclo
+          </Button>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -438,6 +487,44 @@ export function CycleBar() {
             <Button type="button" variant="destructive" onClick={() => void confirmarExclusao()} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Excluir ciclo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={excluirOrfaosOpen} onOpenChange={setExcluirOrfaosOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir {orfaos} tratativa(s) sem ciclo?</DialogTitle>
+            <DialogDescription>
+              Esta ação é definitiva. Serão apagadas as FV/OS que não pertencem a nenhum ciclo,
+              junto com o controle de refazer, os relatórios e o histórico ligados a elas.
+              Para manter os registros, use "Vincular {orfaos} sem ciclo" e escolha o ciclo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <p className="flex items-start gap-2 text-[11px] text-destructive">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Não há como desfazer. Confira o ciclo selecionado antes de continuar.
+          </p>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setExcluirOrfaosOpen(false)}
+              disabled={busy}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void excluirOrfaos()}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Excluir definitivamente
             </Button>
           </DialogFooter>
         </DialogContent>

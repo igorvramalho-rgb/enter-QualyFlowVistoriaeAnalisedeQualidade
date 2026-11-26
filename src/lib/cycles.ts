@@ -312,6 +312,60 @@ export async function attachOrphanCases(cycleId: string): Promise<number> {
   return data?.length ?? 0;
 }
 
+export interface DeleteOrphanResult {
+  ok: boolean;
+  deleted: number;
+  error?: string;
+}
+
+/**
+ * Exclui definitivamente as tratativas que estão sem ciclo. Os registros
+ * ligados ao caso (refazer, relatórios e histórico) saem em cascata. Ação
+ * restrita ao gestor pela política de exclusão da tabela.
+ */
+export async function deleteOrphanCases(): Promise<DeleteOrphanResult> {
+  let deleted = 0;
+
+  for (let rodada = 0; rodada < 200; rodada += 1) {
+    const { data, error } = await supabase
+      .from("qa_cases")
+      .select("id")
+      .is("cycle_id", null)
+      .limit(200);
+
+    if (error) {
+      return { ok: false, deleted, error: error.message };
+    }
+
+    const ids = (data ?? []).map((row) => row.id);
+    if (ids.length === 0) {
+      return { ok: true, deleted };
+    }
+
+    const { data: apagados, error: erroExclusao } = await supabase
+      .from("qa_cases")
+      .delete()
+      .in("id", ids)
+      .select("id");
+
+    if (erroExclusao) {
+      return { ok: false, deleted, error: erroExclusao.message };
+    }
+
+    if (!apagados || apagados.length === 0) {
+      return {
+        ok: false,
+        deleted,
+        error: "Seu perfil não tem permissão para excluir tratativas. A exclusão é restrita ao gestor.",
+      };
+    }
+
+    deleted += apagados.length;
+  }
+
+  return { ok: true, deleted };
+}
+
 /** Hook do ciclo ativo (para as telas reagirem à troca). */
 export function useActiveCycle(): string | null {
   return useSyncExternalStore(subscribeCycles, getActiveCycleId, getActiveCycleId);
