@@ -151,6 +151,144 @@ export async function createCycle(input: {
   return novo;
 }
 
+function paraCiclo(row: {
+  id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  created_at: string;
+}): AuditCycle {
+  return {
+    id: row.id,
+    name: row.name,
+    startDate: row.start_date ?? "",
+    endDate: row.end_date ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+/** Edita nome e período de um ciclo (não mexe nas tratativas). */
+export async function updateCycle(
+  id: string,
+  input: { name: string; startDate: string; endDate: string },
+): Promise<AuditCycle | null> {
+  const { data, error } = await supabase
+    .from("qa_cycles")
+    .update({
+      name: input.name.trim(),
+      start_date: input.startDate || null,
+      end_date: input.endDate || null,
+    })
+    .eq("id", id)
+    .select("id, name, start_date, end_date, status, created_at")
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const atualizado = paraCiclo(data);
+  ciclos = ciclos.map((ciclo) => (ciclo.id === id ? atualizado : ciclo));
+  carregado = true;
+  notificar();
+  return atualizado;
+}
+
+/** Quantas tratativas estão vinculadas ao ciclo. */
+export async function countCycleCases(cycleId: string): Promise<number> {
+  const { count } = await supabase
+    .from("qa_cases")
+    .select("*", { count: "exact", head: true })
+    .eq("cycle_id", cycleId);
+  return count ?? 0;
+}
+
+async function moverCasosDoCiclo(caseIds: string[], destino: string): Promise<number> {
+  let movidos = 0;
+  for (let indice = 0; indice < caseIds.length; indice += 100) {
+    const lote = caseIds.slice(indice, indice + 100);
+    const { data, error } = await supabase
+      .from("qa_cases")
+      .update({ cycle_id: destino })
+      .in("id", lote)
+      .select("id");
+    if (error) {
+      throw error;
+    }
+    movidos += data?.length ?? 0;
+  }
+  return movidos;
+}
+
+export interface DeleteCycleResult {
+  ok: boolean;
+  moved: number;
+  error?: string;
+}
+
+/**
+ * Exclui um ciclo. As tratativas nunca são apagadas: ou passam para outro ciclo
+ * (`moveTo`) ou ficam sem ciclo e podem ser vinculadas depois pelo próprio
+ * botão "Vincular sem ciclo".
+ */
+export async function deleteCycle(id: string, moveTo?: string | null): Promise<DeleteCycleResult> {
+  const { data: casos, error: erroCasos } = await supabase
+    .from("qa_cases")
+    .select("id")
+    .eq("cycle_id", id)
+    .limit(5000);
+
+  if (erroCasos) {
+    return { ok: false, moved: 0, error: erroCasos.message };
+  }
+
+  // Exclui primeiro: se o perfil não puder (RLS), nada foi alterado.
+  const { data: excluidos, error } = await supabase
+    .from("qa_cycles")
+    .delete()
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    return { ok: false, moved: 0, error: error.message };
+  }
+
+  if (!excluidos || excluidos.length === 0) {
+    return {
+      ok: false,
+      moved: 0,
+      error: "Seu perfil não tem permissão para excluir ciclos. A exclusão é restrita ao gestor.",
+    };
+  }
+
+  let moved = 0;
+  let aviso: string | undefined;
+  const caseIds = (casos ?? []).map((row) => row.id);
+
+  if (moveTo && caseIds.length > 0) {
+    try {
+      moved = await moverCasosDoCiclo(caseIds, moveTo);
+    } catch (problema) {
+      aviso =
+        problema instanceof Error
+          ? `Ciclo excluído, mas as tratativas não foram movidas: ${problema.message}`
+          : "Ciclo excluído, mas as tratativas não foram movidas.";
+    }
+  }
+
+  ciclos = ciclos.filter((ciclo) => ciclo.id !== id);
+  carregado = true;
+  if (getActiveCycleId() === id) {
+    setActiveCycle(ciclos[0]?.id ?? null);
+  } else {
+    notificar();
+  }
+
+  return { ok: true, moved, error: aviso };
+}
+
 /** Quantas tratativas estão sem ciclo. */
 export async function countOrphanCases(): Promise<number> {
   const { count } = await supabase
