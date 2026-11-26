@@ -159,8 +159,9 @@ export function deriveNumbersFromFileName(fileName: string | undefined): FileNam
   }
 
   const base = fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ");
-  const fac = base.match(/\bfv\s*[-–:.]?\s*(\d{2,})\b/i)?.[1];
-  const labeledOs = base.match(/\bos\s*n?[º°.:]*\s*(\d{6,})/i)?.[1];
+  // Aceita "FV-47387", "FV 47387OS-2694290011" e "FV47387".
+  const fac = base.match(/\bfv\s*[-–:.]?\s*(\d{2,})/i)?.[1];
+  const labeledOs = base.match(/\bos\s*n?[º°.:]*\s*[-–]?\s*(\d{6,})/i)?.[1];
   const longNumber = base.match(/\b(\d{9,11})\b/)?.[1];
 
   return {

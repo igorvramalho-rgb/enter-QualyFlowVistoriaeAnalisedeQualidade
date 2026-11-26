@@ -15,7 +15,7 @@ export interface DuplicateUpload {
   fingerprint: string;
   fac: string;
   os: string;
-  origin: "base" | "lote";
+  origin: "base" | "lote" | "arquivo";
   createdAt: string;
   existingImportedAt: string | null;
 }
@@ -47,7 +47,7 @@ function paraRegistro(row: {
     fingerprint: row.fingerprint,
     fac: row.fac,
     os: row.os,
-    origin: row.origin === "lote" ? "lote" : "base",
+    origin: row.origin === "lote" || row.origin === "arquivo" ? row.origin : "base",
     createdAt: row.created_at,
     existingImportedAt: row.existing_imported_at,
   };
@@ -146,7 +146,12 @@ export async function buildDuplicatesWorkbook(rows: DuplicateUpload[]): Promise<
     const linha = sheet.addRow({
       fileName: row.fileName,
       existingFileName: row.existingFileName || "—",
-      origin: row.origin === "lote" ? "Repetido no mesmo lote" : "Já estava na base",
+      origin:
+        row.origin === "lote"
+          ? "Mesma FV/OS no lote"
+          : row.origin === "arquivo"
+            ? "Mesmo arquivo já guardado"
+            : "Mesma FV/OS na base",
       fac: row.fac,
       os: row.os,
       cell: rotuloCelula(row.existingCell),
@@ -169,7 +174,7 @@ export async function buildDuplicatesWorkbook(rows: DuplicateUpload[]): Promise<
 
   sheet.addRow([]);
   const nota = sheet.addRow([
-    "Este log registra tentativas de importar um PDF que já existia. Nenhum documento, FV/OS ou célula foi alterado.",
+    "Duplicado = mesmo FV e mesma OS (ou o mesmo arquivo já guardado). Nenhum documento, FV/OS ou célula foi alterado.",
   ]);
   nota.font = { italic: true, size: 9, color: { argb: "FF64748B" } };
 

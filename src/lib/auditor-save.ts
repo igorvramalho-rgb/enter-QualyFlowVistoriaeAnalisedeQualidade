@@ -404,6 +404,15 @@ export interface BatchResult {
 
 const CONCURRENCY = 3;
 
+/**
+ * Identidade do serviço: mesma FV **e** mesma OS = arquivo duplicado.
+ * Compara apenas dígitos, para ignorar formatação (FV 47387 = 047387).
+ */
+function chaveIdentidade(fac: string, os: string): string {
+  const digitos = (valor: string) => valor.replace(/\D/g, "");
+  return `${digitos(fac)}|${digitos(os)}`;
+}
+
 /** Erros que valem uma nova tentativa (rede instável, nuvem pausada, timeout). */
 const TRANSITORIO = /fetch|network|rede|timeout|timed out|tempor|429|500|502|503|504|jwt|conex/i;
 
@@ -442,8 +451,22 @@ export async function importAuditorBatch(params: {
 
   const vistos = new Set(fingerprints);
   const presentesNaBase = new Set(fingerprints);
-  /** Arquivo deste lote que introduziu cada digital (para repetidos no lote). */
+
+  // Mesma FV + mesma OS já tratada = duplicado (regra pedida pelo usuário).
+  const mapaPorIdentidade = new Map<string, string>();
+  for (const [chave, caseId] of mapaCasos) {
+    const [fac, os] = chave.split("|");
+    const identidade = chaveIdentidade(fac ?? "", os ?? "");
+    if (!identidade.startsWith("|") && !identidade.endsWith("|")) {
+      mapaPorIdentidade.set(identidade, caseId);
+    }
+  }
+  const identidadesDaBase = new Set(mapaPorIdentidade.keys());
+
+  /** Arquivo deste lote que introduziu cada identidade (repetidos no lote). */
   const origemNoLote = new Map<string, string>();
+  const identidadesEmAndamento = new Set<string>();
+  const identidadePorArquivo = new Map<File, string>();
   /** Tentativas duplicadas: registradas para a aba Duplicados, sem mexer na célula. */
   const duplicadosLote: {
     fingerprint: string;
@@ -454,7 +477,7 @@ export async function importAuditorBatch(params: {
     existing_imported_at: string | null;
     fac: string;
     os: string;
-    origin: "base" | "lote";
+    origin: "base" | "lote" | "arquivo";
   }[] = [];
   /** Fingerprint de cada arquivo, para desfazer a marca quando o arquivo falha. */
   const marcas = new Map<File, string>();
@@ -467,32 +490,87 @@ export async function importAuditorBatch(params: {
       AUDITOR_FIELDS.map(({ key }) => [key, extraction.fields[key].value]),
     );
 
-    // Já existe: entra para o log de duplicados e NÃO é migrado para a célula.
-    if (vistos.has(extraction.fingerprint)) {
-      const naBase = presentesNaBase.has(extraction.fingerprint);
-      const { data: existente } = await supabase
-        .from("qa_documents")
-        .select("id, file_name, cell, imported_at")
-        .eq("fingerprint", extraction.fingerprint)
-        .maybeSingle();
+    // FV/OS vêm do PDF; se o texto não trouxer, o nome do arquivo resolve.
+    const doNome = deriveNumbersFromFileName(file.name);
+    const fac = extraction.fields.fac.value || doNome.fac || "";
+    const os = extraction.fields.os.value || doNome.os || "";
+    const identidade = chaveIdentidade(fac, os);
+    const identidadeValida = !identidade.startsWith("|") && !identidade.endsWith("|");
+    identidadePorArquivo.set(file, identidadeValida ? identidade : "");
+
+    const duplicadoPorIdentidade =
+      identidadeValida && (mapaPorIdentidade.has(identidade) || identidadesEmAndamento.has(identidade));
+    const duplicadoPorArquivo = vistos.has(extraction.fingerprint);
+
+    // Duplicado = mesma FV e mesma OS (ou o mesmo arquivo já guardado).
+    // Não é migrado para a célula; entra para o log da aba Duplicados.
+    if (duplicadoPorIdentidade || duplicadoPorArquivo) {
+      let existenteNome = "";
+      let existenteCelula = "";
+      let existenteImportado: string | null = null;
+      let existenteDocumento: string | null = null;
+
+      if (duplicadoPorIdentidade) {
+        const caseId = mapaPorIdentidade.get(identidade);
+        if (caseId) {
+          const { data } = await supabase
+            .from("qa_cases")
+            .select("cell, document_id, qa_documents(file_name, imported_at)")
+            .eq("id", caseId)
+            .maybeSingle();
+
+          if (data) {
+            existenteCelula = data.cell ?? "";
+            existenteDocumento = data.document_id ?? null;
+            const documento = (data as {
+              qa_documents?: { file_name?: string; imported_at?: string } | null;
+            }).qa_documents;
+            existenteNome = documento?.file_name ?? "";
+            existenteImportado = documento?.imported_at ?? null;
+          }
+        }
+        if (!existenteNome) {
+          existenteNome = origemNoLote.get(identidade) ?? "";
+        }
+      } else {
+        const { data: existente } = await supabase
+          .from("qa_documents")
+          .select("id, file_name, cell, imported_at")
+          .eq("fingerprint", extraction.fingerprint)
+          .maybeSingle();
+
+        existenteDocumento = existente?.id ?? null;
+        existenteNome = existente?.file_name ?? origemNoLote.get(identidade) ?? "";
+        existenteCelula = existente?.cell ?? "";
+        existenteImportado = existente?.imported_at ?? null;
+      }
 
       duplicadosLote.push({
         fingerprint: extraction.fingerprint,
         file_name: file.name,
-        existing_document_id: existente?.id ?? null,
-        existing_file_name: existente?.file_name ?? origemNoLote.get(extraction.fingerprint) ?? "",
-        existing_cell: existente?.cell ?? "",
-        existing_imported_at: existente?.imported_at ?? null,
-        fac: extraction.fields.fac.value,
-        os: extraction.fields.os.value,
-        origin: naBase ? "base" : "lote",
+        existing_document_id: existenteDocumento,
+        existing_file_name: existenteNome,
+        existing_cell: existenteCelula,
+        existing_imported_at: existenteImportado,
+        fac,
+        os,
+        origin: duplicadoPorIdentidade
+          ? identidadesDaBase.has(identidade)
+            ? "base"
+            : "lote"
+          : presentesNaBase.has(extraction.fingerprint)
+            ? "base"
+            : "arquivo",
       });
       resultado.duplicados += 1;
       return;
     }
 
     vistos.add(extraction.fingerprint);
-    origemNoLote.set(extraction.fingerprint, file.name);
+    if (identidadeValida) {
+      identidadesEmAndamento.add(identidade);
+      origemNoLote.set(identidade, file.name);
+    }
 
     const documentId = crypto.randomUUID();
     const { error: docError } = await supabase.from("qa_documents").insert({
@@ -552,6 +630,11 @@ export async function importAuditorBatch(params: {
     });
 
     if (caseId) {
+      if (identidadeValida) {
+        identidadesEmAndamento.delete(identidade);
+        mapaPorIdentidade.set(identidade, caseId);
+        mapaCasos.set(`${fields.fac}|${fields.os}`, caseId);
+      }
       await supabase.from("qa_case_events").insert({
         case_id: caseId,
         event_type: "recebimento",
@@ -586,6 +669,13 @@ export async function importAuditorBatch(params: {
           const marca = marcas.get(file);
           if (marca) {
             vistos.delete(marca);
+          }
+          const identidade = identidadePorArquivo.get(file);
+          if (identidade) {
+            identidadesEmAndamento.delete(identidade);
+            if (origemNoLote.get(identidade) === file.name) {
+              origemNoLote.delete(identidade);
+            }
           }
 
           resultado.falhas += 1;

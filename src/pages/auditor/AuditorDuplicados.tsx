@@ -149,8 +149,7 @@ export default function AuditorDuplicados() {
           <div>
             <h1 className="text-sm font-semibold text-foreground">Duplicados</h1>
             <p className="mt-0.5 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
-              Tentativas de importar um PDF que já existia na base. Elas não entram na célula e não criam documento
-              novo. Use o Excel para achar os repetidos no computador e, se quiser, limpe este registro — FV/OS,
+              Tentativas de importar um PDF que já existia na base. A regra é <strong className="text-foreground">mesma FV e mesma OS</strong> (ex.: FV 47387 / OS 2694290011). Elas não entram na célula e não criam documento novo. Use o Excel para achar os repetidos no computador e, se quiser, limpe este registro — FV/OS,
               documentos e células permanecem intactos.
             </p>
           </div>
@@ -276,7 +275,11 @@ export default function AuditorDuplicados() {
                       {linha.existingFileName || "—"}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {linha.origin === "lote" ? "Repetido no lote" : "Já estava na base"}
+                      {linha.origin === "lote"
+                        ? "Mesma FV/OS no lote"
+                        : linha.origin === "arquivo"
+                          ? "Mesmo arquivo já guardado"
+                          : "Mesma FV/OS na base"}
                     </td>
                     <td className="auditor-num px-3 py-2 text-foreground">
                       {[linha.fac, linha.os].filter(Boolean).join(" / ") || "—"}
