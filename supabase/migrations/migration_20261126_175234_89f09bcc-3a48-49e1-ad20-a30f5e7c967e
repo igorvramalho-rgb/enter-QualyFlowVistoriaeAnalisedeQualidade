@@ -1,0 +1,4 @@
+-- Guarda em qual ciclo e módulo (célula) está a FV/OS já existente.
+alter table public.qa_duplicate_uploads
+  add column if not exists existing_cycle_id uuid references public.qa_cycles(id) on delete set null,
+  add column if not exists existing_cycle_name text not null default '';

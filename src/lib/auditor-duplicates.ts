@@ -12,6 +12,8 @@ export interface DuplicateUpload {
   fileName: string;
   existingFileName: string;
   existingCell: string;
+  cycleId: string | null;
+  cycleName: string;
   fingerprint: string;
   fac: string;
   os: string;
@@ -32,6 +34,8 @@ function paraRegistro(row: {
   file_name: string;
   existing_file_name: string;
   existing_cell: string;
+  existing_cycle_id: string | null;
+  existing_cycle_name: string;
   fingerprint: string;
   fac: string;
   os: string;
@@ -44,6 +48,8 @@ function paraRegistro(row: {
     fileName: row.file_name,
     existingFileName: row.existing_file_name,
     existingCell: row.existing_cell,
+    cycleId: row.existing_cycle_id,
+    cycleName: row.existing_cycle_name,
     fingerprint: row.fingerprint,
     fac: row.fac,
     os: row.os,
@@ -56,7 +62,9 @@ function paraRegistro(row: {
 export async function fetchDuplicateUploads(): Promise<DuplicateUpload[]> {
   const { data, error } = await supabase
     .from("qa_duplicate_uploads")
-    .select("id, file_name, existing_file_name, existing_cell, fingerprint, fac, os, origin, created_at, existing_imported_at")
+    .select(
+      "id, file_name, existing_file_name, existing_cell, existing_cycle_id, existing_cycle_name, fingerprint, fac, os, origin, created_at, existing_imported_at",
+    )
     .order("created_at", { ascending: false })
     .limit(5000);
 
@@ -130,7 +138,8 @@ export async function buildDuplicatesWorkbook(rows: DuplicateUpload[]): Promise<
     { header: "Origem", key: "origin", width: 16 },
     { header: "FV", key: "fac", width: 12 },
     { header: "OS", key: "os", width: 16 },
-    { header: "Célula do existente", key: "cell", width: 30 },
+    { header: "Ciclo", key: "cycle", width: 28 },
+    { header: "Módulo / célula", key: "cell", width: 30 },
     { header: "Documento importado em", key: "importedAt", width: 22 },
     { header: "Duplicado detectado em", key: "createdAt", width: 24 },
   ];
@@ -154,6 +163,7 @@ export async function buildDuplicatesWorkbook(rows: DuplicateUpload[]): Promise<
             : "Mesma FV/OS na base",
       fac: row.fac,
       os: row.os,
+      cycle: row.cycleName || "—",
       cell: rotuloCelula(row.existingCell),
       importedAt: dataBR(row.existingImportedAt),
       createdAt: dataBR(row.createdAt),
@@ -169,7 +179,7 @@ export async function buildDuplicatesWorkbook(rows: DuplicateUpload[]): Promise<
     });
   });
 
-  sheet.autoFilter = { from: "A1", to: `H${Math.max(1, rows.length + 1)}` };
+  sheet.autoFilter = { from: "A1", to: `I${Math.max(1, rows.length + 1)}` };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
 
   sheet.addRow([]);

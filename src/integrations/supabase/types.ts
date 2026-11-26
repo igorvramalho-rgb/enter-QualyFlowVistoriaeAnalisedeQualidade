@@ -3626,6 +3626,8 @@ export type Database = {
           batch_id: string
           created_at: string
           existing_cell: string
+          existing_cycle_id: string | null
+          existing_cycle_name: string
           existing_document_id: string | null
           existing_file_name: string
           existing_imported_at: string | null
@@ -3641,6 +3643,8 @@ export type Database = {
           batch_id?: string
           created_at?: string
           existing_cell?: string
+          existing_cycle_id?: string | null
+          existing_cycle_name?: string
           existing_document_id?: string | null
           existing_file_name?: string
           existing_imported_at?: string | null
@@ -3656,6 +3660,8 @@ export type Database = {
           batch_id?: string
           created_at?: string
           existing_cell?: string
+          existing_cycle_id?: string | null
+          existing_cycle_name?: string
           existing_document_id?: string | null
           existing_file_name?: string
           existing_imported_at?: string | null
@@ -3668,6 +3674,12 @@ export type Database = {
           os?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "qa_duplicate_uploads_existing_cycle_id_fkey"
+            columns: ["existing_cycle_id"]
+            referencedRelation: "qa_cycles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "qa_duplicate_uploads_existing_document_id_fkey"
             columns: ["existing_document_id"]

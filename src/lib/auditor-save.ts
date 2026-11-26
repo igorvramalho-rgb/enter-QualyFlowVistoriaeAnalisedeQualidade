@@ -3,7 +3,7 @@ import { PHOTO_BUCKET } from "@/lib/photo-storage";
 import { extractAuditorDocument, AUDITOR_FIELDS } from "@/lib/auditor-pdf";
 import type { AuditorExtraction, AuditorItem } from "@/lib/auditor-pdf";
 import { STATUS_BY_CELL, type AnalysisStatus, type CaseOutcome, type CellKey } from "@/lib/auditor";
-import { getActiveCycleId } from "@/lib/cycles";
+import { getActiveCycleId, getCycles } from "@/lib/cycles";
 import { deriveNumbersFromFileName } from "@/lib/fields";
 
 
@@ -474,6 +474,8 @@ export async function importAuditorBatch(params: {
     existing_document_id: string | null;
     existing_file_name: string;
     existing_cell: string;
+    existing_cycle_id: string | null;
+    existing_cycle_name: string;
     existing_imported_at: string | null;
     fac: string;
     os: string;
@@ -507,6 +509,7 @@ export async function importAuditorBatch(params: {
     if (duplicadoPorIdentidade || duplicadoPorArquivo) {
       let existenteNome = "";
       let existenteCelula = "";
+      let existenteCicloId: string | null = null;
       let existenteImportado: string | null = null;
       let existenteDocumento: string | null = null;
 
@@ -515,12 +518,13 @@ export async function importAuditorBatch(params: {
         if (caseId) {
           const { data } = await supabase
             .from("qa_cases")
-            .select("cell, document_id, qa_documents(file_name, imported_at)")
+            .select("cell, cycle_id, document_id, qa_documents(file_name, imported_at)")
             .eq("id", caseId)
             .maybeSingle();
 
           if (data) {
             existenteCelula = data.cell ?? "";
+            existenteCicloId = data.cycle_id ?? null;
             existenteDocumento = data.document_id ?? null;
             const documento = (data as {
               qa_documents?: { file_name?: string; imported_at?: string } | null;
@@ -543,7 +547,25 @@ export async function importAuditorBatch(params: {
         existenteNome = existente?.file_name ?? origemNoLote.get(identidade) ?? "";
         existenteCelula = existente?.cell ?? "";
         existenteImportado = existente?.imported_at ?? null;
+
+        if (existente?.id) {
+          const { data: caso } = await supabase
+            .from("qa_cases")
+            .select("cell, cycle_id")
+            .eq("document_id", existente.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (caso) {
+            existenteCelula = existenteCelula || (caso.cell ?? "");
+            existenteCicloId = caso.cycle_id ?? null;
+          }
+        }
       }
+
+      const cicloExistente = existenteCicloId
+        ? getCycles().find((ciclo) => ciclo.id === existenteCicloId)?.name ?? ""
+        : "";
 
       duplicadosLote.push({
         fingerprint: extraction.fingerprint,
@@ -551,6 +573,8 @@ export async function importAuditorBatch(params: {
         existing_document_id: existenteDocumento,
         existing_file_name: existenteNome,
         existing_cell: existenteCelula,
+        existing_cycle_id: existenteCicloId,
+        existing_cycle_name: cicloExistente,
         existing_imported_at: existenteImportado,
         fac,
         os,

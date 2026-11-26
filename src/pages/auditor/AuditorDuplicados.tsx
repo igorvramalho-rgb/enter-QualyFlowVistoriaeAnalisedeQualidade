@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { CELLS, type CellKey } from "@/lib/auditor";
+import { useCycles } from "@/lib/cycles";
 import {
   buildDuplicatesWorkbook,
   deleteDuplicateUploads,
@@ -46,6 +47,7 @@ export default function AuditorDuplicados() {
   const [apagarTudo, setApagarTudo] = useState(false);
   const [busy, setBusy] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const ciclos = useCycles();
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -69,7 +71,7 @@ export default function AuditorDuplicados() {
       return linhas;
     }
     return linhas.filter((linha) =>
-      [linha.fileName, linha.existingFileName, linha.fac, linha.os]
+      [linha.fileName, linha.existingFileName, linha.fac, linha.os, linha.cycleName]
         .join(" ")
         .toLowerCase()
         .includes(termo),
@@ -140,6 +142,8 @@ export default function AuditorDuplicados() {
   };
 
   const rotuloCelula = (valor: string) => (valor ? CELLS[valor as CellKey]?.label ?? valor : "—");
+  const nomeCiclo = (linha: DuplicateUpload) =>
+    linha.cycleName || ciclos.find((ciclo) => ciclo.id === linha.cycleId)?.name || "—";
   const todosVisiveisMarcados = filtradas.length > 0 && filtradas.every((linha) => selecionados.has(linha.id));
 
   return (
@@ -254,7 +258,8 @@ export default function AuditorDuplicados() {
                   <th className="px-3 py-2">Já existia como</th>
                   <th className="px-3 py-2">Origem</th>
                   <th className="px-3 py-2">FV / OS</th>
-                  <th className="px-3 py-2">Célula do existente</th>
+                  <th className="px-3 py-2">Ciclo</th>
+                  <th className="px-3 py-2">Módulo</th>
                   <th className="px-3 py-2">Detectado em</th>
                 </tr>
               </thead>
@@ -283,6 +288,9 @@ export default function AuditorDuplicados() {
                     </td>
                     <td className="auditor-num px-3 py-2 text-foreground">
                       {[linha.fac, linha.os].filter(Boolean).join(" / ") || "—"}
+                    </td>
+                    <td className="max-w-[200px] truncate px-3 py-2 text-muted-foreground" title={nomeCiclo(linha)}>
+                      {nomeCiclo(linha)}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{rotuloCelula(linha.existingCell)}</td>
                     <td className="auditor-num px-3 py-2 text-muted-foreground">{dataBR(linha.createdAt)}</td>
