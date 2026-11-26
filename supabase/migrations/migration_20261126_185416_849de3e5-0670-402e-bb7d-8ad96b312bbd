@@ -1,0 +1,22 @@
+update public.qa_cases
+set cell = 'respondidos',
+    analysis_status = 'resposta_enviada',
+    updated_at = now()
+where id in (
+  'c50891e5-33c1-447a-ad83-142beb2e1694',
+  '6c63a4a6-ef59-4010-a2b4-b301cfc87fca',
+  'c9ae79bb-3872-4cf4-9275-76e5b14ddfcc',
+  'e341856c-cadb-4a44-ab3c-e4d1a00064b2',
+  '798c3822-44bf-4be9-bec5-e7ccdc9092be',
+  '4c3fcc7b-ebfd-4032-8734-4311e6086b83',
+  '4c93784a-0b33-415d-ad2d-e60c7166b053',
+  '173b516f-3462-428a-86eb-a1231669019e',
+  '26faf7ae-4354-4753-a095-17afff5fd23c',
+  'ee62cf3e-cffc-4ec9-a2dc-f054d2f6cdea',
+  '696709b2-fb79-468c-aedf-d3178300a2c9',
+  '1b7c9290-4b87-4bdd-a387-b4c9cca1d6c5',
+  'b94d32e2-41ef-47f6-9622-0dccc109d459',
+  '08b63e3e-6038-42a7-9772-17ab4b0e7147',
+  'de0c1256-8f97-4c48-bdb2-495abf6e0303'
+)
+and cell <> 'respondidos';
