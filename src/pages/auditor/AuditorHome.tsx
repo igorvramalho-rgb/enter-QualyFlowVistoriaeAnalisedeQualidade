@@ -5,19 +5,22 @@ import {
   FileStack,
   Loader2,
   RefreshCw,
+  Search,
   ShieldCheck,
   TriangleAlert,
   Wrench,
+  X,
 } from "lucide-react";
 import { AuditorShell } from "@/components/auditor/auditor-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuditorCounts } from "@/hooks/use-auditor";
 import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { cachedCases, fetchCases, type CaseRow } from "@/lib/auditor";
-import { useActiveCycle } from "@/lib/cycles";
-import { useEffect, useState } from "react";
-import { CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
+import { useActiveCycle, useCycles } from "@/lib/cycles";
+import { useEffect, useMemo, useState } from "react";
+import { ANALYSIS_STATUS, CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
 const TILES = [
   { key: "documents", label: "FV/OS recebidas", icon: FileStack },
@@ -28,16 +31,98 @@ const TILES = [
   { key: "redoOpen", label: "Serviços a refazer", icon: Wrench },
 ] as const;
 
+const SEM_ACENTO = /[\u0300-\u036f]/g;
+
+function normalizar(valor: string): string {
+  return valor.normalize("NFD").replace(SEM_ACENTO, "").toLowerCase();
+}
+
+function somenteDigitos(valor: string): string {
+  return valor.replace(/\D/g, "");
+}
+
+const LIMITE_RESULTADOS = 60;
+
 export default function AuditorHome() {
   const { counts, loading, error, refresh } = useAuditorCounts();
   const cicloAtivo = useActiveCycle();
+  const ciclos = useCycles();
   const [casos, setCasos] = useState<CaseRow[]>(() => cachedCases({ limit: 15 }) ?? []);
+  const [busca, setBusca] = useState("");
+  const [baseBusca, setBaseBusca] = useState<CaseRow[] | null>(null);
+  const [carregandoBusca, setCarregandoBusca] = useState(false);
+  const [versaoBusca, setVersaoBusca] = useState(0);
+
+  const cicloNome = ciclos.find((ciclo) => ciclo.id === cicloAtivo)?.name ?? "";
 
   useEffect(() => {
     void fetchCases({ limit: 15, cycleId: cicloAtivo })
       .then((rows) => setCasos(rows))
       .catch(() => setCasos([]));
   }, [counts, cicloAtivo]);
+
+  // Troca de ciclo: a busca recomeça na base do ciclo novo.
+  useEffect(() => {
+    setBaseBusca(null);
+  }, [cicloAtivo]);
+
+  useEffect(() => {
+    if (baseBusca !== null) {
+      return;
+    }
+    let ativo = true;
+    setCarregandoBusca(true);
+    void fetchCases({ cycleId: cicloAtivo, force: true })
+      .then((rows) => {
+        if (ativo) setBaseBusca(rows);
+      })
+      .catch(() => {
+        if (ativo) setBaseBusca([]);
+      })
+      .finally(() => {
+        if (ativo) setCarregandoBusca(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [baseBusca, cicloAtivo, versaoBusca]);
+
+  const termo = busca.trim();
+  const termoNormalizado = normalizar(termo);
+  const termoDigitos = somenteDigitos(termo);
+
+  const resultados = useMemo(() => {
+    if (!termoNormalizado) {
+      return [];
+    }
+    return (baseBusca ?? []).filter((caso) => {
+      const campos = [
+        caso.fac,
+        caso.os,
+        caso.address,
+        caso.municipality,
+        caso.locality,
+        caso.serviceType,
+        caso.fileName,
+        caso.motive,
+        cellLabel(caso.cell),
+        ANALYSIS_STATUS[caso.status] ?? "",
+        CELLS[caso.cell]?.short ?? "",
+      ];
+      if (campos.some((campo) => normalizar(campo).includes(termoNormalizado))) {
+        return true;
+      }
+      if (termoDigitos.length >= 2) {
+        return (
+          somenteDigitos(caso.fac).includes(termoDigitos) ||
+          somenteDigitos(caso.os).includes(termoDigitos)
+        );
+      }
+      return false;
+    });
+  }, [baseBusca, termoNormalizado, termoDigitos]);
+
+  const visiveis = resultados.slice(0, LIMITE_RESULTADOS);
 
   const valores: Record<(typeof TILES)[number]["key"], number> = {
     documents: counts?.documents ?? 0,
@@ -54,7 +139,17 @@ export default function AuditorHome() {
         <h2 className="text-sm font-semibold text-foreground">Visão geral</h2>
         <div className="flex flex-wrap items-center gap-2">
           <AuditorReset onCleared={() => void refresh()} />
-          <Button type="button" variant="glass" size="sm" onClick={() => void refresh()} disabled={loading}>
+          <Button
+            type="button"
+            variant="glass"
+            size="sm"
+            onClick={() => {
+              setBaseBusca(null);
+              setVersaoBusca((versao) => versao + 1);
+              void refresh();
+            }}
+            disabled={loading}
+          >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Atualizar
           </Button>
@@ -66,6 +161,111 @@ export default function AuditorHome() {
           Não foi possível carregar os indicadores: {error}
         </Card>
       )}
+
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="auditor-busca"
+              type="text"
+              value={busca}
+              onChange={(event) => setBusca(event.target.value)}
+              placeholder="Pesquisar FV, OS, endereço, serviço, célula ou arquivo…"
+              aria-label="Pesquisar arquivos em todas as células"
+              className="h-10 border-glass-border/60 bg-background/60 pl-9 pr-9 text-xs"
+            />
+            {busca && (
+              <button
+                type="button"
+                aria-label="Limpar pesquisa"
+                onClick={() => setBusca("")}
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-smooth hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {carregandoBusca && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          Busca em todas as células
+          {cicloNome ? ` do ciclo ${cicloNome}` : " do ciclo selecionado"} — FV, OS, endereço,
+          serviço, situação e nome do arquivo.
+        </p>
+
+        {termo.length > 0 && (
+          <div className="mt-2">
+            {carregandoBusca && baseBusca === null ? (
+              <p className="py-3 text-center text-[11px] text-muted-foreground">
+                Carregando a base do ciclo…
+              </p>
+            ) : resultados.length === 0 ? (
+              <p className="py-3 text-center text-[11px] text-muted-foreground">
+                Nenhum arquivo encontrado para “{termo}” neste ciclo.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span>{resultados.length} resultado(s)</span>
+                  {resultados.length > LIMITE_RESULTADOS && (
+                    <span>mostrando os {LIMITE_RESULTADOS} primeiros</span>
+                  )}
+                </div>
+                <div className="mt-1 overflow-x-auto">
+                  <table className="w-full border-collapse text-[11px]">
+                    <thead>
+                      <tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <th className="py-1.5 pr-2 font-medium">FV / OS</th>
+                        <th className="py-1.5 pr-2 font-medium">Endereço</th>
+                        <th className="py-1.5 pr-2 font-medium">Serviço</th>
+                        <th className="py-1.5 pr-2 font-medium">Arquivo</th>
+                        <th className="py-1.5 pr-2 font-medium">Célula</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visiveis.map((caso) => (
+                        <tr key={caso.id} className="border-b border-border/30 align-top">
+                          <td className="whitespace-nowrap py-1.5 pr-2">
+                            <Link
+                              to={`/auditor/caso/${caso.id}`}
+                              className="text-primary underline-offset-2 hover:underline"
+                            >
+                              {caso.fac || caso.fileName || "sem FV/OS"}
+                              {caso.fac || caso.os ? ` / ${caso.os || "—"}` : ""}
+                            </Link>
+                          </td>
+                          <td
+                            className="max-w-[260px] truncate py-1.5 pr-2 text-muted-foreground"
+                            title={caso.address}
+                          >
+                            {caso.address || "—"}
+                          </td>
+                          <td
+                            className="max-w-[220px] truncate py-1.5 pr-2 text-muted-foreground"
+                            title={caso.serviceType}
+                          >
+                            {caso.serviceType || "—"}
+                          </td>
+                          <td
+                            className="max-w-[220px] truncate py-1.5 pr-2 text-muted-foreground"
+                            title={caso.fileName}
+                          >
+                            {caso.fileName || "—"}
+                          </td>
+                          <td className="whitespace-nowrap py-1.5 pr-2 text-foreground">
+                            {cellLabel(caso.cell)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CELL_KEYS.map((key, index) => (
