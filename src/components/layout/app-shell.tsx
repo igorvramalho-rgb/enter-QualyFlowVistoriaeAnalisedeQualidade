@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { CloudOff, HardDriveDownload, LogOut, Menu, ShieldCheck } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "@/components/layout/app-footer";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -14,7 +14,7 @@ import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { JarvisIntro } from "@/components/auth/jarvis-intro";
 import { isCloudDown, subscribeCloudDown } from "@/lib/offline-access";
-import { CloudOff } from "lucide-react";
+import { offlineRuntime, subscribeOfflineRuntime, startOfflineServices, syncNow } from "@/lib/offline/gateway";
 
 export default function AppShell() {
   const location = useLocation();
@@ -22,7 +22,24 @@ export default function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
   const nuvemIndisponivel = useSyncExternalStore(subscribeCloudDown, isCloudDown, isCloudDown);
-  const { user, profile, loading, profileLoading, signOut, refreshProfile } = useAuth();
+  const contingencia = useSyncExternalStore(subscribeOfflineRuntime, offlineRuntime, offlineRuntime);
+  const { user, profile, loading, profileLoading, signOut } = useAuth();
+  const [sincronizando, setSincronizando] = useState(false);
+
+  useEffect(() => {
+    if (profile?.status === "ativo") {
+      startOfflineServices();
+    }
+  }, [profile]);
+
+  const sincronizarAgora = async () => {
+    setSincronizando(true);
+    try {
+      await syncNow();
+    } finally {
+      setSincronizando(false);
+    }
+  };
 
   useLegacyCloudMigration();
 
@@ -123,6 +140,18 @@ export default function AppShell() {
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 {profile.role === "gestor" ? "Gestor" : "Vistoriador"}
               </span>
+              <span
+                className="chip-tech max-w-[210px] truncate"
+                title="Cópia dos dados neste computador para trabalhar com a nuvem pausada. Atualizada a cada 5 minutos."
+              >
+                <HardDriveDownload className="h-3.5 w-3.5 text-primary" />
+                {contingencia.snapshotAt > 0
+                  ? `Cópia local ${new Date(contingencia.snapshotAt).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
+                  : "Preparando cópia local"}
+              </span>
             </div>
 
             <ThemeToggle />
@@ -140,22 +169,42 @@ export default function AppShell() {
           </div>
         </header>
 
-        {nuvemIndisponivel && (
+        {(nuvemIndisponivel || contingencia.pending > 0 || contingencia.failed > 0) && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-[11px] text-foreground">
             <p className="flex items-center gap-2">
               <CloudOff className="h-3.5 w-3.5 shrink-0" />
               <span>
-                <strong>Nuvem indisponível.</strong> Você está no modo contingência: pode continuar
-                emitindo relatórios neste computador. Análises e BI voltam quando a conexão
-                retornar.
+                <strong>
+                  {nuvemIndisponivel
+                    ? "Nuvem indisponível — modo contingência."
+                    : "Sincronização pendente."}
+                </strong>{" "}
+                {nuvemIndisponivel
+                  ? "O sistema está trabalhando com a cópia local deste computador: importações, células, BI e relatórios continuam funcionando."
+                  : "O trabalho local está salvo neste computador e será enviado à nuvem."}{" "}
+                {contingencia.pending > 0
+                  ? `${contingencia.pending} alteração(ões) aguardam envio automático quando a nuvem voltar.`
+                  : "Nenhuma alteração pendente de envio."}
+                {contingencia.failed > 0 && (
+                  <span className="ml-1 font-semibold text-destructive">
+                    {contingencia.failed} alteração(ões) não puderam ser enviadas — verifique os
+                    dados antes de continuar.
+                  </span>
+                )}
+                {contingencia.snapshotAt > 0 && (
+                  <span className="ml-1 text-muted-foreground">
+                    Cópia local de {new Date(contingencia.snapshotAt).toLocaleString("pt-BR")}.
+                  </span>
+                )}
               </span>
             </p>
             <button
               type="button"
-              onClick={() => void refreshProfile()}
-              className="rounded-md border border-warning/50 px-2 py-1 text-[10px] font-medium"
+              onClick={() => void sincronizarAgora()}
+              disabled={sincronizando}
+              className="rounded-md border border-warning/50 px-2 py-1 text-[10px] font-medium disabled:opacity-60"
             >
-              Tentar reconectar
+              {sincronizando ? "Sincronizando…" : "Sincronizar agora"}
             </button>
           </div>
         )}

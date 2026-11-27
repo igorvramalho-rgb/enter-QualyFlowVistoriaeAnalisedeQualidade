@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthContext, type AuthContextValue } from "@/hooks/auth-context";
@@ -9,6 +9,7 @@ import {
   readCachedProfile,
   setCloudDown,
 } from "@/lib/offline-access";
+import { readOfflineUser, startOfflineServices, offlineActive } from "@/lib/offline/gateway";
 
 /**
  * Sessão no Enter Cloud + perfil de acesso (gestor/vistoriador e status).
@@ -22,21 +23,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileVersion, setProfileVersion] = useState(0);
+  /** Modo contingência: acesso validado antes neste computador, sem nuvem. */
+  const [, setOfflineAccess] = useState(false);
+  const offlineRef = useRef(false);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Um evento de sessão vazio não pode derrubar quem está no modo local.
+      if (offlineRef.current && !nextSession) {
+        return;
+      }
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setLoading(false);
     });
 
+    // Se a nuvem não responder, a tela de entrada não pode ficar presa.
+    const release = window.setTimeout(() => setLoading(false), 6000);
+
     void supabase.auth.getSession().then(({ data: current }) => {
+      window.clearTimeout(release);
       setSession(current.session);
       setUser(current.session?.user ?? null);
       setLoading(false);
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      window.clearTimeout(release);
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -56,9 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (next) {
           cacheProfile(next);
-          setCloudDown(false);
+          if (!offlineActive()) {
+            setCloudDown(false);
+          }
+          setProfile(next);
+          return;
         }
-        setProfile(next);
+        // Sem linha na nuvem (ou lida da cópia local): vale o último acesso válido.
+        const cache = readCachedProfile();
+        if (cache) {
+          setProfile(cache);
+          return;
+        }
+        setProfile(null);
       })
       .catch(() => {
         if (!active) {
@@ -104,11 +129,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setCloudDown(false);
+    offlineRef.current = false;
+    setOfflineAccess(false);
+    startOfflineServices();
+  }, []);
+
+  const enterOffline = useCallback(() => {
+    const cached = readCachedProfile();
+    if (!cached) {
+      throw new Error(
+        "Este computador ainda não tem um acesso salvo. Entre uma vez com a nuvem ativa para habilitar o modo contingência.",
+      );
+    }
+    const storedUser = readOfflineUser();
+    const synthetic = (storedUser ?? {
+      id: cached.userId,
+      email: usernameToEmail(cached.username),
+    }) as unknown as User;
+
+    setCloudDown(true);
+    offlineRef.current = true;
+    setOfflineAccess(true);
+    setProfile(cached);
+    setUser(synthetic);
+    setSession(null);
+    setLoading(false);
+    setProfileLoading(false);
+    startOfflineServices();
   }, []);
 
   const signOut = useCallback(async () => {
     clearCachedProfile();
-    await supabase.auth.signOut();
+    offlineRef.current = false;
+    setOfflineAccess(false);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* nuvem fora: a sessão local já foi encerrada */
+    }
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -119,8 +177,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, session, profile, loading, profileLoading, signIn, signOut, refreshProfile }),
-    [user, session, profile, loading, profileLoading, signIn, signOut, refreshProfile],
+    () => ({
+      user,
+      session,
+      profile,
+      loading,
+      profileLoading,
+      signIn,
+      enterOffline,
+      signOut,
+      refreshProfile,
+    }),
+    [user, session, profile, loading, profileLoading, signIn, enterOffline, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

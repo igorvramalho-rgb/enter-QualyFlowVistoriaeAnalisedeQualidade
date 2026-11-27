@@ -11,6 +11,8 @@ export interface AuthContextValue {
   /** Carregando o perfil de acesso do usuário logado. */
   profileLoading: boolean;
   signIn: (identifier: string, password: string) => Promise<void>;
+  /** Entra com o acesso já validado neste computador quando a nuvem está fora. */
+  enterOffline: () => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }

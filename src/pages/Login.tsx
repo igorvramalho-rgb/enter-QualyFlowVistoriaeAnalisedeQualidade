@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  CloudOff,
   CloudUpload,
   Eye,
   EyeOff,
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/auth-context";
+import { readCachedProfile } from "@/lib/offline-access";
 
 const HIGHLIGHTS = [
   {
@@ -39,11 +41,14 @@ const HIGHLIGHTS = [
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, enterOffline } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [nuvemFora, setNuvemFora] = useState(false);
+
+  const acessoSalvo = Boolean(readCachedProfile());
 
   useEffect(() => {
     if (!loading && user) {
@@ -69,11 +74,29 @@ export default function Login() {
       toast.success("Bem-vindo de volta!");
       navigate("/emissor", { replace: true });
     } catch (error) {
+      const mensagem = error instanceof Error ? error.message : "";
+      if (/nuvem|conex|fetch|network|servidor/i.test(mensagem)) {
+        setNuvemFora(true);
+      }
       toast.error("Não foi possível entrar", {
         description: error instanceof Error ? error.message : undefined,
       });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const entrarNoModoLocal = () => {
+    try {
+      enterOffline();
+      toast.success("Modo contingência ativado", {
+        description: "Trabalhando com a cópia local; tudo será enviado quando a nuvem voltar.",
+      });
+      navigate("/emissor", { replace: true });
+    } catch (error) {
+      toast.error("Modo contingência indisponível", {
+        description: error instanceof Error ? error.message : undefined,
+      });
     }
   };
 
@@ -234,6 +257,27 @@ export default function Login() {
                 Primeiro acesso ou senha esquecida? O gestor cadastra o usuário e redefine a senha.
               </p>
             </form>
+
+            {nuvemFora && acessoSalvo && (
+              <div className="rounded-xl border border-warning/40 bg-warning/10 p-3">
+                <p className="flex items-start gap-2 text-[11px] leading-snug text-foreground">
+                  <CloudOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                  <span>
+                    A nuvem não respondeu. Este computador tem um acesso válido salvo — você pode
+                    continuar trabalhando com a cópia local.
+                  </span>
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 h-9 w-full text-xs"
+                  onClick={entrarNoModoLocal}
+                >
+                  <CloudOff className="h-4 w-4" />
+                  Entrar no modo contingência
+                </Button>
+              </div>
+            )}
 
             <div className="flex items-center justify-between border-t border-glass-border/40 pt-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               <span>QualyFlow</span>

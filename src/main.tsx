@@ -1,3 +1,4 @@
+import "./lib/offline/gateway";
 import { createRoot } from "react-dom/client";
 import "./i18n/config";
 import { bootstrapGeneratedSiteAnalytics } from "./analytics.ts";
