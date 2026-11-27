@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { toast } from "@/components/ui/sonner";
 import { AccessGate } from "@/components/auth/access-gate";
 import { useAuth } from "@/hooks/auth-context";
 import { useLegacyCloudMigration } from "@/hooks/use-cloud-data";
@@ -36,6 +37,13 @@ export default function AppShell() {
     setSincronizando(true);
     try {
       await syncNow();
+      if (isCloudDown()) {
+        toast.error("A nuvem ainda não respondeu", {
+          description: "O trabalho continua salvo neste computador; tente novamente em instantes.",
+        });
+      } else {
+        toast.success("Sincronização concluída");
+      }
     } finally {
       setSincronizando(false);
     }
@@ -170,7 +178,10 @@ export default function AppShell() {
         </header>
 
         {(nuvemIndisponivel || contingencia.pending > 0 || contingencia.failed > 0) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-[11px] text-foreground">
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-[11px] text-foreground"
+            title={contingencia.message || undefined}
+          >
             <p className="flex items-center gap-2">
               <CloudOff className="h-3.5 w-3.5 shrink-0" />
               <span>

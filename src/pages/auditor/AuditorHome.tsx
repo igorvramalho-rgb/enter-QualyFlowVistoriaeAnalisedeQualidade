@@ -19,7 +19,7 @@ import { useAuditorCounts } from "@/hooks/use-auditor";
 import { AuditorReset } from "@/components/auditor/auditor-reset";
 import { cachedCases, fetchCases, type CaseRow } from "@/lib/auditor";
 import { useActiveCycle, useCycles } from "@/lib/cycles";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ANALYSIS_STATUS, CELLS, CELL_KEYS, cellLabel } from "@/lib/auditor";
 
 const TILES = [
@@ -51,7 +51,8 @@ export default function AuditorHome() {
   const [busca, setBusca] = useState("");
   const [baseBusca, setBaseBusca] = useState<CaseRow[] | null>(null);
   const [carregandoBusca, setCarregandoBusca] = useState(false);
-  const [versaoBusca, setVersaoBusca] = useState(0);
+  const cicloBaseRef = useRef(cicloAtivo);
+  const carregandoBaseRef = useRef(false);
 
   const cicloNome = ciclos.find((ciclo) => ciclo.id === cicloAtivo)?.name ?? "";
 
@@ -63,29 +64,36 @@ export default function AuditorHome() {
 
   // Troca de ciclo: a busca recomeça na base do ciclo novo.
   useEffect(() => {
+    cicloBaseRef.current = cicloAtivo;
+    carregandoBaseRef.current = false;
     setBaseBusca(null);
+    setCarregandoBusca(false);
   }, [cicloAtivo]);
 
-  useEffect(() => {
-    if (baseBusca !== null) {
+  const carregarBase = async (forcar = false) => {
+    if (carregandoBaseRef.current) {
       return;
     }
-    let ativo = true;
+    if (!forcar && baseBusca !== null) {
+      return;
+    }
+    const token = cicloAtivo;
+    carregandoBaseRef.current = true;
     setCarregandoBusca(true);
-    void fetchCases({ cycleId: cicloAtivo, force: true })
-      .then((rows) => {
-        if (ativo) setBaseBusca(rows);
-      })
-      .catch(() => {
-        if (ativo) setBaseBusca([]);
-      })
-      .finally(() => {
-        if (ativo) setCarregandoBusca(false);
-      });
-    return () => {
-      ativo = false;
-    };
-  }, [baseBusca, cicloAtivo, versaoBusca]);
+    try {
+      const rows = await fetchCases({ cycleId: token, force: true });
+      if (cicloBaseRef.current === token) {
+        setBaseBusca(rows);
+      }
+    } catch {
+      if (cicloBaseRef.current === token) {
+        setBaseBusca([]);
+      }
+    } finally {
+      carregandoBaseRef.current = false;
+      setCarregandoBusca(false);
+    }
+  };
 
   const termo = busca.trim();
   const termoNormalizado = normalizar(termo);
@@ -144,8 +152,10 @@ export default function AuditorHome() {
             variant="glass"
             size="sm"
             onClick={() => {
-              setBaseBusca(null);
-              setVersaoBusca((versao) => versao + 1);
+              if (busca.trim() || baseBusca !== null) {
+                setBaseBusca(null);
+                void carregarBase(true);
+              }
               void refresh();
             }}
             disabled={loading}
@@ -170,7 +180,17 @@ export default function AuditorHome() {
               id="auditor-busca"
               type="text"
               value={busca}
-              onChange={(event) => setBusca(event.target.value)}
+              onFocus={() => {
+                if (baseBusca === null) {
+                  void carregarBase();
+                }
+              }}
+              onChange={(event) => {
+                setBusca(event.target.value);
+                if (baseBusca === null) {
+                  void carregarBase();
+                }
+              }}
               placeholder="Pesquisar FV, OS, endereço, serviço, célula ou arquivo…"
               aria-label="Pesquisar arquivos em todas as células"
               className="h-10 border-glass-border/60 bg-background/60 pl-9 pr-9 text-xs"

@@ -92,11 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Nuvem indisponível: mantém o acesso já autenticado neste computador.
         const cache = readCachedProfile();
         if (cache) {
-          setCloudDown(true);
           setProfile(cache);
           return;
         }
-        setCloudDown(true);
         setProfile(null);
       })
       .finally(() => {
@@ -120,7 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mensagem = error.message ?? "";
       // Falha de rede (nuvem indisponível) não é senha errada: avisa na tela.
       if (/failed to fetch|network|fetch failed|load failed/i.test(mensagem)) {
-        setCloudDown(true);
         throw new Error(
           "Não foi possível falar com a nuvem agora. Verifique a conexão e tente novamente em instantes.",
         );

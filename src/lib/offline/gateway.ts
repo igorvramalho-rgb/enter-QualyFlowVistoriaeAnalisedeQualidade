@@ -50,7 +50,8 @@ const TABLES_WITH_ID = new Set([
 
 const REFRESH_EVENT = "qualyflow:refresh";
 const PROBE_INTERVAL = 20_000;
-const SNAPSHOT_INTERVAL = 5 * 60_000;
+const SNAPSHOT_INTERVAL = 10 * 60_000;
+const RECONCILE_INTERVAL = 30_000;
 
 let backendUrl = "";
 let backendKey = "";
@@ -61,6 +62,7 @@ let snapshotting = false;
 let lastSyncMessage = "";
 let probeTimer: number | null = null;
 let snapshotTimer: number | null = null;
+let reconcileTimer: number | null = null;
 
 interface RuntimeStatus {
   offline: boolean;
@@ -94,22 +96,40 @@ export function offlineActive(): boolean {
 }
 
 function updateStatus(patch: Partial<RuntimeStatus>): void {
-  status = { ...status, ...patch };
+  const next = { ...status, ...patch };
+  if (
+    next.offline === status.offline &&
+    next.pending === status.pending &&
+    next.failed === status.failed &&
+    next.message === status.message &&
+    next.snapshotAt === status.snapshotAt
+  ) {
+    return;
+  }
+  status = next;
   emitStatus();
 }
 
 function markOffline(reason = "Nuvem indisponível"): void {
+  const jaEstavaOffline = offline;
   offline = true;
   setCloudDown(true);
   updateStatus({ offline: true, message: reason });
   startProbe();
+  if (!jaEstavaOffline) {
+    console.info("[contingência] modo local:", reason);
+  }
 }
 
 function markOnline(): void {
+  const estavaOffline = offline;
   offline = false;
   setCloudDown(false);
   updateStatus({ offline: false, message: "" });
   stopProbe();
+  if (estavaOffline) {
+    console.info("[contingência] nuvem respondendo; modo online");
+  }
 }
 
 function startProbe(): void {
@@ -346,21 +366,37 @@ async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
   const request = new Request(input, init);
   const pathname = new URL(request.url).pathname;
   const isStorageUpload = /\/storage\/v1\/object\/(?!sign|public|authenticated)/.test(pathname);
-  const timeout = isStorageUpload ? 45_000 : pathname.startsWith("/auth/v1/") ? 8_000 : 12_000;
+  const timeout = isStorageUpload ? 45_000 : pathname.startsWith("/auth/v1/") ? 12_000 : 25_000;
+
+  const aceitar = (response: Response): Response => {
+    if (request.method !== "GET" && request.method !== "HEAD" && response.ok) {
+      markTableDirty(request.url);
+    }
+    return response;
+  };
 
   if (!offline) {
     try {
       const response = await nativeFetchTimed(request.clone(), timeout);
       if (!isCloudStatus(response.status)) {
-        if (request.method !== "GET" && request.method !== "HEAD" && response.ok) {
-          markTableDirty(request.url);
-        }
-        return response;
+        return aceitar(response);
       }
-      markOffline("A nuvem não respondeu");
-    } catch {
-      markOffline("Sem resposta da nuvem");
+    } catch (problem) {
+      // Um timeout isolado não prova que a nuvem está fora: confirma e
+      // repete a requisição uma vez antes de trocar para a cópia local.
+      const demorou = problem instanceof DOMException && problem.name === "AbortError";
+      if (demorou && (await cloudReachable())) {
+        try {
+          const retry = await nativeFetchTimed(request.clone(), timeout);
+          if (!isCloudStatus(retry.status)) {
+            return aceitar(retry);
+          }
+        } catch {
+          /* cai para a cópia local */
+        }
+      }
     }
+    markOffline("Sem resposta da nuvem");
   }
 
   return handleBackend(request);
@@ -446,7 +482,7 @@ function markTableDirty(url: string): void {
   dirtyTimer = window.setTimeout(() => {
     dirtyTimer = null;
     void flushDirtyTables();
-  }, 2500);
+  }, 15_000);
 }
 
 async function flushDirtyTables(): Promise<void> {
@@ -462,7 +498,9 @@ async function flushDirtyTables(): Promise<void> {
   for (const table of tables) {
     const ok = await snapshotTable(table, token);
     if (!ok) {
-      markOffline("Não foi possível atualizar a cópia local");
+      // Uma tabela que não atualizou não significa nuvem fora: a leitura
+      // normal continua disponível. Só o teste de conexão decide o modo.
+      console.warn("[contingência] cópia local: falha ao atualizar", table);
       return;
     }
   }
@@ -488,7 +526,7 @@ async function refreshSnapshot(force = false): Promise<void> {
     for (const table of SNAPSHOT_TABLES) {
       const ok = await snapshotTable(table, token);
       if (!ok) {
-        markOffline("Não foi possível atualizar a cópia local");
+        console.warn("[contingência] cópia local: falha ao atualizar", table);
         return;
       }
     }
@@ -613,36 +651,88 @@ async function flushOutbox(): Promise<void> {
 
 /* ------------------------------------------------------------------- saúde */
 
-async function probe(): Promise<boolean> {
+async function cloudReachable(): Promise<boolean> {
   if (!backendUrl) {
     return false;
   }
+  const token = await accessToken();
+  const headers: Record<string, string> = { apikey: backendKey, Accept: "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   try {
     const response = await nativeFetchTimed(
-      new Request(`${backendUrl}/auth/v1/health`, { headers: { apikey: backendKey } }),
+      new Request(`${backendUrl}/rest/v1/qa_cycles?select=id&limit=1`, { headers }),
       8_000,
     );
-    if (!response.ok) {
-      return false;
-    }
+    // 401/403/404 também provam que o serviço está respondendo.
+    return response.status < 500;
   } catch {
     return false;
   }
+}
 
+let reconciling = false;
+
+async function reconcileCloud(): Promise<void> {
+  if (!isCloudDown() || offline || reconciling) {
+    return;
+  }
+  reconciling = true;
+  try {
+    const ok = await probe();
+    if (!ok) {
+      markOffline("A nuvem não respondeu");
+    }
+  } finally {
+    reconciling = false;
+  }
+}
+
+function startReconcile(): void {
+  if (reconcileTimer !== null) {
+    return;
+  }
+  reconcileTimer = window.setInterval(() => {
+    void reconcileCloud();
+  }, RECONCILE_INTERVAL);
+
+  window.addEventListener("focus", () => {
+    void reconcileCloud();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void reconcileCloud();
+    }
+  });
+}
+
+async function probe(): Promise<boolean> {
+  if (!(await cloudReachable())) {
+    return false;
+  }
+
+  const estavaOffline = offline;
   markOnline();
 
   // A sessão pode ter expirado durante a pausa: renova antes de enviar a fila.
-  try {
-    const { supabase } = await import("@/integrations/supabase/client");
-    await supabase.auth.refreshSession();
-  } catch {
-    /* segue com a sessão local; a fila para se o servidor recusar */
+  if (estavaOffline) {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.auth.refreshSession();
+    } catch {
+      /* segue com a sessão local; a fila para se o servidor recusar */
+    }
   }
 
   await refreshPending();
-  await flushOutbox();
-  await refreshSnapshot(true);
-  window.dispatchEvent(new Event(REFRESH_EVENT));
+  if (status.pending > 0) {
+    await flushOutbox();
+  }
+  if (estavaOffline) {
+    await refreshSnapshot();
+    window.dispatchEvent(new Event(REFRESH_EVENT));
+  }
   return true;
 }
 
@@ -965,11 +1055,17 @@ async function boot(): Promise<void> {
 
   clientModule.supabase.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-      void refreshSnapshot();
+      // Deixa a tela carregar primeiro; a cópia local entra em seguida.
+      window.setTimeout(() => {
+        void refreshSnapshot();
+      }, 5_000);
     }
   });
 
-  void refreshSnapshot();
+  window.setTimeout(() => {
+    void refreshSnapshot();
+  }, 5_000);
+  startReconcile();
   snapshotTimer = window.setInterval(() => {
     void refreshSnapshot();
   }, SNAPSHOT_INTERVAL);
@@ -994,15 +1090,21 @@ export function startOfflineServices(): void {
   if (!ready) {
     return;
   }
-  void ready.then(() => {
-    void refreshPending().then(() => {
-      if (!offline && status.pending > 0) {
-        void syncNow();
+  void ready.then(async () => {
+    await refreshPending();
+    if (!offline && status.pending > 0) {
+      void syncNow();
+    }
+    window.setTimeout(() => {
+      void refreshSnapshot();
+    }, 5_000);
+    // Uma marca antiga de "nuvem fora" é conferida de verdade antes de
+    // continuar em modo local — evita o aviso preso com a nuvem funcionando.
+    if (isCloudDown() && !offline) {
+      const ok = await probe();
+      if (!ok) {
+        markOffline("A nuvem não respondeu");
       }
-    });
-    void refreshSnapshot();
-    if (isCloudDown()) {
-      markOffline();
     }
   });
 }
