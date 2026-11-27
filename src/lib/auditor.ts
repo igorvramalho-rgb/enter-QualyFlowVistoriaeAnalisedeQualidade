@@ -20,14 +20,14 @@ export const CELLS = {
   },
   respondidos: {
     key: "respondidos",
-    label: "Respondidos / Executados",
-    short: "Respondidos",
-    description: "Serviço respondido à AlphaGeos e/ou executado.",
+    label: "Executados",
+    short: "Executados",
+    description: "Serviço executado e respondido à AlphaGeos.",
   },
   rpa: {
     key: "rpa",
-    label: "RPA / Defesas Técnicas",
-    short: "RPA",
+    label: "Defesa Técnica",
+    short: "Defesa Técnica",
     description: "Contestação técnica do apontamento, com fundamentação preservada.",
   },
   sae: {
@@ -220,6 +220,7 @@ export const EVENT_LABELS: Record<string, string> = {
   nao_conforme_confirmado: "Não conforme confirmado",
   necessita_esclarecimento: "Necessita de esclarecimento",
   encaminhado_refazer: "Encaminhado para refazer",
+  encaminhado_rpa: "Encaminhado para Defesa Técnica",
   aguardando_relatorio: "Aguardando relatório",
   resposta_enviada: "Resposta enviada à AlphaGeos",
   retorno_alphageos: "Devolução da AlphaGeos",

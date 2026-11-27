@@ -515,7 +515,7 @@ const CELL_FIELDS: Record<CellKey, { key: string; label: string; type?: string; 
     { key: "itemQuestionado", label: "Item questionado" },
     { key: "justificativa", label: "Justificativa técnica" },
     { key: "fundamentacao", label: "Fundamentação da defesa" },
-    { key: "documento", label: "Documento RPA (referência)" },
+    { key: "documento", label: "Documento da defesa técnica (referência)" },
     { key: "dataElaboracao", label: "Data de elaboração", type: "date" },
     { key: "dataEnvio", label: "Data de envio", type: "date" },
     { key: "situacao", label: "Situação atual" },

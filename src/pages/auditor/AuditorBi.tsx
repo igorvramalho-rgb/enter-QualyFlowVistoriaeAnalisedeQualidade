@@ -218,7 +218,7 @@ export default function AuditorBi() {
     };
   });
 
-  // Devolutivas = Respondidos / Executados + E.F + RPA (as células seguem separadas).
+  // Devolutivas = Executados + Defesa Técnica + E.F (as células seguem separadas).
   const devolutivas = porCelula
     .filter((item) => item.key === "sae" || item.key === "respondidos" || item.key === "rpa")
     .reduce((soma, item) => soma + item.total, 0);
@@ -275,7 +275,7 @@ export default function AuditorBi() {
 
     return `Foram avaliadas ${unicas} FV/OS: ${valor("fiscalizacao")} em fiscalização, ${valor(
       "refazer",
-    )} em refazer, ${valor("respondidos")} respondidos / executados, ${valor("rpa")} em RPA, ${valor(
+    )} em refazer, ${valor("respondidos")} executados, ${valor("rpa")} em defesa técnica, ${valor(
       "nao_avaliado",
     )} em análise (não avaliados) e ${valor("nao_executado")} não executado(s).`;
   }, [filtrados.length, unicas, porCelula]);
@@ -544,7 +544,7 @@ export default function AuditorBi() {
           ["Aguardando análise", kpis.aguardando],
           ["Em fiscalização", kpis.fiscalizacao],
           ["Relatórios enviados", kpis.relatorios],
-          ["Devolutivas (Respondidos / Executados + E.F + RPA)", devolutivas],
+          ["Devolutivas (Executados + Defesa Técnica + E.F)", devolutivas],
           ["Devoluções", kpis.devolucoes],
           ["FV/OS únicas", unicas],
           ["Documentos", totais?.documents ?? 0],

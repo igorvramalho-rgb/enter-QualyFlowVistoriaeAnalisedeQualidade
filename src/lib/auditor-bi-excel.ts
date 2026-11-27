@@ -164,13 +164,13 @@ function abaResumo(workbook: ExcelJS.Workbook, data: BiExcelData) {
   sheet.addRow({ indicador: "Em fiscalização", valor: data.kpis.fiscalizacao, obs: "" });
   {
     const devolutivas = devolutivasDetalhe(data.cells);
-    sheet.addRow({ indicador: "Respondidos / Executados", valor: devolutivas.respondidos, obs: "célula Respondidos / Executados" });
+    sheet.addRow({ indicador: "Executados", valor: devolutivas.respondidos, obs: "célula Executados" });
+    sheet.addRow({ indicador: "Defesa Técnica", valor: devolutivas.rpa, obs: "" });
     sheet.addRow({ indicador: "E.F", valor: devolutivas.ef, obs: "fiscalização especial" });
-    sheet.addRow({ indicador: "RPA / Defesas técnicas", valor: devolutivas.rpa, obs: "" });
     sheet.addRow({
       indicador: "Devolutivas (soma das três)",
       valor: devolutivas.total,
-      obs: "Respondidos / Executados + E.F + RPA",
+      obs: "Executados + Defesa Técnica + E.F",
     });
   }
   sheet.addRow({ indicador: "Relatórios enviados", valor: data.kpis.relatorios, obs: "" });
@@ -310,7 +310,7 @@ interface DevolutivasDetalhe {
   total: number;
 }
 
-/** Devolutivas = Respondidos / Executados + E.F + RPA (as células seguem separadas). */
+/** Devolutivas = Executados + Defesa Técnica + E.F (as células seguem separadas). */
 function devolutivasDetalhe(cells: BiExcelData["cells"]): DevolutivasDetalhe {
   const totalDe = (key: CellKey) => cells.find((cell) => cell.key === key)?.total ?? 0;
   const respondidos = totalDe("respondidos");
@@ -391,13 +391,13 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   subtitulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(3).height = 20;
 
-  // Cartões de indicadores (Devolutivas = Respondidos / Executados + E.F + RPA).
+  // Cartões de indicadores (Devolutivas = Executados + Defesa Técnica + E.F).
   const indicadores = [
     { label: "FV/OS ÚNICAS", valor: data.kpis.recebidas, nota: "cada FV/OS conta uma vez", colunas: 4 },
     {
       label: "DEVOLUTIVAS",
       valor: devolutivasDetalhe(data.cells).total,
-      nota: "Respondidos / Executados + E.F + RPA",
+      nota: "Executados + Defesa Técnica + E.F",
       colunas: 4,
     },
     { label: "DEVOLUÇÕES", valor: data.kpis.devolucoes, nota: "retornos da AlphaGeos", colunas: 4 },
@@ -523,7 +523,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   const linhaComposicao = inicioTabela + cellsRelatorio.length + 1;
   sheet.mergeCells(linhaComposicao, 1, linhaComposicao, 4);
   const composicao = sheet.getCell(linhaComposicao, 1);
-  composicao.value = `Devolutivas = Respondidos / Executados (${devolutivas.respondidos}) + E.F (${devolutivas.ef}) + RPA (${devolutivas.rpa})`;
+  composicao.value = `Devolutivas = Executados (${devolutivas.respondidos}) + Defesa Técnica (${devolutivas.rpa}) + E.F (${devolutivas.ef})`;
   composicao.font = { size: 9, color: { argb: "FF64748B" } };
   composicao.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   sheet.getRow(linhaComposicao).height = 16;

@@ -41,7 +41,7 @@ const CORES: [number, number, number][] = [
   [29, 78, 216], // fiscalização
   [220, 38, 38], // refazer
   [5, 150, 105], // respondidos
-  [124, 58, 237], // RPA
+  [124, 58, 237], // Defesa Técnica
   [14, 116, 144], // E.F
   [100, 116, 139], // N/A
   [234, 88, 12], // não executado
@@ -112,7 +112,7 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   const cells = totalVisivel > 0
     ? visiveis.map((cell) => ({ ...cell, pct: Math.round((cell.total / totalVisivel) * 100) }))
     : visiveis;
-  // Devolutivas = Respondidos / Executados + E.F + RPA (as células continuam separadas).
+  // Devolutivas = Executados + Defesa Técnica + E.F (as células continuam separadas).
   const totalDe = (key: string) => cells.find((cell) => cell.key === key)?.total ?? 0;
   const respondidos = totalDe("respondidos");
   const ef = totalDe("sae");
@@ -142,11 +142,11 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
   doc.setFontSize(13);
   doc.text("FV/OS", M + larguraNumero + 3, 42);
 
-  // Métrica agregada pedida pelo usuário (Respondidos / Executados + E.F + RPA).
+  // Métrica agregada pedida pelo usuário (Executados + Defesa Técnica + E.F).
   ink(doc, [148, 163, 184]);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
-  doc.text("DEVOLUTIVAS (RESPONDIDOS / EXECUTADOS + E.F + RPA)", W - M, 22, { align: "right" });
+  doc.text("DEVOLUTIVAS (EXECUTADOS + DEFESA TÉCNICA + E.F)", W - M, 22, { align: "right" });
   ink(doc, WHITE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
@@ -265,9 +265,9 @@ export function buildBiPdf(data: BiPdfData): jsPDF {
 
   const maior = [...cells].sort((a, b) => b.total - a.total)[0];
   const destaques: [string, string][] = [
-    ["Respondidos / Executados", `${respondidos} FV/OS`],
+    ["Executados", `${respondidos} FV/OS`],
+    ["Defesa Técnica", `${rpa} FV/OS`],
     ["E.F", `${ef} FV/OS`],
-    ["RPA", `${rpa} FV/OS`],
     ["Devolutivas (soma das três)", `${devolutivas} FV/OS`],
     ["Célula com maior volume", maior ? `${maior.label} — ${maior.total} (${maior.pct}%)` : "—"],
     ["FV/OS únicas no período", `${data.totalUnicas}`],

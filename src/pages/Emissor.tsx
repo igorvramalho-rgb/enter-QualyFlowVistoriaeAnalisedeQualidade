@@ -582,7 +582,7 @@ export default function Emissor() {
     setMigrando(true);
     try {
       await syncReportToAuditor({ templateId, ...migrarDados, cell: migrarCell });
-      toast.success("Migrado para Respondidos / Executados", {
+      toast.success(migrarCell === "rpa" ? "Migrado para Defesa Técnica" : "Migrado para Executados", {
         description: [migrarDados.fac && `FV ${migrarDados.fac}`, migrarDados.os && `OS ${migrarDados.os}`]
           .filter(Boolean)
           .join(" · "),
@@ -798,7 +798,7 @@ export default function Emissor() {
         return;
       }
 
-      // Pós 60: pergunta se o operador quer levar a FV/OS para "Respondidos / Executados".
+      // Pós 60: pergunta se o operador quer levar a FV/OS para "Executados".
       if (templateId.startsWith("pos_60") && (values.fac?.trim() || values.os?.trim())) {
         setMigrarDados({
           fac: values.fac ?? "",
@@ -1023,7 +1023,9 @@ export default function Emissor() {
       >
         <DialogContent className="panel-glass rounded-2xl sm:max-w-[460px]">
           <DialogHeader>
-            <DialogTitle className="text-base">Migrar para Respondidos / Executados?</DialogTitle>
+            <DialogTitle className="text-base">
+              Migrar para {migrarCell === "rpa" ? "Defesa Técnica" : "Executados"}?
+            </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
               Relatório Pós 60 emitido
               {migrarDados?.fac || migrarDados?.os ? (
@@ -1043,8 +1045,8 @@ export default function Emissor() {
               onChange={(event) => setMigrarCell(event.target.value as "respondidos" | "rpa")}
               className="mt-0.5 h-9 w-full rounded-md border border-input bg-background/70 px-2 text-xs"
             >
-              <option value="respondidos">Respondidos / Executados</option>
-              <option value="rpa">RPA / Defesas Técnicas</option>
+              <option value="respondidos">Executados</option>
+              <option value="rpa">Defesa Técnica</option>
             </select>
           </label>
 
