@@ -442,6 +442,29 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
   // Gráfico principal (barras por célula). É o único ponto que depende do
   // canvas do navegador: se falhar, o painel continua válido sem a imagem.
   const cellsRelatorio = celulasDoRelatorio(data.cells);
+  // Neste gráfico específico, Executados e Defesa Técnica aparecem como uma
+  // única barra. Nas tabelas, cartões e demais relatórios seguem separados.
+  const seriesGrafico: { label: string; valor: number; cor: string }[] = [];
+  let posicaoCombinada = -1;
+  cellsRelatorio.forEach((cell, indice) => {
+    if (cell.key === "respondidos" || cell.key === "rpa") {
+      if (posicaoCombinada < 0) {
+        posicaoCombinada = seriesGrafico.length;
+        seriesGrafico.push({
+          label: "Executados + Defesa Técnica",
+          valor: 0,
+          cor: corDaSerie(indice, "respondidos"),
+        });
+      }
+      seriesGrafico[posicaoCombinada].valor += cell.total;
+      return;
+    }
+    seriesGrafico.push({
+      label: cell.label,
+      valor: cell.total,
+      cor: corDaSerie(indice, cell.key),
+    });
+  });
   let cursor = 9;
 
   try {
@@ -449,11 +472,7 @@ function abaPainel(workbook: ExcelJS.Workbook, data: BiExcelData) {
       {
         titulo: "FV/OS por célula operacional",
         subtitulo: "Volume tratado no período, com participação de cada célula",
-        series: cellsRelatorio.map((cell, indice) => ({
-          label: cell.label,
-          valor: cell.total,
-          cor: corDaSerie(indice, cell.key),
-        })),
+        series: seriesGrafico,
         rodape: `${data.kpis.recebidas} FV/OS únicas avaliadas`,
       },
       1000,
