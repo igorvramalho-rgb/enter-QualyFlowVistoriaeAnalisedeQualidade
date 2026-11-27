@@ -34,7 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      // A renovação do token cria um objeto de usuário novo, mas a pessoa é a
+      // mesma: preservar a referência evita recarregar as telas a cada token.
+      setUser((previous) => {
+        const next = nextSession?.user ?? null;
+        return previous && next && previous.id === next.id ? previous : next;
+      });
       setLoading(false);
     });
 
@@ -44,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void supabase.auth.getSession().then(({ data: current }) => {
       window.clearTimeout(release);
       setSession(current.session);
-      setUser(current.session?.user ?? null);
+      setUser((previous) => {
+        const next = current.session?.user ?? null;
+        return previous && next && previous.id === next.id ? previous : next;
+      });
       setLoading(false);
     });
 
@@ -54,8 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const userId = user?.id ?? null;
+
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setProfile(null);
       setProfileLoading(false);
       return;
@@ -64,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
     setProfileLoading(true);
 
-    void fetchProfile(user.id)
+    void fetchProfile(userId)
       .then((next) => {
         if (!active) {
           return;
@@ -106,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [user, profileVersion]);
+  }, [userId, profileVersion]);
 
   const signIn = useCallback(async (identifier: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

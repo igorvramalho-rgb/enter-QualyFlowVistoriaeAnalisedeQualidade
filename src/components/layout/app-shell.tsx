@@ -26,18 +26,30 @@ export default function AppShell() {
   const contingencia = useSyncExternalStore(subscribeOfflineRuntime, offlineRuntime, offlineRuntime);
   const { user, profile, loading, profileLoading, signOut } = useAuth();
   const [sincronizando, setSincronizando] = useState(false);
+  const servicosIniciados = useRef(false);
 
   useEffect(() => {
-    if (profile?.status === "ativo") {
+    if (profile?.status === "ativo" && !servicosIniciados.current) {
+      servicosIniciados.current = true;
       startOfflineServices();
     }
-  }, [profile]);
+  }, [profile?.status]);
 
   const sincronizarAgora = async () => {
     setSincronizando(true);
     try {
       await syncNow();
-      if (isCloudDown()) {
+      const estado = offlineRuntime();
+      if (estado.pending > 0) {
+        toast.warning(`${estado.pending} alteração(ões) ainda pendentes`, {
+          description:
+            estado.message || "O envio continua automático; não é preciso refazer o trabalho.",
+        });
+      } else if (estado.failed > 0) {
+        toast.warning("Algumas alterações não puderam ser enviadas", {
+          description: "Confira os dados sinalizados no aviso antes de continuar.",
+        });
+      } else if (isCloudDown()) {
         toast.error("A nuvem ainda não respondeu", {
           description: "O trabalho continua salvo neste computador; tente novamente em instantes.",
         });
@@ -201,6 +213,9 @@ export default function AppShell() {
                     {contingencia.failed} alteração(ões) não puderam ser enviadas — verifique os
                     dados antes de continuar.
                   </span>
+                )}
+                {contingencia.pending > 0 && contingencia.message && (
+                  <span className="ml-1 text-muted-foreground">{contingencia.message}</span>
                 )}
                 {contingencia.snapshotAt > 0 && (
                   <span className="ml-1 text-muted-foreground">

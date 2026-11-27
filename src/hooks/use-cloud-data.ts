@@ -61,6 +61,7 @@ function subscribeRefresh(refresh: () => void): () => void {
 
 export function useCloudReports() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [drafts, setDrafts] = useState<ReportDraft[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,8 +69,8 @@ export function useCloudReports() {
     try {
       const rows = await fetchReports();
       setDrafts(rows);
-      if (user) {
-        reportsCache = { userId: user.id, rows, at: Date.now() };
+      if (userId) {
+        reportsCache = { userId, rows, at: Date.now() };
       }
     } catch (error) {
       toast.error("Não foi possível carregar os relatórios da nuvem", {
@@ -78,19 +79,19 @@ export function useCloudReports() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       return;
     }
-    if (reportsCache && reportsCache.userId === user.id) {
+    if (reportsCache && reportsCache.userId === userId) {
       setDrafts(reportsCache.rows);
       setLoading(false);
     }
     void refresh();
     return subscribeRefresh(() => void refresh());
-  }, [user, refresh]);
+  }, [userId, refresh]);
 
   const save = useCallback(async (draft: ReportDraft) => {
     try {
@@ -98,8 +99,8 @@ export function useCloudReports() {
       setDrafts((previous) => {
         const others = previous.filter((item) => item.id !== saved.id);
         const next = [saved, ...others].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-        if (user) {
-          reportsCache = { userId: user.id, rows: next, at: Date.now() };
+        if (userId) {
+          reportsCache = { userId, rows: next, at: Date.now() };
         }
         return next;
       });
@@ -110,7 +111,7 @@ export function useCloudReports() {
       });
       return null;
     }
-  }, [user]);
+  }, [userId]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -125,11 +126,11 @@ export function useCloudReports() {
 
   const pruneExcess = useCallback(
     async (keep = 1) => {
-      if (!user) {
+      if (!userId) {
         return null;
       }
       try {
-        const result = await pruneMyReports(user.id, keep);
+        const result = await pruneMyReports(userId, keep);
         if (result.deleted > 0) {
           await refresh();
         }
@@ -141,7 +142,7 @@ export function useCloudReports() {
         return null;
       }
     },
-    [user, refresh],
+    [userId, refresh],
   );
 
   return { drafts, loading, save, remove, refresh, pruneExcess };
@@ -151,6 +152,7 @@ export function useCloudReports() {
 
 export function useCloudAnalyses() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -158,8 +160,8 @@ export function useCloudAnalyses() {
     try {
       const rows = await fetchAnalyses();
       setAnalyses(rows);
-      if (user) {
-        analysesCache = { userId: user.id, rows, at: Date.now() };
+      if (userId) {
+        analysesCache = { userId, rows, at: Date.now() };
       }
     } catch (error) {
       toast.error("Não foi possível carregar as vistorias da nuvem", {
@@ -168,20 +170,20 @@ export function useCloudAnalyses() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       return;
     }
     // Mostra o que já foi carregado nesta sessão e atualiza em segundo plano.
-    if (analysesCache && analysesCache.userId === user.id) {
+    if (analysesCache && analysesCache.userId === userId) {
       setAnalyses(analysesCache.rows);
       setLoading(false);
     }
     void refresh();
     return subscribeRefresh(() => void refresh());
-  }, [user, refresh]);
+  }, [userId, refresh]);
 
   const addMany = useCallback(async (records: AnalysisRecord[]) => {
     try {
@@ -238,6 +240,7 @@ export function useCloudAnalyses() {
 
 export function useCloudSettings() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [settings, setSettings] = useState<QualyflowSettings>(DEFAULT_SETTINGS);
   const [personalizado, setPersonalizado] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -245,7 +248,7 @@ export function useCloudSettings() {
 
   const refresh = useCallback(async () => {
     try {
-      const mine = user ? await fetchUserSettings(user.id) : null;
+      const mine = userId ? await fetchUserSettings(userId) : null;
       if (mine) {
         setSettings(mine);
         setPersonalizado(true);
@@ -261,15 +264,15 @@ export function useCloudSettings() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       return;
     }
     void refresh();
     return subscribeRefresh(() => void refresh());
-  }, [user, refresh]);
+  }, [userId, refresh]);
 
   useEffect(
     () => () => {
@@ -288,8 +291,8 @@ export function useCloudSettings() {
       window.clearTimeout(timer.current);
     }
     timer.current = window.setTimeout(() => {
-      const request = user
-        ? saveUserSettings(user.id, normalized)
+      const request = userId
+        ? saveUserSettings(userId, normalized)
         : saveSettings(normalized);
 
       void request
@@ -300,7 +303,7 @@ export function useCloudSettings() {
           });
         });
     }, 700);
-  }, [user]);
+  }, [userId]);
 
   return { settings, loading, update, refresh, personalizado };
 }
@@ -309,9 +312,10 @@ export function useCloudSettings() {
 
 export function useLegacyCloudMigration() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (!user || window.localStorage.getItem(MIGRATION_FLAG)) {
+    if (!userId || window.localStorage.getItem(MIGRATION_FLAG)) {
       return;
     }
 
@@ -349,5 +353,5 @@ export function useLegacyCloudMigration() {
     void run().catch(() => {
       /* tenta novamente na próxima sessão */
     });
-  }, [user]);
+  }, [userId]);
 }

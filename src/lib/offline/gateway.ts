@@ -259,8 +259,8 @@ function localAuthResponse(url: URL, method: string): Response {
         {
           access_token: stored.access_token,
           token_type: "bearer",
-          expires_in: 60,
-          expires_at: Math.floor(Date.now() / 1000) + 60,
+          expires_in: 600,
+          expires_at: Math.floor(Date.now() / 1000) + 600,
           refresh_token: stored.refresh_token ?? "",
           user: stored.user ?? null,
         },
@@ -376,26 +376,43 @@ async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
   };
 
   if (!offline) {
+    let failure: unknown = null;
+    let response: Response | null = null;
+
     try {
-      const response = await nativeFetchTimed(request.clone(), timeout);
+      response = await nativeFetchTimed(request.clone(), timeout);
       if (!isCloudStatus(response.status)) {
         return aceitar(response);
       }
     } catch (problem) {
-      // Um timeout isolado não prova que a nuvem está fora: confirma e
-      // repete a requisição uma vez antes de trocar para a cópia local.
-      const demorou = problem instanceof DOMException && problem.name === "AbortError";
-      if (demorou && (await cloudReachable())) {
+      failure = problem;
+    }
+
+    // Antes de mudar o app inteiro para o modo local, confirma se o serviço
+    // está mesmo fora. Uma única requisição lenta ou com erro não pode
+    // reiniciar a tela de quem está trabalhando.
+    const reachable = await cloudReachable();
+    if (reachable) {
+      console.warn("[contingência] falha isolada com a nuvem no ar:", request.method, pathname, failure ?? response?.status);
+      if (failure && (request.method === "GET" || request.method === "HEAD")) {
         try {
           const retry = await nativeFetchTimed(request.clone(), timeout);
           if (!isCloudStatus(retry.status)) {
             return aceitar(retry);
           }
-        } catch {
-          /* cai para a cópia local */
+          return retry;
+        } catch (second) {
+          throw second instanceof Error ? second : new Error("Falha temporária na nuvem.");
         }
       }
+      if (response) {
+        // 502/503/504 de um endpoint específico: o chamador trata o erro,
+        // mas o modo online é preservado.
+        return response;
+      }
+      throw failure instanceof Error ? failure : new Error("Falha temporária na nuvem.");
     }
+
     markOffline("Sem resposta da nuvem");
   }
 
@@ -547,7 +564,9 @@ function isDuplicateError(status: number, body: string): boolean {
   );
 }
 
-async function uploadBlob(op: PendingRequest, token: string): Promise<"done" | "retry" | "drop"> {
+type ReplayResult = "done" | "retry" | "drop" | "auth";
+
+async function uploadBlob(op: PendingRequest, token: string): Promise<ReplayResult> {
   if (!op.bucket || !op.path) {
     return "drop";
   }
@@ -572,13 +591,16 @@ async function uploadBlob(op: PendingRequest, token: string): Promise<"done" | "
   if (response.ok) {
     return "done";
   }
-  if (isCloudStatus(response.status) || response.status === 401) {
+  if (response.status === 401) {
+    return "auth";
+  }
+  if (isCloudStatus(response.status)) {
     return "retry";
   }
   return "drop";
 }
 
-async function replayRest(op: PendingRequest, token: string): Promise<"done" | "retry" | "drop"> {
+async function replayRest(op: PendingRequest, token: string): Promise<ReplayResult> {
   const headers: Record<string, string> = {
     ...op.headers,
     apikey: backendKey,
@@ -602,50 +624,84 @@ async function replayRest(op: PendingRequest, token: string): Promise<"done" | "
   if (isDuplicateError(response.status, text)) {
     return "done";
   }
-  if (isCloudStatus(response.status) || response.status === 401) {
+  if (response.status === 401) {
+    return "auth";
+  }
+  if (isCloudStatus(response.status)) {
     return "retry";
   }
   return "drop";
 }
 
+let flushing = false;
+
 async function flushOutbox(): Promise<void> {
-  if (offline) {
+  if (offline || flushing) {
     return;
   }
-  const token = await accessToken();
-  if (!token) {
-    return;
-  }
-  const pending = await listOutbox();
-  let done = 0;
-  let dropped = 0;
+  flushing = true;
+  try {
+    const pendentes = await listOutbox();
+    if (pendentes.length === 0) {
+      updateStatus({ message: "" });
+      return;
+    }
 
-  for (const op of pending) {
-    let result: "done" | "retry" | "drop";
+    // Garante um token válido antes de reenviar a fila.
     try {
-      result = op.kind === "storage" ? await uploadBlob(op, token) : await replayRest(op, token);
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.auth.refreshSession();
     } catch {
-      result = "retry";
+      /* a fila decide pelo retorno do servidor */
     }
-    if (result === "retry") {
-      markOffline("Sincronização interrompida");
-      break;
-    }
-    if (result === "drop") {
-      dropped += 1;
-      console.warn("Alteração do modo local não pôde ser enviada", op);
-    } else {
-      done += 1;
-    }
-    await removeOutbox(op.id);
-  }
 
-  lastSyncMessage =
-    done > 0 ? `${done} alteração(ões) sincronizada(s)` : dropped > 0 ? "Algumas alterações não puderam ser enviadas" : "";
-  updateStatus({ failed: dropped });
-  await refreshPending();
-  if (done > 0) {
-    window.dispatchEvent(new Event(REFRESH_EVENT));
+    const token = await accessToken();
+    if (!token) {
+      updateStatus({ message: "Sessão local não encontrada. Entre novamente para enviar." });
+      return;
+    }
+
+    let done = 0;
+    let dropped = 0;
+    let stopMessage = "";
+
+    for (const op of pendentes) {
+      let result: ReplayResult;
+      try {
+        result = op.kind === "storage" ? await uploadBlob(op, token) : await replayRest(op, token);
+      } catch {
+        result = "retry";
+      }
+
+      if (result === "auth") {
+        stopMessage = "Sessão expirada. Saia e entre novamente para enviar as alterações locais.";
+        break;
+      }
+      if (result === "retry") {
+        stopMessage = "Nuvem instável: as alterações continuam salvas e serão reenviadas.";
+        break;
+      }
+
+      if (result === "drop") {
+        dropped += 1;
+        console.warn("Alteração do modo local não pôde ser enviada", op);
+      } else {
+        done += 1;
+      }
+      await removeOutbox(op.id);
+    }
+
+    lastSyncMessage =
+      done > 0 ? `${done} alteração(ões) sincronizada(s)` : dropped > 0 ? "Algumas alterações não puderam ser enviadas" : "";
+    updateStatus({ failed: dropped, message: stopMessage });
+    await refreshPending();
+
+    const restantes = (await listOutbox()).length;
+    if (done > 0 && restantes === 0) {
+      window.dispatchEvent(new Event(REFRESH_EVENT));
+    }
+  } finally {
+    flushing = false;
   }
 }
 
@@ -714,16 +770,6 @@ async function probe(): Promise<boolean> {
 
   const estavaOffline = offline;
   markOnline();
-
-  // A sessão pode ter expirado durante a pausa: renova antes de enviar a fila.
-  if (estavaOffline) {
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      await supabase.auth.refreshSession();
-    } catch {
-      /* segue com a sessão local; a fila para se o servidor recusar */
-    }
-  }
 
   await refreshPending();
   if (status.pending > 0) {
@@ -1027,7 +1073,11 @@ function installStorageFallback(client: {
   const originalFrom = prototype.from;
   prototype.from = function patchedFrom(this: unknown, bucket: string) {
     const api = originalFrom.call(this, bucket);
-    return wrapFileApi(api, bucket, () => markOffline("Armazenamento indisponível"));
+    return wrapFileApi(api, bucket, () => {
+      // Um arquivo que não subiu não derruba o app inteiro: ele fica na fila
+      // local e sobe na próxima sincronização.
+      console.info("[contingência] arquivo salvo localmente para envio posterior");
+    });
   };
 }
 
@@ -1069,6 +1119,14 @@ async function boot(): Promise<void> {
   snapshotTimer = window.setInterval(() => {
     void refreshSnapshot();
   }, SNAPSHOT_INTERVAL);
+
+  // A fila não pode depender de uma reconexão: tenta enviar de novo enquanto
+  // houver alterações pendentes e a nuvem estiver online.
+  window.setInterval(() => {
+    if (!offline && status.pending > 0) {
+      void flushOutbox();
+    }
+  }, 30_000);
 
   window.addEventListener("online", () => {
     void probe();
